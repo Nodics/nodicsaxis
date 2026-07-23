@@ -1,0 +1,84 @@
+export interface AxisRuntimeConfig {
+  readonly profileBaseUrl: string;
+  readonly backofficeBaseUrl: string;
+  readonly clientContractVersion: number;
+  readonly requestTimeoutMs: number;
+}
+
+const MINIMUM_TIMEOUT_MS = 1_000;
+const MAXIMUM_TIMEOUT_MS = 120_000;
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+function parseBaseUrl(value: unknown, fieldName: string): string {
+  if (typeof value !== 'string' || value.trim() === '') {
+    throw new Error(`${fieldName} must be a non-empty URL`);
+  }
+
+  let url: URL;
+  try {
+    url = new URL(value);
+  } catch {
+    throw new Error(`${fieldName} must be an absolute URL`);
+  }
+
+  if (!['http:', 'https:'].includes(url.protocol)) {
+    throw new Error(`${fieldName} must use HTTP or HTTPS`);
+  }
+
+  if (url.username || url.password || url.search || url.hash) {
+    throw new Error(
+      `${fieldName} must not contain credentials, query, or fragment data`,
+    );
+  }
+
+  return url.toString().replace(/\/$/, '');
+}
+
+function parsePositiveInteger(value: unknown, fieldName: string): number {
+  if (!Number.isInteger(value) || Number(value) < 1) {
+    throw new Error(`${fieldName} must be a positive integer`);
+  }
+  return Number(value);
+}
+
+export function parseRuntimeConfig(value: unknown): AxisRuntimeConfig {
+  if (!isRecord(value)) {
+    throw new Error('Axis runtime configuration must be a JSON object');
+  }
+
+  const allowedKeys = new Set([
+    'profileBaseUrl',
+    'backofficeBaseUrl',
+    'clientContractVersion',
+    'requestTimeoutMs',
+  ]);
+  const unknownKeys = Object.keys(value).filter((key) => !allowedKeys.has(key));
+  if (unknownKeys.length > 0) {
+    throw new Error(
+      `Axis runtime configuration contains unsupported fields: ${unknownKeys.join(', ')}`,
+    );
+  }
+
+  const requestTimeoutMs = parsePositiveInteger(
+    value.requestTimeoutMs,
+    'requestTimeoutMs',
+  );
+  if (requestTimeoutMs < MINIMUM_TIMEOUT_MS || requestTimeoutMs > MAXIMUM_TIMEOUT_MS) {
+    throw new Error(
+      `requestTimeoutMs must be between ${MINIMUM_TIMEOUT_MS} and ${MAXIMUM_TIMEOUT_MS}`,
+    );
+  }
+
+  return Object.freeze({
+    profileBaseUrl: parseBaseUrl(value.profileBaseUrl, 'profileBaseUrl'),
+    backofficeBaseUrl: parseBaseUrl(value.backofficeBaseUrl, 'backofficeBaseUrl'),
+    clientContractVersion: parsePositiveInteger(
+      value.clientContractVersion,
+      'clientContractVersion',
+    ),
+    requestTimeoutMs,
+  });
+}
