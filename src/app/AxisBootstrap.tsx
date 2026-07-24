@@ -59,7 +59,10 @@ export function AxisBootstrap() {
   if (state.status === 'failed') {
     return (
       <AxisThemeProvider>
-        <RecoveryScreen message={state.message} onRetry={retry} />
+        <RecoveryScreen
+          state={{ kind: 'configuration', detail: state.message, retryable: true }}
+          onRetry={retry}
+        />
       </AxisThemeProvider>
     );
   }

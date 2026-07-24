@@ -1,6 +1,6 @@
 export interface AxisRuntimeConfig {
-  readonly profileBaseUrl: string;
   readonly backofficeBaseUrl: string;
+  readonly enterpriseCode: string;
   readonly clientContractVersion: number;
   readonly requestTimeoutMs: number;
 }
@@ -50,8 +50,8 @@ export function parseRuntimeConfig(value: unknown): AxisRuntimeConfig {
   }
 
   const allowedKeys = new Set([
-    'profileBaseUrl',
     'backofficeBaseUrl',
+    'enterpriseCode',
     'clientContractVersion',
     'requestTimeoutMs',
   ]);
@@ -73,8 +73,14 @@ export function parseRuntimeConfig(value: unknown): AxisRuntimeConfig {
   }
 
   return Object.freeze({
-    profileBaseUrl: parseBaseUrl(value.profileBaseUrl, 'profileBaseUrl'),
     backofficeBaseUrl: parseBaseUrl(value.backofficeBaseUrl, 'backofficeBaseUrl'),
+    enterpriseCode:
+      typeof value.enterpriseCode === 'string' &&
+      /^[A-Za-z][A-Za-z0-9_-]{0,127}$/.test(value.enterpriseCode)
+        ? value.enterpriseCode
+        : (() => {
+            throw new Error('enterpriseCode must be a valid enterprise identifier');
+          })(),
     clientContractVersion: parsePositiveInteger(
       value.clientContractVersion,
       'clientContractVersion',

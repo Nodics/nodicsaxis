@@ -18,6 +18,27 @@ calls the authoritative APIs of discovered Nodics modules directly.
 - CMS descriptors can select Axis-owned components but cannot deliver
   executable frontend code.
 
+See
+[Axis Architecture and Ownership](docs/architecture-and-ownership.md) for the
+per-customer deployment model, repository responsibilities, contract authority,
+security boundary, and verification expectations.
+
+See [Frontend Technology Stack](docs/frontend-technology-stack.md) for the
+approved tools, state ownership, styling decision, repository shape, and
+dependency-governance rules.
+
+Use the [Feature Delivery Checklist](docs/feature-delivery-checklist.md) for
+repository-boundary analysis, security, contract testing, accessibility,
+documentation placement, and completion evidence for every Axis slice.
+
+See [CMS Delivery and Renderer Integration](docs/cms-delivery-and-renderers.md)
+for the resolved-page client, trusted renderer boundary, validation rules,
+cache isolation, and login integration.
+
+See [Employee Login, Recovery, Screen Lock, and Dashboard](docs/employee-login.md)
+for startup discovery, employee-only authentication, persistent BackOffice
+policy consumption, protected routing, logout, and failure recovery.
+
 ## Prerequisites
 
 - Node.js 24
@@ -42,26 +63,49 @@ npm run dev
 
 Axis runs at <http://localhost:3100>.
 
-## Runtime configuration
+## Environment and runtime configuration
 
-Axis loads `/axis-config.json` before rendering authenticated application
-features:
+Copy `.env.example` to `.env` and configure the local/build values there.
+The repository includes a safe local `.env`; Git ignores it so each developer
+or deployment can use different values.
+
+```dotenv
+AXIS_BACKOFFICE_BASE_URL=http://localhost:3000
+AXIS_ENTERPRISE_CODE=default
+AXIS_CLIENT_CONTRACT_VERSION=1
+AXIS_REQUEST_TIMEOUT_MS=10000
+AXIS_DEV_HOST=0.0.0.0
+AXIS_DEV_PORT=3100
+AXIS_STRICT_PORT=true
+AXIS_BUILD_SOURCEMAP=true
+```
+
+Vite validates these values and generates `/axis-config.json`:
 
 ```json
 {
-  "profileBaseUrl": "http://localhost:3000",
   "backofficeBaseUrl": "http://localhost:3000",
+  "enterpriseCode": "default",
   "clientContractVersion": 1,
   "requestTimeoutMs": 10000
 }
 ```
 
-This document is deployment configuration, not a secret store. Invalid or
-unavailable configuration produces a recovery screen instead of attempting
-authentication.
+Axis loads that document and then obtains the active Profile and CMS endpoints
+from BackOffice's low-disclosure public bootstrap. Axis does not maintain a
+second module endpoint list.
+Invalid or unavailable configuration produces a recovery screen instead of
+attempting authentication.
 
-For production, serve `axis-config.json` with `Cache-Control: no-store`. Serve
-hashed assets with long-lived immutable caching.
+`.env` and `axis-config.json` are public configuration, not secret stores.
+Never place passwords, tokens, API keys, private keys, or credentials in them.
+Only explicitly named `AXIS_*` variables are consumed; Axis does not expose
+arbitrary environment variables to browser code.
+
+For production, the generated `dist/axis-config.json` may be replaced during
+deployment so endpoints can change without rebuilding Axis. Serve it with
+`Cache-Control: no-store`. Serve hashed assets with long-lived immutable
+caching.
 
 ## Quality commands
 
@@ -74,9 +118,14 @@ npm run build
 npm run verify
 ```
 
+The implemented Gold and Charcoal foundations, responsive shell, recovery
+states, accessibility behavior, and extension rules are documented in
+[Axis Design System And Static Shell](docs/design-system-and-shell.md).
+
 ## Current scope
 
-The initial scaffold proves the frontend runtime boundary and safe startup.
-Authentication, Back Office bootstrap integration, CMS composition, module
-features, and visual designers will be implemented as separate verified
-slices.
+The current foundation proves the frontend runtime boundary, safe startup, CMS
+delivery/renderers, employee authentication, secured BackOffice bootstrap,
+CMS-driven login/recovery/lock pages, idle screen locking, protected dashboard
+routing, and logout. Functional module workspaces and visual designers remain
+future slices.

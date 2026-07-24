@@ -1,6 +1,0 @@
-{
-  "profileBaseUrl": "http://localhost:3000",
-  "backofficeBaseUrl": "http://localhost:3000",
-  "clientContractVersion": 1,
-  "requestTimeoutMs": 10000
-}

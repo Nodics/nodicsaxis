@@ -1,24 +1,97 @@
 /// <reference types="vitest/config" />
 
 import react from '@vitejs/plugin-react';
-import { defineConfig } from 'vite';
+import { defineConfig, loadEnv, type Plugin } from 'vite';
 
-export default defineConfig({
-  plugins: [react()],
-  server: {
-    port: 3100,
-    strictPort: true,
-  },
-  preview: {
-    port: 3100,
-    strictPort: true,
-  },
-  build: {
-    sourcemap: true,
-  },
-  test: {
-    environment: 'jsdom',
-    setupFiles: ['./src/test/setup.ts'],
-    restoreMocks: true,
-  },
+import {
+  parseRuntimeConfig,
+  type AxisRuntimeConfig,
+} from './src/runtime/runtimeConfig';
+
+const RUNTIME_CONFIG_PATH = '/axis-config.json';
+
+function required(env: Record<string, string>, name: string): string {
+  const value = env[name]?.trim();
+  if (!value) {
+    throw new Error(`${name} must be configured in the root .env file`);
+  }
+  return value;
+}
+
+function positiveInteger(env: Record<string, string>, name: string): number {
+  const value = Number(required(env, name));
+  if (!Number.isInteger(value) || value < 1) {
+    throw new Error(`${name} must be a positive integer`);
+  }
+  return value;
+}
+
+function booleanValue(env: Record<string, string>, name: string): boolean {
+  const value = required(env, name).toLowerCase();
+  if (!['true', 'false'].includes(value)) {
+    throw new Error(`${name} must be true or false`);
+  }
+  return value === 'true';
+}
+
+export function buildRuntimeConfig(env: Record<string, string>): AxisRuntimeConfig {
+  return parseRuntimeConfig({
+    backofficeBaseUrl: required(env, 'AXIS_BACKOFFICE_BASE_URL'),
+    enterpriseCode: required(env, 'AXIS_ENTERPRISE_CODE'),
+    clientContractVersion: positiveInteger(env, 'AXIS_CLIENT_CONTRACT_VERSION'),
+    requestTimeoutMs: positiveInteger(env, 'AXIS_REQUEST_TIMEOUT_MS'),
+  });
+}
+
+function runtimeConfigPlugin(runtimeConfig: AxisRuntimeConfig): Plugin {
+  const source = `${JSON.stringify(runtimeConfig, null, 2)}\n`;
+
+  return {
+    name: 'axis-runtime-config',
+    configureServer(server) {
+      server.middlewares.use(RUNTIME_CONFIG_PATH, (_request, response) => {
+        response.statusCode = 200;
+        response.setHeader('Cache-Control', 'no-store');
+        response.setHeader('Content-Type', 'application/json; charset=utf-8');
+        response.end(source);
+      });
+    },
+    generateBundle() {
+      this.emitFile({
+        type: 'asset',
+        fileName: RUNTIME_CONFIG_PATH.slice(1),
+        source,
+      });
+    },
+  };
+}
+
+export default defineConfig(({ mode }) => {
+  const env = loadEnv(mode, process.cwd(), '');
+  const runtimeConfig = buildRuntimeConfig(env);
+  const host = required(env, 'AXIS_DEV_HOST');
+  const port = positiveInteger(env, 'AXIS_DEV_PORT');
+  const strictPort = booleanValue(env, 'AXIS_STRICT_PORT');
+
+  return {
+    plugins: [react(), runtimeConfigPlugin(runtimeConfig)],
+    server: {
+      host,
+      port,
+      strictPort,
+    },
+    preview: {
+      host,
+      port,
+      strictPort,
+    },
+    build: {
+      sourcemap: booleanValue(env, 'AXIS_BUILD_SOURCEMAP'),
+    },
+    test: {
+      environment: 'jsdom',
+      setupFiles: ['./test/setup.ts'],
+      restoreMocks: true,
+    },
+  };
 });

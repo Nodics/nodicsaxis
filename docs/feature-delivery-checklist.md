@@ -1,0 +1,118 @@
+# Axis Feature Delivery Checklist
+
+Use this checklist for every implemented Axis feature. Complete the ownership
+analysis before changing source and retain evidence in the pull request or
+delivery record.
+
+## 1. Repository boundary
+
+Record:
+
+- the authoritative Nodics module and backend contract;
+- the Axis route, feature, or component that consumes it;
+- the contract version or supported range;
+- the authentication and authorization boundary;
+- the tenant, enterprise, application, Site, Store, locale, channel, and module
+  context involved;
+- backend changes required in `nodics`, if any;
+- Axis changes required in this repository;
+- documentation and tests owned by each repository.
+
+Stop when ownership is ambiguous. Do not move backend business behavior into
+Axis to avoid defining a backend contract.
+
+## 2. Reuse and dependency check
+
+Confirm:
+
+- an existing Axis component, hook, client, state pattern, or test utility was
+  considered first;
+- an existing Nodics API, schema, permission, workflow, publishing, cache,
+  search, import, or export authority is reused;
+- no second registry, loader, schema authority, workflow engine, publisher,
+  context authority, or provider integration is introduced;
+- any new dependency has documented bundle, maintenance, security,
+  accessibility, browser, WebView, and licensing impact.
+
+## 3. Security and privacy
+
+Confirm:
+
+- target modules independently authorize every request;
+- UI filtering is not treated as authorization;
+- passwords, access tokens, refresh tokens, cookies, internal credentials, and
+  secrets are absent from browser storage, URLs, logs, and telemetry;
+- errors and telemetry contain safe correlation data without sensitive
+  payloads;
+- query keys and caches cannot cross users or validated contexts;
+- logout, revocation, and context switching cancel requests and clear affected
+  data;
+- CMS or another module cannot supply executable browser code.
+
+## 4. Interaction quality
+
+Implement and verify applicable:
+
+- loading, success, empty, unavailable, unauthorized, incompatible, validation,
+  conflict, partial-failure, and recovery states;
+- keyboard operation and visible focus;
+- screen-reader names, roles, states, and announcements;
+- responsive desktop, tablet, and mobile WebView layouts;
+- touch target sizing and non-hover alternatives;
+- reduced motion;
+- comfortable and compact density;
+- light and dark token compatibility;
+- safe cancellation and stale-response prevention.
+
+## 5. Contract tests
+
+Cover applicable:
+
+- positive behavior;
+- invalid input and malformed response;
+- permission and cross-tenant denial;
+- minimum, maximum, empty, timeout, and payload boundaries;
+- supported, degraded, incompatible, missing, and unknown contract versions;
+- cancellation, retry, idempotency, and concurrency;
+- backend outage and recovery;
+- responsive and accessibility behavior;
+- integration with `monoServer` and later distributed module topology;
+- regression of the static recovery shell.
+
+UI tests prove client behavior only. Backend authorization, validation,
+persistence, workflow, publication, and integration tests belong in `nodics`.
+
+## 6. Documentation placement
+
+Update this repository for implemented:
+
+- installation, build, start, and deployment behavior;
+- runtime configuration consumed by Axis;
+- frontend architecture and contribution rules;
+- browser routes, interaction, accessibility, responsive behavior, and
+  troubleshooting;
+- frontend verification commands.
+
+Update `nodics` for implemented:
+
+- business-user and administrator journeys;
+- backend architecture, configuration, permissions, APIs, schemas, workflows,
+  publication, integration, security, and operations;
+- customization and override guidance;
+- backend tests and deployment evidence.
+
+Keep proposals, unresolved decisions, and future action lists only in the
+temporary ignored planning workspace. Do not document planned UI as available
+product behavior.
+
+## 7. Completion evidence
+
+Before marking the feature complete:
+
+- link the implemented source and contract;
+- link focused test evidence;
+- link permanent documentation for every applicable audience;
+- explain any audience or operational layer that is not applicable;
+- run `npm run verify`;
+- record known limitations and safe fallback behavior;
+- confirm the action-plan status reflects repository and test evidence.

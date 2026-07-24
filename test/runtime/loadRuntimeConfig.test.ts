@@ -1,10 +1,10 @@
 import { describe, expect, it, vi } from 'vitest';
 
-import { loadRuntimeConfig } from './loadRuntimeConfig';
+import { loadRuntimeConfig } from '../../src/runtime/loadRuntimeConfig';
 
 const validConfig = {
-  profileBaseUrl: 'http://localhost:3000',
   backofficeBaseUrl: 'http://localhost:3000',
+  enterpriseCode: 'default',
   clientContractVersion: 1,
   requestTimeoutMs: 10_000,
 };

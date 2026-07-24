@@ -1,0 +1,64 @@
+import { describe, expect, it, vi } from 'vitest';
+
+import {
+  authenticateEmployee,
+  logoutEmployee,
+} from '../../src/auth/employeeAuthClient';
+
+describe('employee authentication client', () => {
+  it('sends employee credentials only to Profile in the JSON body', async () => {
+    const request = vi.fn<typeof fetch>().mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          result: { authToken: 'access-token', refreshToken: 'refresh-token' },
+        }),
+        { status: 200 },
+      ),
+    );
+    const session = await authenticateEmployee(
+      'https://profile.example.com',
+      'enterprise-a',
+      'operator',
+      'secret',
+      10_000,
+      request,
+    );
+    expect(session.accessToken).toBe('access-token');
+    expect(session.loginId).toBe('operator');
+    const [url, options] = request.mock.calls[0] ?? [];
+    expect(url instanceof URL ? url.pathname : '').toBe(
+      '/nodics/profile/v0/employee/authenticate',
+    );
+    expect(new Headers(options?.headers).get('x-enterprise-code')).toBe('enterprise-a');
+    expect(options?.body).toBe(
+      JSON.stringify({ loginId: 'operator', password: 'secret' }),
+    );
+    expect(
+      url instanceof URL ? url.href : typeof url === 'string' ? url : url?.url,
+    ).not.toContain('secret');
+  });
+
+  it('revokes both in-memory tokens during logout', async () => {
+    const request = vi
+      .fn<typeof fetch>()
+      .mockResolvedValue(
+        new Response(JSON.stringify({ result: true }), { status: 200 }),
+      );
+    await logoutEmployee(
+      'https://profile.example.com',
+      {
+        accessToken: 'access-token',
+        refreshToken: 'refresh-token',
+        loginId: 'operator',
+        generation: 1,
+      },
+      10_000,
+      request,
+    );
+    const [, options] = request.mock.calls[0] ?? [];
+    expect(new Headers(options?.headers).get('Authorization')).toBe(
+      'Bearer access-token',
+    );
+    expect(options?.body).toBe(JSON.stringify({ refreshToken: 'refresh-token' }));
+  });
+});
