@@ -306,8 +306,9 @@ describe('employee login journey', () => {
       screen.getByRole('navigation', { name: 'Primary navigation' }),
     ).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Content' })).toBeInTheDocument();
-    expect(screen.getByText('Enterprise: enterprise-a')).toBeInTheDocument();
-    expect(screen.getByText('startioLocal')).toBeInTheDocument();
+    expect(screen.getByText('Tenant: Default')).toBeInTheDocument();
+    expect(screen.getByText('Enterprise: Enterprise A')).toBeInTheDocument();
+    expect(screen.getByText('Environment: Startio Local')).toBeInTheDocument();
     await user.click(screen.getByRole('button', { name: 'Content' }));
     expect(
       await screen.findByText(

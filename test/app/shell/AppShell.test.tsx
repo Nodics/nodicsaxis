@@ -11,6 +11,30 @@ afterEach(() => {
 });
 
 describe('Axis application shell navigation', () => {
+  it('presents tenant and application context with readable names', () => {
+    render(
+      <AxisThemeProvider>
+        <MemoryRouter>
+          <AppShell
+            catalog="axisContentCatalog"
+            enterpriseCode="default"
+            environments={['startioLocal']}
+            site="axisCmsSite"
+            tenantCode="default"
+          >
+            <div>Workspace</div>
+          </AppShell>
+        </MemoryRouter>
+      </AxisThemeProvider>,
+    );
+
+    expect(screen.getByText('Environment: Startio Local')).toBeVisible();
+    expect(screen.getByText('Tenant: Default')).toBeVisible();
+    expect(screen.getByText('Enterprise: Default')).toBeVisible();
+    expect(screen.getByText('Site: Axis CMS Site')).toBeVisible();
+    expect(screen.getByText('Catalog: Axis Content Catalog')).toBeVisible();
+  });
+
   it('collapses the desktop sidebar to an accessible icon rail', async () => {
     vi.stubGlobal(
       'matchMedia',

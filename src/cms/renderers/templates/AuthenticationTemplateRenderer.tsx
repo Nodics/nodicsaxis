@@ -25,7 +25,10 @@ export function AuthenticationTemplateRenderer({
       sx={{
         bgcolor: 'background.paper',
         display: 'grid',
-        gridTemplateColumns: { xs: '1fr', md: 'minmax(360px, 42%) 1fr' },
+        gridTemplateColumns: {
+          xs: '1fr',
+          md: 'minmax(0, 60%) minmax(0, 40%)',
+        },
         minHeight: '100dvh',
       }}
     >

@@ -62,6 +62,10 @@ When both repositories change, analyze and test each boundary separately.
   parallel backend translation catalogue.
 - Runtime values come from validated Axis configuration and backend contracts.
   They do not belong in scattered constants or `package.json`.
+- Raw identifiers remain separate from display labels. Humanization is a
+  presentation fallback after contract validation, never a transformation of
+  request, authorization, cache, storage, audit, or telemetry identity. A
+  backend-provided localized display name always takes precedence.
 - Secrets never belong in frontend source, `.env`, generated browser config,
   storage, URLs, telemetry, or logs.
 
@@ -118,6 +122,10 @@ authoritative CMS catalog. The same allowlisted Axis renderer displays the
 resolved value without a frontend rebuild. Missing or malformed required
 properties produce the renderer's safe generic fallback and never execute
 backend-supplied markup or code.
+
+A validated fallback identifier such as `axisContentCatalog` may be displayed
+as `Axis Content Catalog`. The raw code remains unchanged wherever identity or
+backend communication is involved.
 
 ## Acceptance
 

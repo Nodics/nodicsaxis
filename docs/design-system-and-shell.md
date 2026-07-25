@@ -13,10 +13,11 @@ functional grouping only; no template source or visual asset was copied.
 
 ## Authentication layout
 
-The implemented login, recovery, and lock-screen template follows a two-zone enterprise
-authentication pattern:
+The implemented login, recovery, and lock-screen template follows a two-zone
+enterprise authentication pattern:
 
-- desktop uses a 42-percent Charcoal showcase panel and a calm white form
+- desktop and tablet layouts at or above the medium breakpoint use a
+  60-percent Charcoal showcase panel and a 40-percent calm white form
   workspace;
 - the showcase uses the reverse Nodics Axis lockup, Gold emphasis, a short
   platform narrative, and configurable highlights;
@@ -65,8 +66,8 @@ The shared authenticated shell provides:
 2. a top bar with navigation search, an optional backend-advertised Axis
    Assistant shortcut, quick-create placeholder, My Work, notifications, and
    employee menu;
-3. an active context bar showing the backend-reported environment, configured
-   enterprise, CMS Site, and CMS Catalog;
+3. an active context bar showing the backend-reported environment, tenant,
+   configured enterprise, CMS Site, and CMS Catalog;
 4. employee lock and logout actions;
 5. comfortable/compact density and light/dark controls;
 6. the main workspace region;
@@ -123,6 +124,13 @@ governed backend context contracts rather than turn their displayed labels into
 frontend authority. Future features must compose these primitives rather than
 create parallel page shells.
 
+Context identifiers are retained exactly for API requests, authorization,
+query keys, caches, and diagnostics. Axis uses the generic display-name helper
+only to turn a validated fallback code such as `startioLocal` into readable
+text such as `Startio Local`. The helper preserves common acronyms including
+AI, API, CMS, ID, and UI. A localized display name explicitly supplied by the
+owning backend contract takes precedence over this fallback.
+
 ## Recovery states
 
 The static recovery model distinguishes:
@@ -149,7 +157,11 @@ safe for an unknown backend mutation.
 - Notifications use MUI live-region behavior.
 - Controls retain visible labels and keyboard focus.
 - Navigation changes from permanent to temporary below the medium breakpoint.
-- Layouts stack on narrow screens and avoid hover-only interaction.
+- Authentication layouts use the exact 60/40 split at and above the medium
+  breakpoint. Below it, the decorative panel is hidden and the form workspace
+  uses the full width.
+- Layouts stack on narrow screens, avoid hover-only interaction, and do not
+  introduce horizontal page overflow.
 
 ## Extension rules
 
@@ -173,3 +185,5 @@ correlation presentation, authorized navigation parsing and grouping,
 navigation landmarks, module placeholder routing, context labels, employee
 logout, Assistant shortcut capability gating, density and color controls,
 dialogs, notifications, offline behavior, formatting, lint, types, and build.
+Responsive browser acceptance also covers the 60/40 authentication split at
+desktop and tablet widths and the single-column mobile journey.

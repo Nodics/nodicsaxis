@@ -84,6 +84,12 @@ Capabilities are stable; implementations may evolve.
   permissions, and configuration. Reject arbitrary HTML, CSS, JavaScript,
   component imports, expressions, event handlers, or URLs used as renderer
   implementations.
+- Keep authoritative identifiers and presentation labels separate. A validated
+  environment, tenant, enterprise, Site, Catalog, module, or schema code may be
+  humanized only for display. Never send the humanized value in an API request,
+  authorization context, query/cache key, storage key, audit event, or
+  telemetry dimension. Prefer an explicit backend-provided localized display
+  name when available.
 - Every route and control must respect backend-provided permissions, while
   recognizing that UI filtering never replaces backend authorization.
 - Preserve responsive layout, touch behavior, keyboard operation, screen

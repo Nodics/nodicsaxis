@@ -17,6 +17,7 @@ import { useLocation, useNavigate } from 'react-router';
 import type { AxisNavigationItem } from '../../bootstrap/publicBootstrap';
 import { useAxisAppearance } from '../AxisAppearanceContext';
 import { axisTokens } from '../axisTheme';
+import { contextDisplayName } from './contextDisplayName';
 import { NavigationRail } from './NavigationRail';
 import { NotificationRegion } from './ShellPrimitives';
 import { composeShellNavigation } from './shellNavigation';
@@ -25,6 +26,7 @@ import { TopNavigation } from './TopNavigation';
 interface AppShellProps extends PropsWithChildren {
   readonly employeeId?: string | undefined;
   readonly enterpriseCode?: string | undefined;
+  readonly tenantCode?: string | undefined;
   readonly environments?: readonly string[] | undefined;
   readonly site?: string | undefined;
   readonly catalog?: string | undefined;
@@ -38,6 +40,7 @@ export function AppShell({
   children,
   employeeId,
   enterpriseCode = 'default',
+  tenantCode = 'default',
   environments = [],
   navigation = [],
   onLock,
@@ -65,7 +68,7 @@ export function AppShell({
     environments.length === 0
       ? 'Environment unavailable'
       : environments.length === 1
-        ? environments[0]
+        ? `Environment: ${contextDisplayName(environments[0] ?? '')}`
         : `${String(environments.length)} environments`;
   const desktopRailWidth = navigationCompact
     ? axisTokens.spacing.shellRailCompact
@@ -211,15 +214,28 @@ export function AppShell({
         >
           <Chip label={environmentLabel} size="small" variant="outlined" />
           <Chip
-            label={`Enterprise: ${enterpriseCode}`}
+            label={`Tenant: ${contextDisplayName(tenantCode)}`}
+            size="small"
+            variant="outlined"
+          />
+          <Chip
+            label={`Enterprise: ${contextDisplayName(enterpriseCode)}`}
             size="small"
             variant="outlined"
           />
           {site ? (
-            <Chip label={`Site: ${site}`} size="small" variant="outlined" />
+            <Chip
+              label={`Site: ${contextDisplayName(site)}`}
+              size="small"
+              variant="outlined"
+            />
           ) : null}
           {catalog ? (
-            <Chip label={`Catalog: ${catalog}`} size="small" variant="outlined" />
+            <Chip
+              label={`Catalog: ${contextDisplayName(catalog)}`}
+              size="small"
+              variant="outlined"
+            />
           ) : null}
           <Stack direction="row" spacing={0.5} sx={{ ml: 'auto !important' }}>
             <Tooltip title="Change interface density">
