@@ -4,6 +4,7 @@ import { Navigate, Route, Routes, useLocation, useNavigate } from 'react-router'
 import {
   authenticateEmployee,
   logoutEmployee,
+  restoreEmployeeSession,
   type EmployeeSession,
 } from '../auth/employeeAuthClient';
 import {
@@ -15,6 +16,7 @@ import {
   type AxisPublicBootstrap,
 } from '../bootstrap/publicBootstrap';
 import { AssistantRoutePage } from '../assistant/AssistantRoutePage';
+import { WorkbenchRoutePage } from '../workbench/WorkbenchRoutePage';
 import { useIdleScreenLock } from '../auth/useIdleScreenLock';
 import type { CmsRendererActions } from '../cms/renderers/shared/rendererTypes';
 import { useRuntimeConfig } from '../runtime/RuntimeConfigContext';
@@ -38,6 +40,7 @@ export function App() {
   const [locked, setLocked] = useState(false);
   const [lockedReturnPath, setLockedReturnPath] = useState('/dashboard');
   const [authenticationError, setAuthenticationError] = useState<string>();
+  const [restoringSession, setRestoringSession] = useState(true);
 
   useEffect(() => {
     let active = true;
@@ -60,6 +63,42 @@ export function App() {
       active = false;
     };
   }, [attempt, runtime]);
+
+  useEffect(() => {
+    if (!bootstrap || !restoringSession) return;
+    let active = true;
+    void restoreEmployeeSession(
+      bootstrap.endpoints.profile,
+      runtime.enterpriseCode,
+      runtime.browserSessionCsrfCookieName,
+      runtime.requestTimeoutMs,
+    )
+      .then(async (nextSession) => {
+        const employeeBootstrap = await loadAuthenticatedBootstrap(
+          runtime.backofficeBaseUrl,
+          runtime.clientContractVersion,
+          nextSession.accessToken,
+          runtime.requestTimeoutMs,
+        );
+        if (!active) return;
+        setSession(nextSession);
+        setAuthenticatedBootstrap(employeeBootstrap);
+        setEmployeePolicy(employeeBootstrap.axisPolicy);
+      })
+      .catch(() => {
+        if (active) {
+          setSession(undefined);
+          setAuthenticatedBootstrap(undefined);
+          setEmployeePolicy(undefined);
+        }
+      })
+      .finally(() => {
+        if (active) setRestoringSession(false);
+      });
+    return () => {
+      active = false;
+    };
+  }, [bootstrap, restoringSession, runtime]);
 
   const lockScreen = useCallback(() => {
     if (!session || locked) return;
@@ -92,7 +131,7 @@ export function App() {
       />
     );
   }
-  if (!bootstrap) return <LoadingScreen />;
+  if (!bootstrap || restoringSession) return <LoadingScreen />;
 
   const composition = bootstrap.uiComposition;
   const assistantNavigation = authenticatedBootstrap?.navigation.find(
@@ -101,6 +140,12 @@ export function App() {
   const assistantConnection = authenticatedBootstrap
     ? selectModuleConnection(authenticatedBootstrap, 'aiAssistant')
     : undefined;
+  const workbenchNavigation = authenticatedBootstrap?.navigation.find(
+    (item) => item.id === 'schema-workbench' && item.moduleName === 'backoffice',
+  );
+  const documentationNavigation = authenticatedBootstrap?.navigation.find(
+    (item) => item.id === 'documentation' && item.moduleName === 'backoffice',
+  );
   const page = (
     path: string,
     accessToken?: string,
@@ -153,18 +198,31 @@ export function App() {
 
   const logout = () => {
     const current = session;
-    setSession(undefined);
-    setAuthenticatedBootstrap(undefined);
-    setEmployeePolicy(undefined);
-    setLocked(false);
-    void navigate(composition.defaultPublicPage, { replace: true });
-    if (current) {
-      void logoutEmployee(
-        bootstrap.endpoints.profile,
-        current,
-        runtime.requestTimeoutMs,
-      );
+    if (!current) {
+      void navigate(composition.defaultPublicPage, { replace: true });
+      return;
     }
+    setAuthenticationError(undefined);
+    void logoutEmployee(
+      bootstrap.endpoints.profile,
+      runtime.enterpriseCode,
+      runtime.browserSessionCsrfCookieName,
+      runtime.requestTimeoutMs,
+    )
+      .then(() => {
+        setSession(undefined);
+        setAuthenticatedBootstrap(undefined);
+        setEmployeePolicy(undefined);
+        setLocked(false);
+        void navigate(composition.defaultPublicPage, { replace: true });
+      })
+      .catch(() => {
+        setAuthenticationError(
+          'Secure logout could not be completed. Please retry before leaving this device.',
+        );
+        setLocked(true);
+        void navigate('/lock-screen', { replace: true });
+      });
   };
 
   const unlock = async (password: string) => {
@@ -202,6 +260,7 @@ export function App() {
       employeeId={session?.loginId}
       enterpriseCode={runtime.enterpriseCode}
       environments={authenticatedBootstrap?.environments}
+      tenantCode={authenticatedBootstrap?.tenantCode}
       navigation={authenticatedBootstrap?.navigation}
       site={composition.site}
       onLock={lockScreen}
@@ -292,12 +351,73 @@ export function App() {
           )
         }
       />
+      <Route
+        path="/schema-workbench"
+        element={
+          session && !locked && authenticatedBootstrap && workbenchNavigation ? (
+            authenticatedShell(
+              ['UP', 'DEGRADED'].includes(workbenchNavigation.availability) ? (
+                <WorkbenchRoutePage
+                  accessToken={session.accessToken}
+                  bootstrap={authenticatedBootstrap}
+                  channel={composition.channel}
+                  cmsBaseUrl={bootstrap.endpoints.cms}
+                  employeeId={session.loginId}
+                  locale={composition.locale}
+                  runtime={runtime}
+                  site={composition.site}
+                />
+              ) : (
+                <ModuleWorkspacePlaceholder item={workbenchNavigation} />
+              ),
+            )
+          ) : (
+            <Navigate
+              replace
+              to={
+                session && !locked
+                  ? composition.defaultAuthenticatedPage
+                  : session
+                    ? '/lock-screen'
+                    : composition.defaultPublicPage
+              }
+            />
+          )
+        }
+      />
+      <Route
+        path="/docs/*"
+        element={
+          session && !locked && authenticatedBootstrap && documentationNavigation ? (
+            authenticatedShell(
+              ['UP', 'DEGRADED'].includes(documentationNavigation.availability) ? (
+                page(location.pathname, session.accessToken)
+              ) : (
+                <ModuleWorkspacePlaceholder item={documentationNavigation} />
+              ),
+            )
+          ) : (
+            <Navigate
+              replace
+              to={
+                session && !locked
+                  ? composition.defaultAuthenticatedPage
+                  : session
+                    ? '/lock-screen'
+                    : composition.defaultPublicPage
+              }
+            />
+          )
+        }
+      />
       {session && !locked && authenticatedBootstrap
         ? authenticatedBootstrap.navigation
             .filter(
               (item) =>
+                !item.route.startsWith('/docs') &&
                 ![
                   '/assistant',
+                  '/schema-workbench',
                   '/dashboard',
                   '/login',
                   '/forgot-password',

@@ -1,0 +1,451 @@
+import { describe, expect, it, vi } from 'vitest';
+
+import {
+  bulkDeleteWorkbenchRecords,
+  createWorkbenchRecord,
+  deleteWorkbenchRecord,
+  loadWorkbenchRecords,
+  loadWorkbenchSchemas,
+  previewWorkbenchDeleteImpact,
+  updateWorkbenchRecord,
+} from '../../../src/workbench/api/workbenchClient';
+import type { AxisModuleConnection } from '../../../src/bootstrap/publicBootstrap';
+import type { WorkbenchSchema } from '../../../src/workbench/api/workbenchContracts';
+
+const connection: AxisModuleConnection = {
+  moduleName: 'profile',
+  instanceId: 'profile-1',
+  endpoint: 'https://profile.example.com/nodics/profile',
+  environment: 'local',
+  state: 'UP',
+};
+const configuration = {
+  accessToken: 'memory-only-token',
+  enterpriseCode: 'default',
+  timeoutMs: 10_000,
+};
+const address: WorkbenchSchema = {
+  moduleName: 'profile',
+  schemaName: 'address',
+  label: 'Address',
+  description: '',
+  displayProperty: 'code',
+  displayProperties: ['code'],
+  queryCapabilities: {
+    searchableFields: ['code'],
+    sortableFields: ['code'],
+    filterFields: [
+      {
+        field: 'code',
+        label: 'Code',
+        type: 'string',
+        operators: ['EQUALS', 'CONTAINS'],
+      },
+    ],
+    groupOperators: ['AND', 'OR'],
+    textOperator: 'CONTAINS',
+    allowedPageSizes: [10, 25, 50],
+    defaultPageSize: 25,
+    maximumPageSize: 50,
+    defaultSort: { field: 'code', direction: 'ASC' },
+  },
+  mutationMode: 'GENERATED_CRUD',
+  operations: ['search', 'read', 'create', 'update', 'delete'],
+  fields: [
+    {
+      name: 'code',
+      label: 'Code',
+      type: 'string',
+      required: true,
+      readOnly: false,
+      primary: true,
+      description: '',
+      searchable: true,
+    },
+  ],
+  relationships: [],
+};
+
+function json(result: unknown, status = 200): Response {
+  return new Response(JSON.stringify({ result }), {
+    status,
+    headers: { 'Content-Type': 'application/json' },
+  });
+}
+
+describe('Schema Workbench API client', () => {
+  it('discovers schemas directly from owning modules with employee context', async () => {
+    const request = vi
+      .fn<typeof fetch>()
+      .mockResolvedValue(json({ moduleName: 'profile', schemas: [address] }));
+
+    await expect(
+      loadWorkbenchSchemas([connection], configuration, request),
+    ).resolves.toEqual([expect.objectContaining({ label: 'Address' })]);
+
+    const [url, options] = request.mock.calls[0] ?? [];
+    expect((url as URL).href).toBe(
+      'https://profile.example.com/nodics/profile/v0/schema/workbench',
+    );
+    const headers = new Headers(options?.headers);
+    expect(headers.get('Authorization')).toBe('Bearer memory-only-token');
+    expect(headers.get('x-enterprise-code')).toBe('default');
+    expect((url as URL).href).not.toContain('memory-only-token');
+  });
+
+  it('loads a bounded record page through existing generated CRUD', async () => {
+    const request = vi.fn<typeof fetch>().mockResolvedValue(
+      json({
+        records: [{ code: 'DXB-OFFICE', city: 'Dubai' }],
+        totalCount: 1,
+        pageNumber: 1,
+        pageSize: 25,
+        sort: { field: 'code', direction: 'ASC' },
+      }),
+    );
+    const schemas = await loadWorkbenchSchemas(
+      [connection],
+      configuration,
+      vi
+        .fn<typeof fetch>()
+        .mockResolvedValue(json({ moduleName: 'profile', schemas: [address] })),
+    );
+
+    await expect(
+      loadWorkbenchRecords(
+        connection,
+        schemas[0]!,
+        configuration,
+        {
+          search: '',
+          filters: {
+            operator: 'AND',
+            items: [{ field: 'code', operator: 'CONTAINS', value: 'DXB' }],
+          },
+          pageNumber: 1,
+          pageSize: 25,
+          sort: { field: 'code', direction: 'ASC' },
+        },
+        request,
+      ),
+    ).resolves.toEqual({
+      records: [{ code: 'DXB-OFFICE', city: 'Dubai' }],
+      totalCount: 1,
+      pageNumber: 1,
+      pageSize: 25,
+      sort: { field: 'code', direction: 'ASC' },
+    });
+
+    const [url, options] = request.mock.calls[0] ?? [];
+    expect((url as URL).pathname).toBe(
+      '/nodics/profile/v0/schema/workbench/address/records',
+    );
+    expect(options?.method).toBe('POST');
+    const body = options?.body;
+    if (typeof body !== 'string') throw new Error('Expected a JSON request body');
+    expect(JSON.parse(body)).toEqual({
+      search: '',
+      filters: {
+        operator: 'AND',
+        items: [{ field: 'code', operator: 'CONTAINS', value: 'DXB' }],
+      },
+      pageNumber: 1,
+      pageSize: 25,
+      sort: { field: 'code', direction: 'ASC' },
+    });
+  });
+
+  it('creates through generated CRUD without changing module ownership', async () => {
+    const request = vi
+      .fn<typeof fetch>()
+      .mockResolvedValue(json({ code: 'DXB-EMAIL', type: 'EMAIL' }));
+    const schemas = await loadWorkbenchSchemas(
+      [connection],
+      configuration,
+      vi
+        .fn<typeof fetch>()
+        .mockResolvedValue(json({ moduleName: 'profile', schemas: [address] })),
+    );
+
+    await expect(
+      createWorkbenchRecord(
+        connection,
+        schemas[0]!,
+        { code: 'DXB-EMAIL', type: 'EMAIL' },
+        configuration,
+        request,
+      ),
+    ).resolves.toEqual({ code: 'DXB-EMAIL', type: 'EMAIL' });
+
+    const [url, options] = request.mock.calls[0] ?? [];
+    expect((url as URL).pathname).toBe('/nodics/profile/v0/address');
+    expect(options?.method).toBe('PUT');
+    expect(new Headers(options?.headers).get('Authorization')).toBe(
+      'Bearer memory-only-token',
+    );
+  });
+
+  it('updates through the owning generated CRUD route', async () => {
+    const request = vi
+      .fn<typeof fetch>()
+      .mockResolvedValue(json({ models: [{ code: 'DXB-OFFICE', city: 'Abu Dhabi' }] }));
+
+    await expect(
+      updateWorkbenchRecord(
+        connection,
+        address,
+        { code: 'DXB-OFFICE', city: 'Dubai' },
+        { code: 'DXB-OFFICE', city: 'Abu Dhabi' },
+        configuration,
+        request,
+      ),
+    ).resolves.toEqual({ code: 'DXB-OFFICE', city: 'Abu Dhabi' });
+
+    const [url, options] = request.mock.calls[0] ?? [];
+    expect((url as URL).pathname).toBe('/nodics/profile/v0/address');
+    expect(options?.method).toBe('PATCH');
+    const body = options?.body;
+    if (typeof body !== 'string') throw new Error('Expected a JSON request body');
+    expect(JSON.parse(body)).toEqual({
+      model: { code: 'DXB-OFFICE', city: 'Abu Dhabi' },
+      options: { recursive: false, returnModified: true },
+      query: { code: 'DXB-OFFICE' },
+    });
+  });
+
+  it('deletes through one bounded original-identity query', async () => {
+    const request = vi.fn<typeof fetch>().mockResolvedValue(
+      new Response(JSON.stringify({ code: 'SUC_DEL_00000' }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      }),
+    );
+
+    await expect(
+      deleteWorkbenchRecord(
+        connection,
+        address,
+        { code: 'DXB-OFFICE' },
+        configuration,
+        request,
+      ),
+    ).resolves.toBeUndefined();
+
+    const [url, options] = request.mock.calls[0] ?? [];
+    expect((url as URL).pathname).toBe('/nodics/profile/v0/address');
+    expect(options?.method).toBe('DELETE');
+    const body = options?.body;
+    if (typeof body !== 'string') throw new Error('Expected a JSON request body');
+    expect(JSON.parse(body)).toEqual({
+      options: { returnModified: false },
+      query: { code: 'DXB-OFFICE' },
+    });
+  });
+
+  it('forwards an advertised revision for update and delete conflicts', async () => {
+    const revisionAddress: WorkbenchSchema = {
+      ...address,
+      concurrency: {
+        mode: 'COMPARE_AND_SET',
+        field: 'revision',
+        required: true,
+      },
+    };
+    const updateRequest = vi
+      .fn<typeof fetch>()
+      .mockResolvedValue(json({ models: [{ code: 'DXB', revision: 8 }] }));
+    await updateWorkbenchRecord(
+      connection,
+      revisionAddress,
+      { code: 'DXB', revision: 7 },
+      { city: 'Dubai' },
+      configuration,
+      updateRequest,
+    );
+    const updateBody = updateRequest.mock.calls[0]?.[1]?.body;
+    if (typeof updateBody !== 'string') throw new Error('Expected update body');
+    expect(JSON.parse(updateBody)).toEqual(
+      expect.objectContaining({ query: { code: 'DXB', revision: 7 } }),
+    );
+
+    const deleteRequest = vi.fn<typeof fetch>().mockResolvedValue(
+      new Response(JSON.stringify({ code: 'SUC_DEL_00000' }), {
+        headers: { 'Content-Type': 'application/json' },
+      }),
+    );
+    await deleteWorkbenchRecord(
+      connection,
+      revisionAddress,
+      { code: 'DXB', revision: 7 },
+      configuration,
+      deleteRequest,
+    );
+    const deleteBody = deleteRequest.mock.calls[0]?.[1]?.body;
+    if (typeof deleteBody !== 'string') throw new Error('Expected delete body');
+    expect(JSON.parse(deleteBody)).toEqual(
+      expect.objectContaining({ query: { code: 'DXB', revision: 7 } }),
+    );
+  });
+
+  it('fails closed when an advertised revision is absent', async () => {
+    const request = vi.fn<typeof fetch>();
+    await expect(
+      updateWorkbenchRecord(
+        connection,
+        {
+          ...address,
+          concurrency: {
+            mode: 'COMPARE_AND_SET',
+            field: 'revision',
+            required: true,
+          },
+        },
+        { code: 'DXB' },
+        { city: 'Dubai' },
+        configuration,
+        request,
+      ),
+    ).rejects.toThrow('concurrency revision');
+    expect(request).not.toHaveBeenCalled();
+  });
+
+  it('rejects deletion without a safe identity before sending a request', async () => {
+    const request = vi.fn<typeof fetch>();
+    await expect(
+      deleteWorkbenchRecord(connection, address, {}, configuration, request),
+    ).rejects.toThrow('safe identity');
+    expect(request).not.toHaveBeenCalled();
+  });
+
+  it('surfaces a bounded backend integrity message without exposing contexts', async () => {
+    const request = vi.fn<typeof fetch>().mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          code: 'ERR_DEL_00007',
+          message:
+            'Remove the reference from address.contacts before deleting this record',
+          contexts: [{ stack: 'must-not-be-rendered' }],
+        }),
+        {
+          status: 409,
+          headers: { 'Content-Type': 'application/json' },
+        },
+      ),
+    );
+
+    await expect(
+      deleteWorkbenchRecord(
+        connection,
+        address,
+        { code: 'DXB-OFFICE' },
+        configuration,
+        request,
+      ),
+    ).rejects.toMatchObject({
+      code: 'ERR_DEL_00007',
+      message: 'Remove the reference from address.contacts before deleting this record',
+      status: 409,
+    });
+  });
+
+  it('uses an HTTP fallback for malformed backend errors', async () => {
+    const request = vi
+      .fn<typeof fetch>()
+      .mockResolvedValue(new Response('<html>gateway</html>', { status: 502 }));
+
+    await expect(
+      loadWorkbenchRecords(
+        connection,
+        address,
+        configuration,
+        {
+          search: '',
+          pageNumber: 1,
+          pageSize: 25,
+          sort: { field: 'code', direction: 'ASC' },
+        },
+        request,
+      ),
+    ).rejects.toThrow('Workbench request returned HTTP 502');
+  });
+
+  it('fails when every module discovery request is unavailable', async () => {
+    const request = vi
+      .fn<typeof fetch>()
+      .mockResolvedValue(new Response('', { status: 503 }));
+
+    await expect(
+      loadWorkbenchSchemas([connection], configuration, request),
+    ).rejects.toThrow('Authorized schema discovery is currently unavailable');
+  });
+
+  it('previews governed delete impact through the owning module', async () => {
+    const request = vi.fn<typeof fetch>().mockResolvedValue(
+      json({
+        targetCount: 1,
+        blocked: true,
+        relationships: [
+          {
+            sourceModule: 'profile',
+            sourceSchema: 'employee',
+            field: 'address',
+            policy: 'RESTRICT',
+            referenceCount: 2,
+          },
+        ],
+      }),
+    );
+
+    await expect(
+      previewWorkbenchDeleteImpact(
+        connection,
+        address,
+        { code: 'DXB-OFFICE' },
+        configuration,
+        request,
+      ),
+    ).resolves.toMatchObject({ blocked: true, targetCount: 1 });
+    expect((request.mock.calls[0]?.[0] as URL).pathname).toContain(
+      '/schema/workbench/address/delete-impact',
+    );
+  });
+
+  it('requires advertised bounded bulk delete and forwards idempotency', async () => {
+    const bulkAddress: WorkbenchSchema = {
+      ...address,
+      bulkCapabilities: {
+        operations: ['DELETE'],
+        maximumItems: 2,
+        idempotencyRequired: true,
+        outcomeMode: 'AUTHORITATIVE_RESULT',
+      },
+    };
+    const request = vi.fn<typeof fetch>().mockResolvedValue(
+      new Response(JSON.stringify({ code: 'SUC_DBS_00000' }), {
+        headers: { 'Content-Type': 'application/json' },
+      }),
+    );
+
+    await bulkDeleteWorkbenchRecords(
+      connection,
+      bulkAddress,
+      [{ code: 'DXB' }, { code: 'AUH' }],
+      configuration,
+      'axis-test-0001',
+      request,
+    );
+    const headers = new Headers(request.mock.calls[0]?.[1]?.headers);
+    expect(headers.get('Idempotency-Key')).toBe('axis-test-0001');
+
+    await expect(
+      bulkDeleteWorkbenchRecords(
+        connection,
+        bulkAddress,
+        [{ code: '1' }, { code: '2' }, { code: '3' }],
+        configuration,
+        'axis-test-0002',
+        request,
+      ),
+    ).rejects.toThrow('Bulk delete is not available for this selection');
+  });
+});

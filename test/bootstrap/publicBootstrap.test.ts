@@ -54,6 +54,20 @@ const authenticatedData = {
           route: '/content',
           icon: 'cms',
           order: 200,
+          labelKey: 'axis.navigation.content',
+          group: {
+            id: 'content',
+            label: 'Content and Experience',
+            labelKey: 'axis.group.content',
+            order: 200,
+          },
+          perspectives: ['operations', 'content'],
+          contexts: ['environment', 'tenant', 'site', 'catalog'],
+          featureState: 'PREVIEW',
+          badgeProvider: {
+            moduleName: 'cms',
+            operationId: 'cms.pending.count',
+          },
           requiredPermissions: ['cms.backoffice.view'],
         },
       ],
@@ -69,6 +83,7 @@ const authenticatedData = {
     revision: 0,
     source: 'DEFAULT',
   },
+  tenantCode: 'default',
 };
 
 describe('Axis bootstrap clients', () => {
@@ -127,6 +142,7 @@ describe('Axis bootstrap clients', () => {
     );
     expect(result.axisPolicy.idleTimeoutSeconds).toBe(900);
     expect(result.environments).toEqual(['startioLocal']);
+    expect(result.tenantCode).toBe('default');
     expect(result.moduleConnections.cms).toEqual([
       {
         moduleName: 'cms',
@@ -145,6 +161,20 @@ describe('Axis bootstrap clients', () => {
         moduleName: 'cms',
         icon: 'cms',
         availability: 'UP',
+        labelKey: 'axis.navigation.content',
+        group: {
+          id: 'content',
+          label: 'Content and Experience',
+          labelKey: 'axis.group.content',
+          order: 200,
+        },
+        perspectives: ['operations', 'content'],
+        contexts: ['environment', 'tenant', 'site', 'catalog'],
+        featureState: 'PREVIEW',
+        badgeProvider: {
+          moduleName: 'cms',
+          operationId: 'cms.pending.count',
+        },
       }),
     ]);
   });
@@ -183,7 +213,7 @@ describe('Axis bootstrap clients', () => {
     ).rejects.toThrow(/safe HTTP endpoint/);
   });
 
-  it('rejects navigation permissions not covered by the authorized module', async () => {
+  it('accepts navigation that the authoritative bootstrap already permission-filtered', async () => {
     const request = vi.fn<typeof fetch>().mockResolvedValue(
       new Response(
         JSON.stringify({
@@ -214,7 +244,48 @@ describe('Axis bootstrap clients', () => {
       10_000,
       request,
     );
-    expect(result.navigation).toEqual([]);
+    expect(result.navigation).toEqual([
+      expect.objectContaining({
+        id: 'admin',
+        route: '/content/admin',
+      }),
+    ]);
+  });
+
+  it('rejects orphaned and cyclic navigation even when backend validation is bypassed', async () => {
+    for (const navigation of [
+      [{ id: 'child', label: 'Child', route: '/child', parentId: 'missing' }],
+      [
+        { id: 'one', label: 'One', route: '/one', parentId: 'two' },
+        { id: 'two', label: 'Two', route: '/two', parentId: 'one' },
+      ],
+    ]) {
+      const request = vi.fn<typeof fetch>().mockResolvedValue(
+        new Response(
+          JSON.stringify({
+            data: {
+              ...authenticatedData,
+              catalogue: {
+                cms: {
+                  ...authenticatedData.catalogue.cms,
+                  navigation,
+                },
+              },
+            },
+          }),
+          { status: 200 },
+        ),
+      );
+      await expect(
+        loadAuthenticatedBootstrap(
+          'https://backoffice.example.com',
+          1,
+          'employee-access',
+          10_000,
+          request,
+        ),
+      ).rejects.toThrow(/orphan|cycle/iu);
+    }
   });
 
   it('rejects unsafe or incompatible employee idle policies', async () => {

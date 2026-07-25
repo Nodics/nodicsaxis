@@ -11,6 +11,7 @@ const runtimeConfig = {
   enterpriseCode: 'enterprise-a',
   clientContractVersion: 1,
   requestTimeoutMs: 10_000,
+  browserSessionCsrfCookieName: 'nodics_axis_csrf',
   assistantMaximumEventBytes: 65_536,
   assistantReconnectWindowMs: 120_000,
   assistantIdleTimeoutMs: 45_000,
@@ -181,13 +182,26 @@ describe('employee login journey', () => {
           new Response(JSON.stringify(publicBootstrap), { status: 200 }),
         );
       }
-      if (url.includes('/employee/authenticate')) {
+      if (url.includes('/employee/browser/authenticate')) {
         return Promise.resolve(
           new Response(
             JSON.stringify({
               result: {
                 authToken: 'employee-access',
-                refreshToken: 'employee-refresh',
+                loginId: 'operator',
+              },
+            }),
+            { status: 200 },
+          ),
+        );
+      }
+      if (url.includes('/employee/browser/restore')) {
+        return Promise.resolve(
+          new Response(
+            JSON.stringify({
+              result: {
+                authToken: 'restored-employee-access',
+                loginId: 'operator',
               },
             }),
             { status: 200 },
@@ -257,6 +271,7 @@ describe('employee login journey', () => {
                   revision: 0,
                   source: 'DEFAULT',
                 },
+                tenantCode: 'default',
               },
             }),
             { status: 200 },
@@ -286,7 +301,7 @@ describe('employee login journey', () => {
     vi.stubGlobal('fetch', request);
     const user = userEvent.setup();
 
-    render(
+    const rendered = render(
       <AppProviders runtimeConfig={runtimeConfig}>
         <App />
       </AppProviders>,
@@ -321,6 +336,26 @@ describe('employee login journey', () => {
     expect(
       request.mock.calls.some(([, options]) =>
         new Headers(options?.headers).get('Authorization')?.includes('employee-access'),
+      ),
+    ).toBe(true);
+
+    document.cookie = 'nodics_axis_csrf=refresh-csrf; Path=/';
+    rendered.unmount();
+    render(
+      <AppProviders runtimeConfig={runtimeConfig}>
+        <App />
+      </AppProviders>,
+    );
+    expect(
+      await screen.findByText(
+        'This authorized module capability was discovered through BackOffice.',
+      ),
+    ).toBeVisible();
+    expect(
+      request.mock.calls.some(([, options]) =>
+        new Headers(options?.headers)
+          .get('Authorization')
+          ?.includes('restored-employee-access'),
       ),
     ).toBe(true);
 

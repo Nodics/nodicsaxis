@@ -7,6 +7,7 @@ import { AppShell } from '../../../src/app/shell/AppShell';
 import { AxisThemeProvider } from '../../../src/app/AxisThemeProvider';
 
 afterEach(() => {
+  window.localStorage.clear();
   vi.unstubAllGlobals();
 });
 
@@ -33,6 +34,7 @@ describe('Axis application shell navigation', () => {
     expect(screen.getByText('Enterprise: Default')).toBeVisible();
     expect(screen.getByText('Site: Axis CMS Site')).toBeVisible();
     expect(screen.getByText('Catalog: Axis Content Catalog')).toBeVisible();
+    expect(screen.queryByRole('button', { name: 'Create' })).not.toBeInTheDocument();
   });
 
   it('collapses the desktop sidebar to an accessible icon rail', async () => {
@@ -80,7 +82,7 @@ describe('Axis application shell navigation', () => {
     expect(screen.getByRole('button', { name: 'Expand navigation' })).toBeVisible();
     expect(screen.queryByText('NODICS')).not.toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Content' })).toBeVisible();
-    expect(screen.getByText('Content and Experience')).not.toBeVisible();
+    expect(screen.queryByText('Content and Experience')).not.toBeInTheDocument();
   });
 
   it('uses the authorized BackOffice contribution for the Assistant shortcut', async () => {
@@ -111,6 +113,8 @@ describe('Axis application shell navigation', () => {
 
     const shortcut = screen.getByRole('button', { name: 'Ask Axis' });
     expect(shortcut).toBeEnabled();
+    expect(shortcut.querySelector('svg')).toHaveClass('MuiSvgIcon-colorPrimary');
+    expect(shortcut.querySelectorAll('svg path')[1]).toHaveAttribute('fill', '#1b1e20');
     await user.click(shortcut);
     expect(screen.getAllByRole('button', { name: 'Ask Axis' })).not.toHaveLength(0);
   });
@@ -139,6 +143,141 @@ describe('Axis application shell navigation', () => {
       </AxisThemeProvider>,
     );
 
-    expect(screen.getByRole('button', { name: 'Axis Assistant' })).toBeDisabled();
+    const shortcut = screen.getByRole('button', { name: 'Axis Assistant' });
+    expect(shortcut).toBeDisabled();
+    expect(shortcut.querySelector('svg')).toHaveClass('MuiSvgIcon-colorDisabled');
+  });
+
+  it('searches matching left-panel navigation and preserves inactive features', async () => {
+    const user = userEvent.setup();
+    render(
+      <AxisThemeProvider>
+        <MemoryRouter>
+          <AppShell
+            navigation={[
+              {
+                id: 'cms',
+                label: 'Content',
+                route: '/content',
+                order: 10,
+                moduleName: 'cms',
+                category: 'content',
+                icon: 'cms',
+                availability: 'UP',
+                perspectives: ['content'],
+              },
+              {
+                id: 'pricing',
+                label: 'Pricing',
+                route: '/pricing',
+                order: 20,
+                moduleName: 'pricing',
+                category: 'commerce',
+                icon: 'pricing',
+                availability: 'UP',
+                perspectives: ['commerce'],
+                featureState: 'DISABLED',
+              },
+            ]}
+          >
+            <div>Workspace</div>
+          </AppShell>
+        </MemoryRouter>
+      </AxisThemeProvider>,
+    );
+
+    await user.click(screen.getByRole('button', { name: 'Open navigation' }));
+    const menuSearch = screen.getByRole('textbox', { name: 'Search menu' });
+    await user.type(menuSearch, 'content');
+    expect(screen.getByRole('button', { name: 'Content' })).toBeVisible();
+    expect(screen.queryByRole('button', { name: 'Pricing' })).not.toBeInTheDocument();
+
+    await user.clear(menuSearch);
+    await user.type(menuSearch, 'commerce');
+    expect(screen.getByRole('button', { name: 'Pricing' })).toHaveAttribute(
+      'aria-disabled',
+      'true',
+    );
+
+    await user.clear(menuSearch);
+    await user.type(menuSearch, 'not available');
+    expect(screen.getByText('No matching menu items')).toBeVisible();
+  });
+
+  it('expands and collapses navigation groups while exposing search matches', async () => {
+    const user = userEvent.setup();
+    render(
+      <AxisThemeProvider>
+        <MemoryRouter>
+          <AppShell
+            navigation={[
+              {
+                id: 'cms',
+                label: 'Content',
+                route: '/content',
+                order: 10,
+                moduleName: 'cms',
+                category: 'content',
+                icon: 'cms',
+                availability: 'UP',
+              },
+            ]}
+          >
+            <div>Workspace</div>
+          </AppShell>
+        </MemoryRouter>
+      </AxisThemeProvider>,
+    );
+
+    await user.click(screen.getByRole('button', { name: 'Open navigation' }));
+    const collapse = screen.getByRole('button', {
+      name: 'Collapse Content and Experience',
+    });
+    expect(collapse).toHaveAttribute('aria-expanded', 'true');
+
+    await user.click(collapse);
+    expect(
+      screen.getByRole('button', { name: 'Expand Content and Experience' }),
+    ).toHaveAttribute('aria-expanded', 'false');
+    expect(screen.queryByRole('button', { name: 'Content' })).not.toBeInTheDocument();
+
+    await user.type(screen.getByRole('textbox', { name: 'Search menu' }), 'content');
+    expect(screen.getByRole('button', { name: 'Content' })).toBeVisible();
+    expect(
+      screen.getByRole('button', { name: 'Collapse Content and Experience' }),
+    ).toHaveAttribute('aria-expanded', 'true');
+  });
+
+  it('provides bounded local favourites and recent destinations', async () => {
+    const user = userEvent.setup();
+    render(
+      <AxisThemeProvider>
+        <MemoryRouter>
+          <AppShell
+            navigation={[
+              {
+                id: 'cms',
+                label: 'Content',
+                route: '/content',
+                order: 10,
+                moduleName: 'cms',
+                category: 'content',
+                icon: 'cms',
+                availability: 'UP',
+              },
+            ]}
+          >
+            <div>Workspace</div>
+          </AppShell>
+        </MemoryRouter>
+      </AxisThemeProvider>,
+    );
+
+    await user.click(screen.getByRole('button', { name: 'Open navigation' }));
+    await user.click(screen.getByRole('button', { name: 'Add Content to favourites' }));
+    expect(screen.getByText('Favourite: Content')).toBeVisible();
+    expect(
+      window.localStorage.getItem('nodics-axis-navigation-preferences-v1'),
+    ).toContain('cms:cms');
   });
 });

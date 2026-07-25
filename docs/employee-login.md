@@ -11,7 +11,8 @@ submitted to its login flow.
    composition identifiers.
 4. Axis loads `/login` directly from CMS public delivery.
 5. Axis sends entered employee credentials directly to Profile.
-6. Axis keeps the returned access and refresh tokens in memory only.
+6. Axis keeps the returned access token in memory only. Profile stores the
+   refresh credential in a scoped `HttpOnly` cookie that Axis cannot read.
 7. Axis calls secured BackOffice bootstrap with the access token.
 8. BackOffice returns the effective tenant-scoped Axis employee policy,
    authorized module catalogue, navigation contributions, compatibility,
@@ -64,14 +65,24 @@ the local session, asks Profile to revoke it, and returns to `/login`.
 
 The screen lock is presentation defense-in-depth. It never replaces bearer
 expiry, revocation, Profile authentication, or target-module authorization.
-Refreshing the browser clears the memory-only session and requires full login.
+
+On browser refresh, Axis reads only the non-secret CSRF cookie and calls the
+Profile browser restore endpoint with credentials included. Profile requires
+the exact allowed Origin and matching `X-CSRF-Token`, consumes the refresh
+credential once, rotates it, and returns a replacement access token and
+employee identifier. Axis then reloads the secured BackOffice bootstrap and
+preserves the requested protected route. An expired, revoked, replayed, or
+otherwise invalid session returns to the public login experience.
 
 ## Logout
 
-Axis clears its in-memory session and redirects to `/login` immediately. It
-then asks Profile to revoke both tokens. Local logout does not wait for the
-network, preventing an unavailable Profile service from leaving an
-authenticated interface visible.
+Axis sends the configured CSRF value to Profile, which revokes refresh state
+and expires both browser-session cookies. Only after Profile confirms that
+operation does Axis clear its in-memory access token and redirect to `/login`.
+If Profile is unavailable, Axis keeps the secured session visible and reports
+that logout was not completed; it never presents a false signed-out state while
+an HttpOnly refresh session remains active. The existing short-lived access
+token remains bounded by backend expiry and revocation policy.
 
 ## Configuration
 
@@ -82,11 +93,13 @@ AXIS_BACKOFFICE_BASE_URL=http://localhost:3000
 AXIS_ENTERPRISE_CODE=default
 AXIS_CLIENT_CONTRACT_VERSION=1
 AXIS_REQUEST_TIMEOUT_MS=10000
+AXIS_BROWSER_SESSION_CSRF_COOKIE_NAME=nodics_axis_csrf
 ```
 
-Do not add Profile or CMS URLs. BackOffice discovers them from module
-self-registration. Never place passwords or tokens in `.env`, browser storage,
-URLs, logs, or query-cache keys.
+The CSRF cookie name is public protocol configuration and must equal Profile's
+effective `profileBrowserSession.csrfCookieName`. Do not add Profile or CMS
+URLs. BackOffice discovers them from module self-registration. Never place
+passwords or tokens in `.env`, browser storage, URLs, logs, or query-cache keys.
 
 ## Failure behavior
 
@@ -96,8 +109,8 @@ URLs, logs, or query-cache keys.
 - CMS failure or incompatibility uses static CMS recovery with retry.
 - Invalid employee credentials produce a safe login error.
 - Missing BackOffice permission rejects the session before dashboard delivery.
-- Direct `/dashboard` navigation without an in-memory session redirects to
-  `/login`.
+- Direct `/dashboard` navigation attempts Profile-owned session restoration;
+  absent or invalid refresh state redirects to `/login`.
 - Direct `/lock-screen` navigation without an authenticated locked session
   redirects safely.
 - Invalid or incompatible Axis policy rejects authenticated bootstrap.
@@ -115,6 +128,7 @@ npm run verify
 ```
 
 Tests cover low-disclosure discovery, policy validation, credential delivery
-to Profile, secured bootstrap bearer use, CMS authentication pages,
-inactivity boundaries, activity deadline reset, protected routing, and logout
-revocation.
+to Profile, HttpOnly refresh restoration, CSRF transport, secured bootstrap
+bearer use, protected-route preservation after remount, invalid-session
+fallback, CMS authentication pages, inactivity boundaries, activity deadline
+reset, protected routing, and logout revocation.

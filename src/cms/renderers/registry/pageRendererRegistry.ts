@@ -18,6 +18,16 @@ export const PAGE_RENDERER_REGISTRY = Object.freeze({
       default: module.AssistantPageRenderer,
     })),
   ),
+  'axis.page.schema-workbench': lazy(() =>
+    import('../pages/SchemaWorkbenchPageRenderer').then((module) => ({
+      default: module.SchemaWorkbenchPageRenderer,
+    })),
+  ),
+  'documentation.page.article': lazy(() =>
+    import('../pages/DocumentationArticlePageRenderer').then((module) => ({
+      default: module.DocumentationArticlePageRenderer,
+    })),
+  ),
 } satisfies Readonly<Record<string, ComponentType<CmsPagePresentationProps>>>);
 
 export function getPageRenderer(

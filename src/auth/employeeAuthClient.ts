@@ -1,11 +1,10 @@
 export interface EmployeeSession {
   readonly accessToken: string;
-  readonly refreshToken: string;
   readonly loginId: string;
   readonly generation: number;
 }
 
-function tokenEnvelope(value: unknown): { authToken: string; refreshToken: string } {
+function tokenEnvelope(value: unknown): { authToken: string; loginId?: string } {
   if (typeof value !== 'object' || value === null || Array.isArray(value)) {
     throw new Error('Profile returned an invalid authentication response');
   }
@@ -13,16 +12,37 @@ function tokenEnvelope(value: unknown): { authToken: string; refreshToken: strin
   if (typeof result !== 'object' || result === null || Array.isArray(result)) {
     throw new Error('Profile returned an invalid authentication result');
   }
-  const { authToken, refreshToken } = result as Record<string, unknown>;
-  if (
-    typeof authToken !== 'string' ||
-    authToken === '' ||
-    typeof refreshToken !== 'string' ||
-    refreshToken === ''
-  ) {
-    throw new Error('Profile did not return the required employee tokens');
+  const { authToken, loginId } = result as Record<string, unknown>;
+  if (typeof authToken !== 'string' || authToken === '') {
+    throw new Error('Profile did not return the required employee access token');
   }
-  return { authToken, refreshToken };
+  return {
+    authToken,
+    ...(typeof loginId === 'string' && loginId ? { loginId } : {}),
+  };
+}
+
+async function errorCode(response: Response): Promise<string | undefined> {
+  try {
+    const value: unknown = await response.json();
+    if (typeof value !== 'object' || value === null || Array.isArray(value)) {
+      return undefined;
+    }
+    const code = (value as Record<string, unknown>).code;
+    return typeof code === 'string' ? code : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+function csrfCookie(cookieName: string): string {
+  const prefix = `${cookieName}=`;
+  const value = document.cookie
+    .split(';')
+    .map((item) => item.trim())
+    .find((item) => item.startsWith(prefix))
+    ?.slice(prefix.length);
+  return value ? decodeURIComponent(value) : '';
 }
 
 export async function authenticateEmployee(
@@ -37,7 +57,7 @@ export async function authenticateEmployee(
   const timeout = globalThis.setTimeout(() => controller.abort(), timeoutMs);
   try {
     const response = await fetchImplementation(
-      new URL('/nodics/profile/v0/employee/authenticate', profileBaseUrl),
+      new URL('/nodics/profile/v0/employee/browser/authenticate', profileBaseUrl),
       {
         method: 'POST',
         headers: {
@@ -47,22 +67,24 @@ export async function authenticateEmployee(
         },
         body: JSON.stringify({ loginId, password }),
         cache: 'no-store',
-        credentials: 'omit',
+        credentials: 'include',
         redirect: 'error',
         signal: controller.signal,
       },
     );
     if (!response.ok) {
+      const code = await errorCode(response);
       throw new Error(
-        response.status === 401
+        response.status === 401 && code === 'ERR_AUTH_00002'
           ? 'The employee identifier or password is incorrect.'
-          : `Profile authentication returned HTTP ${String(response.status)}`,
+          : response.status === 401
+            ? 'Profile could not establish a secure browser session.'
+            : `Profile authentication returned HTTP ${String(response.status)}`,
       );
     }
     const tokens = tokenEnvelope(await response.json());
     return Object.freeze({
       accessToken: tokens.authToken,
-      refreshToken: tokens.refreshToken,
       loginId,
       generation: Date.now(),
     });
@@ -73,29 +95,77 @@ export async function authenticateEmployee(
 
 export async function logoutEmployee(
   profileBaseUrl: string,
-  session: EmployeeSession,
+  enterpriseCode: string,
+  csrfCookieName: string,
   timeoutMs: number,
   fetchImplementation: typeof fetch = fetch,
 ): Promise<void> {
   const controller = new AbortController();
   const timeout = globalThis.setTimeout(() => controller.abort(), timeoutMs);
   try {
-    await fetchImplementation(
-      new URL('/nodics/profile/v0/token/logout', profileBaseUrl),
+    const response = await fetchImplementation(
+      new URL('/nodics/profile/v0/employee/browser/logout', profileBaseUrl),
       {
         method: 'POST',
         headers: {
           Accept: 'application/json',
-          Authorization: `Bearer ${session.accessToken}`,
           'Content-Type': 'application/json',
+          'X-CSRF-Token': csrfCookie(csrfCookieName),
+          'x-enterprise-code': enterpriseCode,
         },
-        body: JSON.stringify({ refreshToken: session.refreshToken }),
+        body: '{}',
         cache: 'no-store',
-        credentials: 'omit',
+        credentials: 'include',
         redirect: 'error',
         signal: controller.signal,
       },
     );
+    if (!response.ok) {
+      throw new Error('Profile could not complete secure logout');
+    }
+  } finally {
+    globalThis.clearTimeout(timeout);
+  }
+}
+
+export async function restoreEmployeeSession(
+  profileBaseUrl: string,
+  enterpriseCode: string,
+  csrfCookieName: string,
+  timeoutMs: number,
+  fetchImplementation: typeof fetch = fetch,
+): Promise<EmployeeSession> {
+  const csrfToken = csrfCookie(csrfCookieName);
+  if (!csrfToken) throw new Error('No browser session is available');
+  const controller = new AbortController();
+  const timeout = globalThis.setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const response = await fetchImplementation(
+      new URL('/nodics/profile/v0/employee/browser/restore', profileBaseUrl),
+      {
+        method: 'POST',
+        headers: {
+          Accept: 'application/json',
+          'Content-Type': 'application/json',
+          'X-CSRF-Token': csrfToken,
+          'x-enterprise-code': enterpriseCode,
+        },
+        body: '{}',
+        cache: 'no-store',
+        credentials: 'include',
+        redirect: 'error',
+        signal: controller.signal,
+      },
+    );
+    if (!response.ok) throw new Error('The browser session is no longer valid');
+    const tokens = tokenEnvelope(await response.json());
+    if (!tokens.loginId)
+      throw new Error('Profile did not restore the employee identity');
+    return Object.freeze({
+      accessToken: tokens.authToken,
+      loginId: tokens.loginId,
+      generation: Date.now(),
+    });
   } finally {
     globalThis.clearTimeout(timeout);
   }

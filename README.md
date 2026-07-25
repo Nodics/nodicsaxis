@@ -40,6 +40,10 @@ See [CMS Delivery and Renderer Integration](docs/cms-delivery-and-renderers.md)
 for the resolved-page client, trusted renderer boundary, validation rules,
 cache isolation, and login integration.
 
+See [Documentation Content In Axis](docs/documentation-content.md) for the
+authenticated `/docs/*` journey, renderer ownership, security boundary,
+failure behavior, and current binary-media limitation.
+
 See [Employee Login, Recovery, Screen Lock, and Dashboard](docs/employee-login.md)
 for startup discovery, employee-only authentication, persistent BackOffice
 policy consumption, protected routing, logout, and failure recovery.
@@ -79,6 +83,7 @@ AXIS_BACKOFFICE_BASE_URL=http://localhost:3000
 AXIS_ENTERPRISE_CODE=default
 AXIS_CLIENT_CONTRACT_VERSION=1
 AXIS_REQUEST_TIMEOUT_MS=10000
+AXIS_BROWSER_SESSION_CSRF_COOKIE_NAME=nodics_axis_csrf
 AXIS_ASSISTANT_MAXIMUM_EVENT_BYTES=65536
 AXIS_ASSISTANT_RECONNECT_WINDOW_MS=120000
 AXIS_ASSISTANT_IDLE_TIMEOUT_MS=45000
@@ -96,6 +101,7 @@ Vite validates these values and generates `/axis-config.json`:
   "enterpriseCode": "default",
   "clientContractVersion": 1,
   "requestTimeoutMs": 10000,
+  "browserSessionCsrfCookieName": "nodics_axis_csrf",
   "assistantMaximumEventBytes": 65536,
   "assistantReconnectWindowMs": 120000,
   "assistantIdleTimeoutMs": 45000
@@ -137,12 +143,19 @@ The implemented authenticated Assistant CMS route, renderer hierarchy,
 direct-module connection validation, and typed HTTP client are documented in
 [Axis Assistant Frontend](docs/assistant-frontend.md).
 
+The implemented Schema Workbench discovery, schema browser, bounded record
+list, relationship editor, record detail, Create, Update, and governed Delete
+are documented in
+[Axis Schema Workbench](docs/schema-workbench.md).
+
 ## Current scope
 
 The current foundation proves the frontend runtime boundary, safe startup, CMS
 delivery/renderers, employee authentication, secured BackOffice bootstrap,
 CMS-driven login/recovery/lock pages, idle screen locking, protected dashboard
 routing, logout, the CMS-driven Assistant workspace shell, typed Assistant HTTP
-contracts, authenticated resumable SSE transport, and isolated Assistant
-presentation state. The visible conversation workspace, functional module
-workspaces, and visual designers remain future slices.
+contracts, authenticated resumable SSE transport, isolated Assistant
+presentation state, and the CMS-driven Schema Workbench browser with
+direct-module schema discovery, bounded record reads, and independent Address
+and Contact creation, relationship coordination, record detail, generated
+Update, and governed Delete. Visual designers remain future slices.

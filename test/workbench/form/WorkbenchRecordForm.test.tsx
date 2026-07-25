@@ -1,0 +1,415 @@
+import { render, screen } from '@testing-library/react';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import userEvent from '@testing-library/user-event';
+import { describe, expect, it, vi } from 'vitest';
+
+import type { WorkbenchSchema } from '../../../src/workbench/api/workbenchContracts';
+import { WorkbenchRecordForm } from '../../../src/workbench/form/WorkbenchRecordForm';
+
+const contact: WorkbenchSchema = {
+  moduleName: 'profile',
+  schemaName: 'contact',
+  label: 'Contact',
+  description: '',
+  displayProperty: 'code',
+  displayProperties: ['code', 'description'],
+  queryCapabilities: {
+    searchableFields: ['code', 'description'],
+    sortableFields: ['code'],
+    filterFields: [],
+    groupOperators: ['AND', 'OR'],
+    textOperator: 'CONTAINS',
+    allowedPageSizes: [10, 25, 50],
+    defaultPageSize: 25,
+    maximumPageSize: 50,
+    defaultSort: { field: 'code', direction: 'ASC' },
+  },
+  mutationMode: 'GENERATED_CRUD',
+  operations: ['search', 'read', 'create'],
+  fields: [
+    {
+      name: 'created',
+      label: 'Created',
+      type: 'date',
+      required: true,
+      readOnly: true,
+      primary: false,
+      description: '',
+      searchable: true,
+    },
+    {
+      name: 'code',
+      label: 'Code',
+      type: 'string',
+      required: true,
+      readOnly: false,
+      primary: true,
+      description: '',
+      searchable: true,
+    },
+    {
+      name: 'type',
+      label: 'Type',
+      type: 'string',
+      required: true,
+      readOnly: false,
+      primary: false,
+      description: '',
+      enum: ['EMAIL', 'PHONE'],
+      searchable: false,
+    },
+    {
+      name: 'priority',
+      label: 'Priority',
+      type: 'int',
+      required: true,
+      readOnly: false,
+      primary: false,
+      description: '',
+      default: 0,
+      searchable: false,
+    },
+  ],
+  relationships: [],
+};
+
+const address: WorkbenchSchema = {
+  moduleName: 'profile',
+  schemaName: 'address',
+  label: 'Address',
+  description: '',
+  displayProperty: 'code',
+  displayProperties: ['code'],
+  queryCapabilities: {
+    searchableFields: ['code'],
+    sortableFields: ['code'],
+    filterFields: [],
+    groupOperators: ['AND', 'OR'],
+    textOperator: 'CONTAINS',
+    allowedPageSizes: [10, 25, 50],
+    defaultPageSize: 25,
+    maximumPageSize: 50,
+    defaultSort: { field: 'code', direction: 'ASC' },
+  },
+  mutationMode: 'GENERATED_CRUD',
+  operations: ['search', 'read', 'create'],
+  fields: [
+    {
+      name: 'code',
+      label: 'Code',
+      type: 'string',
+      required: true,
+      readOnly: false,
+      primary: true,
+      description: '',
+      searchable: true,
+    },
+    {
+      name: 'contacts',
+      label: 'Contacts',
+      type: 'array',
+      required: false,
+      readOnly: false,
+      primary: false,
+      description: '',
+      searchable: false,
+    },
+  ],
+  relationships: [
+    {
+      field: 'contacts',
+      label: 'Contact methods',
+      description: 'Linked contacts',
+      targetModule: 'profile',
+      targetSchema: 'contact',
+      cardinality: 'MANY',
+      referenceProperty: 'code',
+      resolution: 'LOCAL_OR_REMOTE',
+      actions: ['SELECT_EXISTING', 'CREATE_RELATED'],
+      required: false,
+    },
+  ],
+};
+
+const relationshipCopy = {
+  addToDraftLabel: 'Add to draft',
+  cancelLabel: 'Cancel',
+  createRelatedLabel: 'Create related',
+  editRelatedLabel: 'Edit related',
+  noRelatedRecordsLabel: 'No related records',
+  relatedSearchLabel: 'Search related records',
+  removeRelatedLabel: 'Close',
+  selectExistingLabel: 'Select existing',
+};
+
+describe('WorkbenchRecordForm', () => {
+  it('renders typed fields, excludes managed fields, and submits a valid draft', async () => {
+    const user = userEvent.setup();
+    const submit = vi.fn();
+    render(
+      <WorkbenchRecordForm
+        cancelLabel="Cancel"
+        saving={false}
+        savingLabel="Saving"
+        schema={contact}
+        submitLabel="Create"
+        onCancel={vi.fn()}
+        onSubmit={submit}
+      />,
+    );
+
+    expect(screen.queryByLabelText('Created')).not.toBeInTheDocument();
+    await user.type(screen.getByLabelText(/Code/), 'DXB-EMAIL');
+    await user.click(screen.getByLabelText(/Type/));
+    await user.click(screen.getByRole('option', { name: 'EMAIL' }));
+    await user.click(screen.getByRole('button', { name: 'Create' }));
+
+    expect(submit).toHaveBeenCalledWith({
+      code: 'DXB-EMAIL',
+      type: 'EMAIL',
+      priority: 0,
+    });
+  });
+
+  it('blocks an incomplete draft before it reaches the backend', async () => {
+    const user = userEvent.setup();
+    const submit = vi.fn();
+    render(
+      <WorkbenchRecordForm
+        cancelLabel="Cancel"
+        saving={false}
+        savingLabel="Saving"
+        schema={contact}
+        submitLabel="Create"
+        onCancel={vi.fn()}
+        onSubmit={submit}
+      />,
+    );
+    await user.click(screen.getByRole('button', { name: 'Create' }));
+    expect(screen.getByText('Code is required')).toBeVisible();
+    expect(screen.getByText('Type is required')).toBeVisible();
+    expect(submit).not.toHaveBeenCalled();
+  });
+
+  it('initializes an update draft from an existing record', async () => {
+    const user = userEvent.setup();
+    const submit = vi.fn();
+    render(
+      <WorkbenchRecordForm
+        cancelLabel="Cancel"
+        initialModel={{
+          code: 'DXB-EMAIL',
+          type: 'EMAIL',
+          priority: 2,
+          created: '2026-07-25T10:00:00.000Z',
+        }}
+        saving={false}
+        savingLabel="Updating"
+        schema={contact}
+        submitLabel="Update"
+        onCancel={vi.fn()}
+        onSubmit={submit}
+      />,
+    );
+
+    expect(screen.getByLabelText(/Code/)).toHaveValue('DXB-EMAIL');
+    expect(screen.queryByLabelText('Created')).not.toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Update' }));
+    expect(submit).toHaveBeenCalledWith({
+      code: 'DXB-EMAIL',
+      type: 'EMAIL',
+      priority: 2,
+    });
+  });
+
+  it('retains a created related reference when the parent save fails and retries', async () => {
+    const user = userEvent.setup();
+    const createRelated = vi.fn().mockResolvedValue({ code: 'DXB-EMAIL' });
+    const submit = vi
+      .fn()
+      .mockRejectedValueOnce(new Error('Address save failed'))
+      .mockResolvedValueOnce(undefined);
+    const queryClient = new QueryClient({
+      defaultOptions: { queries: { retry: false } },
+    });
+    render(
+      <QueryClientProvider client={queryClient}>
+        <WorkbenchRecordForm
+          cancelLabel="Cancel"
+          relationshipCopy={relationshipCopy}
+          relationshipRuntime={{
+            schemas: [address, contact],
+            queryScope: ['default'],
+            createRecord: createRelated,
+            loadRecords: vi.fn().mockResolvedValue([]),
+          }}
+          saving={false}
+          savingLabel="Saving"
+          schema={address}
+          submitLabel="Create"
+          onCancel={vi.fn()}
+          onSubmit={submit}
+        />
+      </QueryClientProvider>,
+    );
+
+    await user.type(screen.getByLabelText(/Code/), 'DXB-OFFICE');
+    await user.click(
+      screen.getByRole('button', { name: 'Create related Contact methods' }),
+    );
+    await user.type(screen.getAllByLabelText(/Code/)[1]!, 'DXB-EMAIL');
+    await user.click(screen.getByLabelText(/Type/));
+    await user.click(screen.getByRole('option', { name: 'EMAIL' }));
+    await user.click(screen.getByRole('button', { name: 'Add to draft' }));
+    await user.click(screen.getByRole('button', { name: 'Create' }));
+
+    expect(await screen.findByText('Address save failed')).toBeVisible();
+    expect(createRelated).toHaveBeenCalledTimes(1);
+    expect(submit).toHaveBeenLastCalledWith({
+      code: 'DXB-OFFICE',
+      contacts: ['DXB-EMAIL'],
+    });
+
+    await user.click(screen.getByRole('button', { name: 'Create' }));
+    expect(createRelated).toHaveBeenCalledTimes(1);
+    expect(submit).toHaveBeenCalledTimes(2);
+  });
+
+  it('selects an existing related record without creating a duplicate', async () => {
+    const user = userEvent.setup();
+    const createRelated = vi.fn();
+    const submit = vi.fn();
+    const queryClient = new QueryClient({
+      defaultOptions: { queries: { retry: false } },
+    });
+    render(
+      <QueryClientProvider client={queryClient}>
+        <WorkbenchRecordForm
+          cancelLabel="Cancel"
+          relationshipCopy={relationshipCopy}
+          relationshipRuntime={{
+            schemas: [address, contact],
+            queryScope: ['default'],
+            createRecord: createRelated,
+            loadRecords: vi.fn().mockResolvedValue([
+              {
+                code: 'DXB-PHONE',
+                description:
+                  'Primary office telephone contact used by the Dubai operations support team every day',
+                type: 'PHONE',
+              },
+              {
+                code: 'HOME-PHONE',
+                description: 'Short home contact',
+                type: 'PHONE',
+              },
+            ]),
+          }}
+          saving={false}
+          savingLabel="Saving"
+          schema={address}
+          submitLabel="Create"
+          onCancel={vi.fn()}
+          onSubmit={submit}
+        />
+      </QueryClientProvider>,
+    );
+
+    await user.type(screen.getByLabelText(/Code/), 'DXB-OFFICE');
+    expect(screen.getByText('Contact methods')).toBeVisible();
+    await user.click(screen.getByRole('button', { name: 'Select existing' }));
+    expect(
+      screen.getByRole('button', { name: 'Create related Contact methods' }),
+    ).toBeVisible();
+    const relatedRecord = await screen.findByText(
+      'DXB-PHONE - Primary office telephone contact used...',
+    );
+    await user.hover(relatedRecord);
+    expect(
+      await screen.findByRole('tooltip', {
+        name: 'Primary office telephone contact used by the Dubai operations support team every day',
+      }),
+    ).toBeVisible();
+    await user.unhover(relatedRecord);
+    const shortDescription = screen.getByText('HOME-PHONE - Short home contact');
+    await user.hover(shortDescription);
+    expect(
+      await screen.findByRole('tooltip', { name: 'Short home contact' }),
+    ).toBeVisible();
+    await user.click(
+      screen.getByRole('checkbox', {
+        name: 'DXB-PHONE - Primary office telephone contact used...',
+      }),
+    );
+    await user.click(screen.getByRole('button', { name: 'Create' }));
+
+    expect(createRelated).not.toHaveBeenCalled();
+    expect(submit).toHaveBeenCalledWith({
+      code: 'DXB-OFFICE',
+      contacts: ['DXB-PHONE'],
+    });
+  });
+
+  it('stops nested creation when a relationship would repeat the schema path', () => {
+    const cyclicContact: WorkbenchSchema = {
+      ...contact,
+      fields: [
+        ...contact.fields,
+        {
+          name: 'parent',
+          label: 'Parent contact',
+          type: 'string',
+          required: false,
+          readOnly: false,
+          primary: false,
+          description: '',
+          searchable: false,
+        },
+      ],
+      relationships: [
+        {
+          field: 'parent',
+          label: 'Parent contact',
+          description: '',
+          targetModule: 'profile',
+          targetSchema: 'contact',
+          cardinality: 'ONE',
+          referenceProperty: 'code',
+          resolution: 'LOCAL_OR_REMOTE',
+          actions: ['SELECT_EXISTING', 'CREATE_RELATED'],
+          required: false,
+          maximumDepth: 3,
+          cycleHandling: 'SELECT_EXISTING',
+        },
+      ],
+    };
+    const queryClient = new QueryClient({
+      defaultOptions: { queries: { retry: false } },
+    });
+    render(
+      <QueryClientProvider client={queryClient}>
+        <WorkbenchRecordForm
+          cancelLabel="Cancel"
+          relationshipCopy={relationshipCopy}
+          relationshipRuntime={{
+            schemas: [cyclicContact],
+            queryScope: ['default'],
+            createRecord: vi.fn(),
+            loadRecords: vi.fn().mockResolvedValue([]),
+          }}
+          saving={false}
+          savingLabel="Saving"
+          schema={cyclicContact}
+          submitLabel="Create"
+          onCancel={vi.fn()}
+          onSubmit={vi.fn()}
+        />
+      </QueryClientProvider>,
+    );
+
+    expect(screen.getByRole('button', { name: 'Select existing' })).toBeVisible();
+    expect(
+      screen.queryByRole('button', { name: /Create related/ }),
+    ).not.toBeInTheDocument();
+  });
+});

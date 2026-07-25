@@ -3,6 +3,7 @@ export interface AxisRuntimeConfig {
   readonly enterpriseCode: string;
   readonly clientContractVersion: number;
   readonly requestTimeoutMs: number;
+  readonly browserSessionCsrfCookieName: string;
   readonly assistantMaximumEventBytes: number;
   readonly assistantReconnectWindowMs: number;
   readonly assistantIdleTimeoutMs: number;
@@ -72,6 +73,7 @@ export function parseRuntimeConfig(value: unknown): AxisRuntimeConfig {
     'enterpriseCode',
     'clientContractVersion',
     'requestTimeoutMs',
+    'browserSessionCsrfCookieName',
     'assistantMaximumEventBytes',
     'assistantReconnectWindowMs',
     'assistantIdleTimeoutMs',
@@ -107,6 +109,13 @@ export function parseRuntimeConfig(value: unknown): AxisRuntimeConfig {
       'clientContractVersion',
     ),
     requestTimeoutMs,
+    browserSessionCsrfCookieName:
+      typeof value.browserSessionCsrfCookieName === 'string' &&
+      /^[A-Za-z0-9_-]{1,64}$/.test(value.browserSessionCsrfCookieName)
+        ? value.browserSessionCsrfCookieName
+        : (() => {
+            throw new Error('browserSessionCsrfCookieName must be a valid cookie name');
+          })(),
     assistantMaximumEventBytes: parseBoundedInteger(
       value.assistantMaximumEventBytes,
       'assistantMaximumEventBytes',

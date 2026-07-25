@@ -18,6 +18,14 @@ export const CMS_RENDERER_MANIFEST = Object.freeze({
     kind: 'page',
     contractVersions: Object.freeze([1]),
   },
+  'axis.page.schema-workbench': {
+    kind: 'page',
+    contractVersions: Object.freeze([1]),
+  },
+  'documentation.page.article': {
+    kind: 'page',
+    contractVersions: Object.freeze([1]),
+  },
   'axis.template.authentication': {
     kind: 'template',
     contractVersions: Object.freeze([1]),
@@ -27,6 +35,14 @@ export const CMS_RENDERER_MANIFEST = Object.freeze({
     contractVersions: Object.freeze([1]),
   },
   'axis.template.assistant': {
+    kind: 'template',
+    contractVersions: Object.freeze([1]),
+  },
+  'axis.template.schema-workbench': {
+    kind: 'template',
+    contractVersions: Object.freeze([1]),
+  },
+  'documentation.template.article': {
     kind: 'template',
     contractVersions: Object.freeze([1]),
   },
@@ -67,6 +83,14 @@ export const CMS_RENDERER_MANIFEST = Object.freeze({
     contractVersions: Object.freeze([1]),
   },
   'axis.component.assistant-workspace': {
+    kind: 'component',
+    contractVersions: Object.freeze([1]),
+  },
+  'axis.component.schema-workbench': {
+    kind: 'component',
+    contractVersions: Object.freeze([1]),
+  },
+  'documentation.component.article': {
     kind: 'component',
     contractVersions: Object.freeze([1]),
   },

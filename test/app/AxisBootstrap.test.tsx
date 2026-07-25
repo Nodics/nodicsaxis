@@ -10,6 +10,7 @@ const validConfig = {
   enterpriseCode: 'default',
   clientContractVersion: 1,
   requestTimeoutMs: 10_000,
+  browserSessionCsrfCookieName: 'nodics_axis_csrf',
   assistantMaximumEventBytes: 65_536,
   assistantReconnectWindowMs: 120_000,
   assistantIdleTimeoutMs: 45_000,

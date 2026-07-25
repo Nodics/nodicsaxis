@@ -27,6 +27,10 @@ describe('CMS renderer registries', () => {
     expect(
       COMPONENT_RENDERER_REGISTRY['axis.component.employee-login-form'],
     ).toBeDefined();
+    expect(
+      COMPONENT_RENDERER_REGISTRY['documentation.component.article'],
+    ).toBeDefined();
     expect(PAGE_RENDERER_REGISTRY['axis.page.authentication']).toBeDefined();
+    expect(PAGE_RENDERER_REGISTRY['documentation.page.article']).toBeDefined();
   });
 });

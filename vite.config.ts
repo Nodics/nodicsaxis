@@ -40,6 +40,10 @@ export function buildRuntimeConfig(env: Record<string, string>): AxisRuntimeConf
     enterpriseCode: required(env, 'AXIS_ENTERPRISE_CODE'),
     clientContractVersion: positiveInteger(env, 'AXIS_CLIENT_CONTRACT_VERSION'),
     requestTimeoutMs: positiveInteger(env, 'AXIS_REQUEST_TIMEOUT_MS'),
+    browserSessionCsrfCookieName: required(
+      env,
+      'AXIS_BROWSER_SESSION_CSRF_COOKIE_NAME',
+    ),
     assistantMaximumEventBytes: positiveInteger(
       env,
       'AXIS_ASSISTANT_MAXIMUM_EVENT_BYTES',

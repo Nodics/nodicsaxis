@@ -1,11 +1,17 @@
+import { useState } from 'react';
+
 import {
   Box,
+  Collapse,
   Divider,
+  IconButton,
+  InputAdornment,
   List,
   ListItemButton,
   ListItemIcon,
   ListItemText,
   Stack,
+  TextField,
   Tooltip,
   Typography,
 } from '@mui/material';
@@ -13,6 +19,7 @@ import { alpha } from '@mui/material/styles';
 
 import { axisTokens } from '../axisTheme';
 import { AxisMark } from './AxisMark';
+import { navigationItemKey } from './navigationPreferences';
 import { ShellIcon } from './ShellIcon';
 import { availabilityLabel, type ShellNavigationGroup } from './shellNavigation';
 
@@ -21,27 +28,37 @@ interface NavigationRailProps {
   readonly compact: boolean;
   readonly groups: readonly ShellNavigationGroup[];
   readonly query: string;
+  readonly favourites: ReadonlySet<string>;
   readonly onNavigate: (route: string) => void;
+  readonly onQueryChange: (value: string) => void;
+  readonly onToggleFavourite: (key: string) => void;
 }
 
 export function NavigationRail({
   activePath,
   compact,
+  favourites,
   groups,
   onNavigate,
+  onQueryChange,
+  onToggleFavourite,
   query,
 }: NavigationRailProps) {
+  const [collapsedGroups, setCollapsedGroups] = useState<ReadonlySet<string>>(
+    () => new Set(),
+  );
   const normalizedQuery = query.trim().toLocaleLowerCase();
   const visibleGroups = groups
     .map((group) => ({
       ...group,
-      items: group.items.filter((item) =>
-        normalizedQuery === ''
-          ? true
-          : `${item.label} ${item.moduleName}`
-              .toLocaleLowerCase()
-              .includes(normalizedQuery),
-      ),
+      items: group.items.filter((item) => {
+        const queryVisible =
+          normalizedQuery === '' ||
+          `${group.label} ${item.label} ${item.moduleName}`
+            .toLocaleLowerCase()
+            .includes(normalizedQuery);
+        return queryVisible;
+      }),
     }))
     .filter((group) => group.items.length > 0);
 
@@ -65,6 +82,47 @@ export function NavigationRail({
         <AxisMark compact={compact} reverse />
       </Box>
       <Divider sx={{ borderColor: alpha('#ffffff', 0.1) }} />
+      {!compact ? (
+        <TextField
+          placeholder="Search menu"
+          size="small"
+          value={query}
+          sx={{
+            mx: 2,
+            mt: 1.5,
+            '& .MuiOutlinedInput-root': {
+              color: 'common.white',
+              bgcolor: alpha('#ffffff', 0.06),
+              '& fieldset': { borderColor: alpha('#ffffff', 0.16) },
+              '&:hover fieldset': { borderColor: alpha('#ffffff', 0.34) },
+              '&.Mui-focused fieldset': { borderColor: 'primary.main' },
+            },
+            '& input::placeholder': {
+              color: alpha('#ffffff', 0.58),
+              opacity: 1,
+            },
+          }}
+          slotProps={{
+            htmlInput: {
+              'aria-label': 'Search menu',
+            },
+            input: {
+              startAdornment: (
+                <InputAdornment position="start">
+                  <ShellIcon
+                    fontSize="small"
+                    name="search"
+                    sx={{ color: alpha('#ffffff', 0.58) }}
+                  />
+                </InputAdornment>
+              ),
+            },
+          }}
+          onChange={(event) => {
+            onQueryChange(event.target.value);
+          }}
+        />
+      ) : null}
       <Box
         component="nav"
         aria-label="Primary navigation"
@@ -75,128 +133,247 @@ export function NavigationRail({
           scrollbarColor: `${alpha('#ffffff', 0.2)} transparent`,
         }}
       >
-        {visibleGroups.map((group) => (
-          <Box key={group.id} sx={{ mb: 1.5 }}>
-            <Typography
-              sx={{
-                color: alpha('#ffffff', 0.48),
-                display: compact ? 'none' : 'block',
-                px: 2.5,
-                pb: 0.75,
-                pt: 1.25,
-              }}
-              variant="overline"
-            >
-              {group.label}
-            </Typography>
-            <List disablePadding sx={{ px: compact ? 1.25 : 1 }}>
-              {group.items.map((item) => {
-                const unavailable = item.availability === 'UNAVAILABLE';
-                const navigationItem = (
-                  <ListItemButton
-                    key={`${item.moduleName}:${item.id}`}
-                    aria-label={item.label}
-                    disabled={unavailable}
-                    selected={activePath === item.route}
+        {visibleGroups.length === 0 && normalizedQuery ? (
+          <Typography
+            sx={{ color: alpha('#ffffff', 0.62), px: 2.5, py: 2 }}
+            variant="body2"
+          >
+            No matching menu items
+          </Typography>
+        ) : null}
+        {visibleGroups.map((group) => {
+          const expanded =
+            compact || normalizedQuery !== '' || !collapsedGroups.has(group.id);
+          return (
+            <Box key={group.id} sx={{ mb: 1.5 }}>
+              {!compact ? (
+                <ListItemButton
+                  aria-controls={`navigation-group-${group.id}`}
+                  aria-expanded={expanded}
+                  aria-label={`${expanded ? 'Collapse' : 'Expand'} ${group.label}`}
+                  sx={{
+                    borderRadius: `${String(axisTokens.radius.small)}px`,
+                    color: alpha('#ffffff', 0.58),
+                    justifyContent: 'space-between',
+                    mx: 1,
+                    px: 1.5,
+                    py: 0.5,
+                    '&:hover': {
+                      bgcolor: alpha('#ffffff', 0.07),
+                      color: 'common.white',
+                    },
+                  }}
+                  onClick={() => {
+                    setCollapsedGroups((current) => {
+                      const next = new Set(current);
+                      if (next.has(group.id)) next.delete(group.id);
+                      else next.add(group.id);
+                      return next;
+                    });
+                  }}
+                >
+                  <Typography variant="overline">{group.label}</Typography>
+                  <Box
+                    aria-hidden
+                    component="span"
                     sx={{
-                      borderRadius: `${String(axisTokens.radius.small)}px`,
-                      color: alpha('#ffffff', 0.74),
-                      mb: 0.5,
-                      minHeight: 42,
-                      justifyContent: compact ? 'center' : 'flex-start',
-                      px: compact ? 1 : 1.5,
-                      position: 'relative',
-                      '&:hover': {
-                        bgcolor: alpha('#ffffff', 0.07),
-                        color: 'common.white',
-                      },
-                      '&.Mui-selected': {
-                        bgcolor: alpha(axisTokens.color.signatureGold, 0.14),
-                        color: 'common.white',
-                      },
-                      '&.Mui-selected:hover': {
-                        bgcolor: alpha(axisTokens.color.signatureGold, 0.2),
-                      },
-                      '&.Mui-selected::before': {
-                        bgcolor: 'primary.main',
-                        borderRadius: '0 2px 2px 0',
-                        bottom: 8,
-                        content: '""',
-                        left: -8,
-                        position: 'absolute',
-                        top: 8,
-                        width: 3,
-                      },
+                      borderBottom: '1.5px solid currentColor',
+                      borderRight: '1.5px solid currentColor',
+                      height: 7,
+                      transform: expanded ? 'rotate(45deg)' : 'rotate(-45deg)',
+                      transition: 'transform 150ms ease',
+                      width: 7,
                     }}
-                    onClick={() => {
-                      onNavigate(item.route);
-                    }}
-                  >
-                    <ListItemIcon
-                      sx={{
-                        color:
-                          activePath === item.route
-                            ? 'primary.main'
-                            : alpha('#ffffff', 0.5),
-                        justifyContent: 'center',
-                        minWidth: compact ? 0 : 36,
-                      }}
-                    >
-                      <ShellIcon fontSize="small" name={item.icon} />
-                    </ListItemIcon>
-                    <ListItemText
-                      sx={{ display: compact ? 'none' : 'block' }}
-                      primary={item.label}
-                      secondary={
-                        item.availability === 'UP'
-                          ? undefined
-                          : availabilityLabel(item.availability)
-                      }
-                      slotProps={{
-                        primary: { noWrap: true },
-                        secondary: { noWrap: true },
-                      }}
-                    />
-                    {!item.local && item.availability !== 'UP' ? (
-                      <Tooltip title={availabilityLabel(item.availability)}>
-                        <Box
-                          aria-label={availabilityLabel(item.availability)}
-                          component="span"
+                  />
+                </ListItemButton>
+              ) : null}
+              <Collapse
+                id={`navigation-group-${group.id}`}
+                in={expanded}
+                timeout="auto"
+                unmountOnExit
+              >
+                <List disablePadding sx={{ px: compact ? 1.25 : 1 }}>
+                  {group.items.map((item) => {
+                    const unavailable = item.availability === 'UNAVAILABLE';
+                    const featureDisabled = item.featureState === 'DISABLED';
+                    const assistantItem =
+                      item.id === 'assistant' && item.moduleName === 'aiAssistant';
+                    const assistantActive =
+                      assistantItem && ['UP', 'DEGRADED'].includes(item.availability);
+                    const navigationItem = (
+                      <ListItemButton
+                        key={`${item.moduleName}:${item.id}`}
+                        aria-label={item.label}
+                        aria-level={item.depth + 1}
+                        disabled={unavailable || featureDisabled}
+                        selected={activePath === item.route}
+                        sx={{
+                          borderRadius: `${String(axisTokens.radius.small)}px`,
+                          color: alpha('#ffffff', 0.74),
+                          mb: 0.5,
+                          minHeight: 42,
+                          justifyContent: compact ? 'center' : 'flex-start',
+                          pl: compact ? 1 : 1.5 + item.depth * 2,
+                          pr: compact ? 1 : 1.5,
+                          position: 'relative',
+                          '&:hover': {
+                            bgcolor: alpha('#ffffff', 0.07),
+                            color: 'common.white',
+                          },
+                          '&.Mui-selected': {
+                            bgcolor: alpha(axisTokens.color.signatureGold, 0.14),
+                            color: 'common.white',
+                          },
+                          '&.Mui-selected:hover': {
+                            bgcolor: alpha(axisTokens.color.signatureGold, 0.2),
+                          },
+                          '&.Mui-selected::before': {
+                            bgcolor: 'primary.main',
+                            borderRadius: '0 2px 2px 0',
+                            bottom: 8,
+                            content: '""',
+                            left: -8,
+                            position: 'absolute',
+                            top: 8,
+                            width: 3,
+                          },
+                        }}
+                        onClick={() => {
+                          onNavigate(item.route);
+                        }}
+                      >
+                        <ListItemIcon
                           sx={{
-                            bgcolor:
-                              item.availability === 'DEGRADED'
-                                ? 'warning.main'
-                                : 'error.main',
-                            borderRadius: '50%',
-                            height: 7,
-                            position: compact ? 'absolute' : 'static',
-                            right: compact ? 5 : 'auto',
-                            top: compact ? 5 : 'auto',
-                            mr: compact ? 0 : 0.5,
-                            width: 7,
+                            color:
+                              activePath === item.route
+                                ? 'primary.main'
+                                : alpha('#ffffff', 0.5),
+                            justifyContent: 'center',
+                            minWidth: compact ? 0 : 36,
+                          }}
+                        >
+                          <ShellIcon
+                            color={
+                              assistantItem
+                                ? assistantActive
+                                  ? 'primary'
+                                  : 'disabled'
+                                : 'inherit'
+                            }
+                            fontSize="small"
+                            name={item.icon}
+                          />
+                        </ListItemIcon>
+                        <ListItemText
+                          sx={{ display: compact ? 'none' : 'block' }}
+                          primary={item.label}
+                          secondary={
+                            item.availability === 'UP'
+                              ? item.featureState === 'PREVIEW'
+                                ? 'Preview'
+                                : undefined
+                              : availabilityLabel(item.availability)
+                          }
+                          slotProps={{
+                            primary: { noWrap: true },
+                            secondary: { noWrap: true },
                           }}
                         />
+                        {!item.local && item.availability !== 'UP' ? (
+                          <Tooltip title={availabilityLabel(item.availability)}>
+                            <Box
+                              aria-label={availabilityLabel(item.availability)}
+                              component="span"
+                              sx={{
+                                bgcolor:
+                                  item.availability === 'DEGRADED'
+                                    ? 'warning.main'
+                                    : 'error.main',
+                                borderRadius: '50%',
+                                height: 7,
+                                position: compact ? 'absolute' : 'static',
+                                right: compact ? 5 : 'auto',
+                                top: compact ? 5 : 'auto',
+                                mr: compact ? 0 : 0.5,
+                                width: 7,
+                              }}
+                            />
+                          </Tooltip>
+                        ) : null}
+                      </ListItemButton>
+                    );
+                    return compact ? (
+                      <Tooltip
+                        key={`${item.moduleName}:${item.id}`}
+                        placement="right"
+                        title={item.label}
+                      >
+                        <Box component="span" sx={{ display: 'block' }}>
+                          {navigationItem}
+                        </Box>
                       </Tooltip>
-                    ) : null}
-                  </ListItemButton>
-                );
-                return compact ? (
-                  <Tooltip
-                    key={`${item.moduleName}:${item.id}`}
-                    placement="right"
-                    title={item.label}
-                  >
-                    <Box component="span" sx={{ display: 'block' }}>
-                      {navigationItem}
-                    </Box>
-                  </Tooltip>
-                ) : (
-                  navigationItem
-                );
-              })}
-            </List>
-          </Box>
-        ))}
+                    ) : (
+                      <Box
+                        key={`${item.moduleName}:${item.id}`}
+                        sx={{ alignItems: 'center', display: 'flex' }}
+                      >
+                        <Box sx={{ flex: 1, minWidth: 0 }}>{navigationItem}</Box>
+                        {!item.local ? (
+                          <Tooltip
+                            title={
+                              favourites.has(
+                                navigationItemKey(item.moduleName, item.id),
+                              )
+                                ? `Remove ${item.label} from favourites`
+                                : `Add ${item.label} to favourites`
+                            }
+                          >
+                            <IconButton
+                              aria-label={
+                                favourites.has(
+                                  navigationItemKey(item.moduleName, item.id),
+                                )
+                                  ? `Remove ${item.label} from favourites`
+                                  : `Add ${item.label} to favourites`
+                              }
+                              color={
+                                favourites.has(
+                                  navigationItemKey(item.moduleName, item.id),
+                                )
+                                  ? 'primary'
+                                  : 'inherit'
+                              }
+                              size="small"
+                              sx={{ color: alpha('#ffffff', 0.56), mr: 0.75 }}
+                              onClick={() => {
+                                onToggleFavourite(
+                                  navigationItemKey(item.moduleName, item.id),
+                                );
+                              }}
+                            >
+                              <Box
+                                aria-hidden="true"
+                                component="span"
+                                sx={{ fontSize: 18, lineHeight: 1 }}
+                              >
+                                {favourites.has(
+                                  navigationItemKey(item.moduleName, item.id),
+                                )
+                                  ? '★'
+                                  : '☆'}
+                              </Box>
+                            </IconButton>
+                          </Tooltip>
+                        ) : null}
+                      </Box>
+                    );
+                  })}
+                </List>
+              </Collapse>
+            </Box>
+          );
+        })}
         {visibleGroups.length === 0 ? (
           <Typography sx={{ color: alpha('#ffffff', 0.56), px: 2.5, py: 3 }}>
             No navigation results

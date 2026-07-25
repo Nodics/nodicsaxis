@@ -4,6 +4,8 @@ import type {
 } from '../../bootstrap/publicBootstrap';
 
 export interface ShellNavigationItem extends AxisNavigationItem {
+  readonly depth: number;
+  readonly hasChildren: boolean;
   readonly local: boolean;
 }
 
@@ -22,17 +24,17 @@ const CATEGORY_GROUPS: Readonly<
   commerce: { id: 'commerce', label: 'Commerce', order: 300 },
   core: {
     id: 'organization',
-    label: 'Organization',
+    label: 'Customers and Organization',
     order: 400,
   },
   operations: {
     id: 'automation',
-    label: 'Automation',
+    label: 'Process and Automation',
     order: 500,
   },
   platform: {
     id: 'operations',
-    label: 'Operations',
+    label: 'Operations and Integration',
     order: 600,
   },
 });
@@ -46,6 +48,11 @@ const dashboard: ShellNavigationItem = Object.freeze({
   category: 'workspace',
   icon: 'dashboard',
   availability: 'UP',
+  perspectives: ['operations'],
+  contexts: [],
+  featureState: 'ACTIVE',
+  depth: 0,
+  hasChildren: false,
   local: true,
 });
 
@@ -61,13 +68,19 @@ export function composeShellNavigation(
   });
 
   navigation.forEach((item) => {
-    const definition = CATEGORY_GROUPS[item.category] ?? {
-      id: 'other',
-      label: 'Other Capabilities',
-      order: 700,
-    };
+    const definition = item.group ??
+      CATEGORY_GROUPS[item.category] ?? {
+        id: 'other',
+        label: 'Other Capabilities',
+        order: 700,
+      };
     const existing = groups.get(definition.id);
-    const shellItem: ShellNavigationItem = { ...item, local: false };
+    const shellItem: ShellNavigationItem = {
+      ...item,
+      depth: 0,
+      hasChildren: false,
+      local: false,
+    };
     groups.set(definition.id, {
       ...definition,
       items: [...(existing?.items ?? []), shellItem],
@@ -78,15 +91,34 @@ export function composeShellNavigation(
     [...groups.values()]
       .map((group) => ({
         ...group,
-        items: Object.freeze(
-          [...group.items].sort(
-            (left, right) =>
-              left.order - right.order || left.label.localeCompare(right.label),
-          ),
-        ),
+        items: Object.freeze(flattenHierarchy(group.items)),
       }))
       .sort((left, right) => left.order - right.order),
   );
+}
+
+function flattenHierarchy(
+  items: readonly ShellNavigationItem[],
+): readonly ShellNavigationItem[] {
+  const byParent = new Map<string | undefined, ShellNavigationItem[]>();
+  items.forEach((item) => {
+    const parent = item.parentId;
+    byParent.set(parent, [...(byParent.get(parent) ?? []), item]);
+  });
+  byParent.forEach((children) => {
+    children.sort(
+      (left, right) =>
+        left.order - right.order || left.label.localeCompare(right.label),
+    );
+  });
+  const flattened: ShellNavigationItem[] = [];
+  const append = (item: ShellNavigationItem, depth: number) => {
+    const children = byParent.get(item.id) ?? [];
+    flattened.push({ ...item, depth, hasChildren: children.length > 0 });
+    children.forEach((child) => append(child, depth + 1));
+  };
+  (byParent.get(undefined) ?? []).forEach((item) => append(item, 0));
+  return flattened;
 }
 
 export function availabilityLabel(state: AxisModuleAvailability): string {

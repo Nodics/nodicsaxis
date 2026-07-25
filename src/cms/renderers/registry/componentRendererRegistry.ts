@@ -53,6 +53,18 @@ export const COMPONENT_RENDERER_REGISTRY = Object.freeze({
       default: module.AssistantWorkspaceRenderer,
     })),
   ),
+  'axis.component.schema-workbench': lazy(() =>
+    import('../components/workbench/SchemaWorkbenchRenderer').then((module) => ({
+      default: module.SchemaWorkbenchRenderer,
+    })),
+  ),
+  'documentation.component.article': lazy(() =>
+    import('../components/documentation/DocumentationArticleRenderer').then(
+      (module) => ({
+        default: module.DocumentationArticleRenderer,
+      }),
+    ),
+  ),
 } satisfies Readonly<Record<string, ComponentType<CmsComponentRendererProps>>>);
 
 export type ComponentRendererKey = keyof typeof COMPONENT_RENDERER_REGISTRY;

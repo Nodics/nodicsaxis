@@ -39,4 +39,40 @@ describe('Axis shell navigation composition', () => {
       expect.objectContaining({ label: 'Pricing', availability: 'DEGRADED' }),
     );
   });
+
+  it('uses backend-owned groups and places children directly after their parent', () => {
+    const group = { id: 'operations', label: 'Operations', order: 600 };
+    const groups = composeShellNavigation([
+      {
+        id: 'administration',
+        label: 'Administration',
+        route: '/administration',
+        order: 10,
+        moduleName: 'backoffice',
+        category: 'platform',
+        icon: 'registry',
+        availability: 'UP',
+        group,
+      },
+      {
+        id: 'registry',
+        parentId: 'administration',
+        label: 'Module Registry',
+        route: '/registry',
+        order: 20,
+        moduleName: 'backoffice',
+        category: 'platform',
+        icon: 'registry',
+        availability: 'UP',
+        group,
+      },
+    ]);
+
+    const operations = groups.find((entry) => entry.id === 'operations');
+    expect(operations?.items.map((item) => [item.id, item.depth])).toEqual([
+      ['administration', 0],
+      ['registry', 1],
+    ]);
+    expect(operations?.items[0]?.hasChildren).toBe(true);
+  });
 });

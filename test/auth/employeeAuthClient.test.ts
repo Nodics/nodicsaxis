@@ -3,6 +3,7 @@ import { describe, expect, it, vi } from 'vitest';
 import {
   authenticateEmployee,
   logoutEmployee,
+  restoreEmployeeSession,
 } from '../../src/auth/employeeAuthClient';
 
 describe('employee authentication client', () => {
@@ -10,7 +11,7 @@ describe('employee authentication client', () => {
     const request = vi.fn<typeof fetch>().mockResolvedValue(
       new Response(
         JSON.stringify({
-          result: { authToken: 'access-token', refreshToken: 'refresh-token' },
+          result: { authToken: 'access-token', loginId: 'operator' },
         }),
         { status: 200 },
       ),
@@ -27,8 +28,9 @@ describe('employee authentication client', () => {
     expect(session.loginId).toBe('operator');
     const [url, options] = request.mock.calls[0] ?? [];
     expect(url instanceof URL ? url.pathname : '').toBe(
-      '/nodics/profile/v0/employee/authenticate',
+      '/nodics/profile/v0/employee/browser/authenticate',
     );
+    expect(options?.credentials).toBe('include');
     expect(new Headers(options?.headers).get('x-enterprise-code')).toBe('enterprise-a');
     expect(options?.body).toBe(
       JSON.stringify({ loginId: 'operator', password: 'secret' }),
@@ -38,7 +40,8 @@ describe('employee authentication client', () => {
     ).not.toContain('secret');
   });
 
-  it('revokes both in-memory tokens during logout', async () => {
+  it('revokes the HttpOnly browser session during logout', async () => {
+    document.cookie = 'nodics_axis_csrf=csrf-token; Path=/';
     const request = vi
       .fn<typeof fetch>()
       .mockResolvedValue(
@@ -46,19 +49,85 @@ describe('employee authentication client', () => {
       );
     await logoutEmployee(
       'https://profile.example.com',
-      {
-        accessToken: 'access-token',
-        refreshToken: 'refresh-token',
-        loginId: 'operator',
-        generation: 1,
-      },
+      'enterprise-a',
+      'nodics_axis_csrf',
       10_000,
       request,
     );
     const [, options] = request.mock.calls[0] ?? [];
-    expect(new Headers(options?.headers).get('Authorization')).toBe(
-      'Bearer access-token',
+    expect(new Headers(options?.headers).get('X-CSRF-Token')).toBe('csrf-token');
+    expect(new Headers(options?.headers).get('x-enterprise-code')).toBe('enterprise-a');
+    expect(options?.credentials).toBe('include');
+    expect(options?.body).toBe('{}');
+  });
+
+  it('does not misreport browser-session failures as invalid credentials', async () => {
+    const request = vi.fn<typeof fetch>().mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          code: 'ERR_AUTH_00001',
+          message: 'Invalid or expired authorization token',
+        }),
+        { status: 401 },
+      ),
     );
-    expect(options?.body).toBe(JSON.stringify({ refreshToken: 'refresh-token' }));
+    await expect(
+      authenticateEmployee(
+        'https://profile.example.com',
+        'enterprise-a',
+        'operator',
+        'correct-password',
+        10_000,
+        request,
+      ),
+    ).rejects.toThrow('secure browser session');
+  });
+
+  it('restores an employee session without exposing the refresh credential', async () => {
+    document.cookie = 'nodics_axis_csrf=restore-csrf; Path=/';
+    const request = vi.fn<typeof fetch>().mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          result: { authToken: 'rotated-access', loginId: 'operator' },
+        }),
+        { status: 200 },
+      ),
+    );
+
+    const session = await restoreEmployeeSession(
+      'https://profile.example.com',
+      'enterprise-a',
+      'nodics_axis_csrf',
+      10_000,
+      request,
+    );
+
+    expect(session).toMatchObject({
+      accessToken: 'rotated-access',
+      loginId: 'operator',
+    });
+    const [url, options] = request.mock.calls[0] ?? [];
+    expect(url instanceof URL ? url.pathname : '').toBe(
+      '/nodics/profile/v0/employee/browser/restore',
+    );
+    expect(new Headers(options?.headers).get('X-CSRF-Token')).toBe('restore-csrf');
+    expect(new Headers(options?.headers).get('x-enterprise-code')).toBe('enterprise-a');
+    expect(options?.credentials).toBe('include');
+  });
+
+  it('rejects logout when Profile does not revoke the browser session', async () => {
+    document.cookie = 'nodics_axis_csrf=csrf-token; Path=/';
+    const request = vi
+      .fn<typeof fetch>()
+      .mockResolvedValue(new Response(null, { status: 503 }));
+    await expect(
+      logoutEmployee(
+        'https://profile.example.com',
+        'enterprise-a',
+        'nodics_axis_csrf',
+        10_000,
+        request,
+      ),
+    ).rejects.toThrow('secure logout');
   });
 });

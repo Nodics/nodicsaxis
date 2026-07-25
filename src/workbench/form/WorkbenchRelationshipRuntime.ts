@@ -1,0 +1,34 @@
+import type { WorkbenchRecord, WorkbenchSchema } from '../api/workbenchContracts';
+
+export interface WorkbenchRelationshipRuntime {
+  readonly schemas: readonly WorkbenchSchema[];
+  readonly queryScope: readonly string[];
+  readonly createRecord: (
+    schema: WorkbenchSchema,
+    model: Readonly<Record<string, unknown>>,
+  ) => Promise<WorkbenchRecord>;
+  readonly loadRecords: (
+    schema: WorkbenchSchema,
+  ) => Promise<readonly WorkbenchRecord[]>;
+  readonly updateRecord?: (
+    schema: WorkbenchSchema,
+    original: WorkbenchRecord,
+    model: Readonly<Record<string, unknown>>,
+  ) => Promise<WorkbenchRecord>;
+}
+
+export interface WorkbenchRelationshipCopy {
+  readonly addToDraftLabel: string;
+  readonly cancelLabel: string;
+  readonly createRelatedLabel: string;
+  readonly editRelatedLabel: string;
+  readonly noRelatedRecordsLabel: string;
+  readonly relatedSearchLabel: string;
+  readonly removeRelatedLabel: string;
+  readonly selectExistingLabel: string;
+}
+
+export interface WorkbenchRelationshipDraft {
+  readonly references: readonly string[];
+  readonly pending: readonly Readonly<Record<string, unknown>>[];
+}

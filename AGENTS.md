@@ -64,6 +64,12 @@ Capabilities are stable; implementations may evolve.
 - Validate deployment configuration before authentication.
 - Never store passwords, access tokens, or refresh tokens in localStorage,
   sessionStorage, IndexedDB, URLs, telemetry, or logs.
+- Restore employee sessions only through the Profile-owned browser-session
+  contract: access tokens remain in memory, refresh credentials remain in
+  Profile-scoped HttpOnly cookies, and restore/logout send the configured
+  readable CSRF cookie as `X-CSRF-Token` with credentialed requests. Never add
+  a frontend refresh-token store, token authority, silent credential fallback,
+  wildcard origin behavior, or client-side authorization substitute.
 - Do not download or execute JavaScript supplied by CMS or another module.
   Backend composition descriptors map only to Axis-owned components.
 - Treat CMS-delivered component properties as the authority for configurable
@@ -75,6 +81,9 @@ Capabilities are stable; implementations may evolve.
   error codes and client-safe messages; CMS provides configurable presentation
   copy; Axis owns only generic browser/transport fallbacks that cannot come
   from an unavailable backend. Never localize by parsing English error text.
+- When surfacing backend failures, accept only the bounded stable code and
+  client-safe message contract. Never render backend contexts, stack traces,
+  queries, record payloads, tokens, credentials, or provider diagnostics.
 - Consume the locale resolved by the backend CMS contract and preserve its
   fallback result. Renderers must tolerate translated text expansion and
   locale direction, and formatting must use locale-aware browser APIs. Axis
@@ -92,6 +101,14 @@ Capabilities are stable; implementations may evolve.
   name when available.
 - Every route and control must respect backend-provided permissions, while
   recognizing that UI filtering never replaces backend authorization.
+- Functional navigation must come from the authenticated
+  `backofficeCapabilities.navigation` contract. Axis may render validated
+  groups, same-module hierarchy, perspectives, localization keys, context
+  requirements, feature states, ordering, semantic icons, and non-executable
+  badge-provider references, but must not create a second menu authority.
+  Persist only bounded `moduleName:navigationId` values for favourites and
+  recents; never persist routes, labels, tokens, context, records, or backend
+  payloads as navigation preferences.
 - Preserve responsive layout, touch behavior, keyboard operation, screen
   reader support, reduced motion, and WebView compatibility.
 - Avoid a service worker until an explicit offline and administrative-cache

@@ -25,6 +25,19 @@ export interface AxisEmployeePolicy {
 }
 
 export type AxisModuleAvailability = 'UP' | 'DEGRADED' | 'UNAVAILABLE' | 'UNKNOWN';
+export type AxisNavigationFeatureState = 'ACTIVE' | 'PREVIEW' | 'DISABLED' | 'HIDDEN';
+
+export interface AxisNavigationGroup {
+  readonly id: string;
+  readonly label: string;
+  readonly labelKey?: string | undefined;
+  readonly order: number;
+}
+
+export interface AxisNavigationBadgeProvider {
+  readonly moduleName: string;
+  readonly operationId: string;
+}
 
 export interface AxisNavigationItem {
   readonly id: string;
@@ -35,6 +48,13 @@ export interface AxisNavigationItem {
   readonly category: string;
   readonly icon: string;
   readonly availability: AxisModuleAvailability;
+  readonly labelKey?: string | undefined;
+  readonly parentId?: string | undefined;
+  readonly group?: AxisNavigationGroup | undefined;
+  readonly perspectives?: readonly string[] | undefined;
+  readonly contexts?: readonly string[] | undefined;
+  readonly featureState?: AxisNavigationFeatureState | undefined;
+  readonly badgeProvider?: AxisNavigationBadgeProvider | undefined;
 }
 
 export interface AxisModuleConnection {
@@ -50,6 +70,7 @@ export interface AxisAuthenticatedBootstrap {
   readonly navigation: readonly AxisNavigationItem[];
   readonly environments: readonly string[];
   readonly moduleConnections: Readonly<Record<string, readonly AxisModuleConnection[]>>;
+  readonly tenantCode: string;
 }
 
 export function selectModuleConnection(
@@ -120,6 +141,53 @@ function availabilityState(value: unknown): AxisModuleAvailability {
     : 'UNKNOWN';
 }
 
+function optionalText(value: unknown, name: string): string | undefined {
+  return value === undefined ? undefined : text(value, name);
+}
+
+function navigationFeatureState(value: unknown): AxisNavigationFeatureState {
+  if (value === undefined) return 'ACTIVE';
+  if (
+    typeof value !== 'string' ||
+    !['ACTIVE', 'PREVIEW', 'DISABLED', 'HIDDEN'].includes(value)
+  ) {
+    throw new Error('BackOffice navigation feature state is unsupported');
+  }
+  return value as AxisNavigationFeatureState;
+}
+
+function parseNavigationGroup(
+  value: unknown,
+  moduleName: string,
+): AxisNavigationGroup | undefined {
+  if (value === undefined) return undefined;
+  const group = record(value, `${moduleName} navigation group`);
+  return Object.freeze({
+    id: text(group.id, `${moduleName} navigation group id`),
+    label: text(group.label, `${moduleName} navigation group label`),
+    labelKey: optionalText(group.labelKey, `${moduleName} navigation group label key`),
+    order: Number.isInteger(group.order) ? Number(group.order) : 0,
+  });
+}
+
+function parseBadgeProvider(
+  value: unknown,
+  moduleName: string,
+): AxisNavigationBadgeProvider | undefined {
+  if (value === undefined) return undefined;
+  const provider = record(value, `${moduleName} navigation badge provider`);
+  return Object.freeze({
+    moduleName: text(
+      provider.moduleName,
+      `${moduleName} navigation badge provider module`,
+    ),
+    operationId: text(
+      provider.operationId,
+      `${moduleName} navigation badge provider operation`,
+    ),
+  });
+}
+
 function parseNavigation(
   catalogueValue: unknown,
   availabilityValue: unknown,
@@ -133,13 +201,9 @@ function parseNavigation(
     if (metadata.enabled === false) return;
     const compatibility = record(metadata.compatibility, `${moduleName} compatibility`);
     if (compatibility.status === 'INCOMPATIBLE') return;
-    const modulePermissions =
-      metadata.requiredPermissions === undefined
-        ? []
-        : stringList(
-            metadata.requiredPermissions,
-            `${moduleName} required permissions`,
-          );
+    if (metadata.requiredPermissions !== undefined) {
+      stringList(metadata.requiredPermissions, `${moduleName} required permissions`);
+    }
     if (!Array.isArray(metadata.navigation)) return;
     const moduleAvailability =
       availability[moduleName] === undefined
@@ -150,17 +214,8 @@ function parseNavigation(
 
     metadata.navigation.forEach((rawItem, index) => {
       const item = record(rawItem, `${moduleName} navigation item`);
-      const itemPermissions =
-        item.requiredPermissions === undefined
-          ? []
-          : stringList(
-              item.requiredPermissions,
-              `${moduleName} navigation permissions`,
-            );
-      if (
-        itemPermissions.some((permission) => !modulePermissions.includes(permission))
-      ) {
-        return;
+      if (item.requiredPermissions !== undefined) {
+        stringList(item.requiredPermissions, `${moduleName} navigation permissions`);
       }
       navigation.push(
         Object.freeze({
@@ -180,8 +235,47 @@ function parseNavigation(
                 ? metadata.icon
                 : 'module',
           availability: moduleAvailability,
+          labelKey: optionalText(item.labelKey, `${moduleName} navigation label key`),
+          parentId: optionalText(item.parentId, `${moduleName} navigation parent id`),
+          group: parseNavigationGroup(item.group, moduleName),
+          perspectives:
+            item.perspectives === undefined
+              ? Object.freeze(['operations'])
+              : stringList(item.perspectives, `${moduleName} navigation perspectives`),
+          contexts:
+            item.contexts === undefined
+              ? Object.freeze([])
+              : stringList(item.contexts, `${moduleName} navigation contexts`),
+          featureState: navigationFeatureState(item.featureState),
+          badgeProvider: parseBadgeProvider(item.badgeProvider, moduleName),
         }),
       );
+    });
+  });
+
+  const byModule = new Map<string, AxisNavigationItem[]>();
+  navigation.forEach((item) => {
+    byModule.set(item.moduleName, [...(byModule.get(item.moduleName) ?? []), item]);
+  });
+  byModule.forEach((items, moduleName) => {
+    const byId = new Map(items.map((item) => [item.id, item]));
+    if (byId.size !== items.length) {
+      throw new Error(`${moduleName} navigation contains duplicate ids`);
+    }
+    items.forEach((item) => {
+      const visited = new Set([item.id]);
+      let parentId = item.parentId;
+      while (parentId) {
+        const parent = byId.get(parentId);
+        if (!parent) {
+          throw new Error(`${moduleName} navigation contains an orphan item`);
+        }
+        if (visited.has(parentId)) {
+          throw new Error(`${moduleName} navigation contains a cycle`);
+        }
+        visited.add(parentId);
+        parentId = parent.parentId;
+      }
     });
   });
 
@@ -384,6 +478,7 @@ export async function loadAuthenticatedBootstrap(
       navigation: parseNavigation(data.catalogue, data.availability),
       environments: moduleContext.environments,
       moduleConnections: moduleContext.connections,
+      tenantCode: text(data.tenantCode, 'BackOffice employee tenant code'),
     });
   } finally {
     globalThis.clearTimeout(timeout);

@@ -63,9 +63,9 @@ The shared authenticated shell provides:
 
 1. an expandable desktop navigation rail, compact icon-only desktop rail, and
    temporary mobile navigation drawer;
-2. a top bar with navigation search, an optional backend-advertised Axis
-   Assistant shortcut, quick-create placeholder, My Work, notifications, and
-   employee menu;
+2. synchronized navigation search in the expanded left rail and top bar, an
+   optional backend-advertised Axis Assistant shortcut, quick-create
+   placeholder, My Work, notifications, and employee menu;
 3. an active context bar showing the backend-reported environment, tenant,
    configured enterprise, CMS Site, and CMS Catalog;
 4. employee lock and logout actions;
@@ -78,8 +78,9 @@ The shared authenticated shell provides:
 After authentication, Axis consumes the authorized BackOffice `catalogue`,
 `availability`, and client-safe module leases. It does not define a second
 functional menu authority. The local Dashboard entry is combined with
-module-owned navigation entries, ordered by their backend metadata, and grouped
-for presentation by their module-owned category:
+module-owned navigation entries. Axis uses an explicitly supplied backend
+business group first and retains the legacy category mapping only as a safe
+fallback for older compatible contributions:
 
 - `content` and `experience` become Content and Experience;
 - `commerce` becomes Commerce;
@@ -87,6 +88,30 @@ for presentation by their module-owned category:
 - `operations` becomes Process and Automation;
 - `platform` becomes Operations and Integration; and
 - unknown categories remain visible under Other Capabilities.
+
+An owning module may also supply a same-module parent relationship,
+perspectives, localization key, required context dimensions, feature state,
+and a non-executable badge-provider reference. Axis validates the hierarchy
+again and rejects duplicate identifiers, missing parents, or cycles even
+though BackOffice has already validated the registration. Children are
+displayed directly after their parent with an accessible hierarchy level.
+`DISABLED` destinations remain visible but cannot be opened; `PREVIEW`
+destinations carry a visible preview state; `HIDDEN` destinations are removed
+by BackOffice before Axis receives them.
+
+The expanded and mobile navigation provides a real **Search menu** field. It
+matches authorized destinations by business group, user-facing label, or
+owning module and filters the left panel immediately. The top-bar navigation
+search uses the same query state. Search never changes permissions, tenant
+context, or backend feature state, and a successful navigation clears it.
+
+Employees may star a destination. Axis stores only bounded
+`moduleName:navigationId` values for **Favourites** and **Recent** in browser
+local storage. It never stores routes, labels, tokens, employee details,
+tenant data, record data, or backend payloads in navigation preferences.
+Malformed persisted values are discarded. Favourites and recent destinations
+remain conveniences over the current authenticated bootstrap; a missing or
+newly unauthorized contribution disappears automatically.
 
 Incompatible modules are excluded by the bootstrap parser. Unavailable
 destinations are disabled and degraded destinations remain visible with a
@@ -174,9 +199,10 @@ safe for an unknown backend mutation.
   contribution. Do not hardcode module routes in Axis.
 - Keep the single local Dashboard route recovery-safe. Every other displayed
   functional destination must come from authenticated bootstrap.
-- Keep the expanded/compact navigation choice in application memory. Do not
-  persist appearance or navigation state until its privacy and multi-user cache
-  behavior is approved.
+- Keep the expanded/compact navigation and appearance choices in application
+  memory. Only bounded favourite/recent navigation identifiers use the
+  reviewed preference store; do not add tokens, routes, context, records, or
+  backend responses to it.
 
 ## Verification
 
@@ -184,6 +210,18 @@ Run `npm run verify`. The foundation tests cover recovery variants, retry and
 correlation presentation, authorized navigation parsing and grouping,
 navigation landmarks, module placeholder routing, context labels, employee
 logout, Assistant shortcut capability gating, density and color controls,
-dialogs, notifications, offline behavior, formatting, lint, types, and build.
+hierarchy validation, backend-owned groups, perspective metadata, feature
+states, menu search, bounded favourite/recent preferences, dialogs,
+notifications, offline
+behavior, formatting, lint, types, and build.
 Responsive browser acceptance also covers the 60/40 authentication split at
 desktop and tablet widths and the single-column mobile journey.
+
+The governed-navigation acceptance was also exercised against the real
+`startioLocal` `monoServer` bootstrap. The authenticated catalogue returned
+eleven permission-filtered destinations with module-owned groups,
+perspectives, context dimensions, and active feature state. Axis rendered the
+expected business groups, menu search, favourite controls, compact
+desktop behavior, and the temporary 390-pixel mobile drawer. Adding Content to
+Favourites stored only `cms:cms`; no route, token, context, or record data was
+persisted.

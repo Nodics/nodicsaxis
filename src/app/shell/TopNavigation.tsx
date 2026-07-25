@@ -45,6 +45,8 @@ export function TopNavigation({
 }: TopNavigationProps) {
   const [profileAnchor, setProfileAnchor] = useState<HTMLElement | null>(null);
   const initials = employeeId?.slice(0, 2).toLocaleUpperCase() ?? 'AX';
+  const assistantActive =
+    assistant !== undefined && ['UP', 'DEGRADED'].includes(assistant.availability);
 
   return (
     <Stack
@@ -93,31 +95,19 @@ export function TopNavigation({
             <span>
               <IconButton
                 aria-label={assistant.label}
-                disabled={!['UP', 'DEGRADED'].includes(assistant.availability)}
+                disabled={!assistantActive}
                 onClick={() => {
                   onNavigate(assistant.route);
                 }}
               >
-                <ShellIcon name={assistant.icon} />
+                <ShellIcon
+                  color={assistantActive ? 'primary' : 'disabled'}
+                  name={assistant.icon}
+                />
               </IconButton>
             </span>
           </Tooltip>
         ) : null}
-        <Tooltip title="Quick create">
-          <Button
-            color="primary"
-            startIcon={<ShellIcon name="add" />}
-            sx={{ display: { xs: 'none', lg: 'inline-flex' } }}
-            variant="contained"
-            onClick={() => {
-              onNotify(
-                'Quick create will show operations advertised by authorized modules.',
-              );
-            }}
-          >
-            Create
-          </Button>
-        </Tooltip>
         <Tooltip title="My Work">
           <IconButton
             aria-label="My Work"
