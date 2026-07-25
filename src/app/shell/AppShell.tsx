@@ -50,15 +50,26 @@ export function AppShell({
   const location = useLocation();
   const { density, mode, toggleDensity, toggleMode } = useAxisAppearance();
   const [navigationOpen, setNavigationOpen] = useState(false);
+  const [navigationCompact, setNavigationCompact] = useState(false);
   const [notification, setNotification] = useState<string | null>(null);
   const [query, setQuery] = useState('');
   const groups = useMemo(() => composeShellNavigation(navigation), [navigation]);
+  const assistant = useMemo(
+    () =>
+      navigation.find(
+        (item) => item.id === 'assistant' && item.moduleName === 'aiAssistant',
+      ),
+    [navigation],
+  );
   const environmentLabel =
     environments.length === 0
       ? 'Environment unavailable'
       : environments.length === 1
         ? environments[0]
         : `${String(environments.length)} environments`;
+  const desktopRailWidth = navigationCompact
+    ? axisTokens.spacing.shellRailCompact
+    : axisTokens.spacing.shellRail;
 
   useEffect(() => {
     const offline = () => {
@@ -90,9 +101,16 @@ export function AppShell({
         sx={{
           borderBottom: '1px solid',
           borderColor: 'divider',
-          ml: { md: `${String(axisTokens.spacing.shellRail)}px` },
-          width: { md: `calc(100% - ${String(axisTokens.spacing.shellRail)}px)` },
+          ml: { md: `${String(desktopRailWidth)}px` },
+          transition: (currentTheme) =>
+            currentTheme.transitions.create(['margin-left', 'width'], {
+              duration: axisTokens.motion.standard,
+            }),
+          width: { md: `calc(100% - ${String(desktopRailWidth)}px)` },
           zIndex: (currentTheme) => currentTheme.zIndex.drawer + 1,
+          '@media (prefers-reduced-motion: reduce)': {
+            transition: 'none',
+          },
         }}
       >
         <Toolbar
@@ -102,13 +120,26 @@ export function AppShell({
           }}
         >
           <TopNavigation
+            assistant={assistant}
             employeeId={employeeId}
+            navigationToggleLabel={
+              desktop
+                ? navigationCompact
+                  ? 'Expand navigation'
+                  : 'Collapse navigation'
+                : 'Open navigation'
+            }
             query={query}
             onLock={onLock}
             onLogout={onLogout}
+            onNavigate={navigateTo}
             onNotify={setNotification}
-            onOpenNavigation={() => {
-              setNavigationOpen(true);
+            onToggleNavigation={() => {
+              if (desktop) {
+                setNavigationCompact((current) => !current);
+              } else {
+                setNavigationOpen(true);
+              }
             }}
             onQueryChange={setQuery}
           />
@@ -123,7 +154,15 @@ export function AppShell({
             sx: {
               borderRight: '1px solid',
               borderColor: 'divider',
-              width: axisTokens.spacing.shellRail,
+              overflowX: 'hidden',
+              transition: (currentTheme) =>
+                currentTheme.transitions.create('width', {
+                  duration: axisTokens.motion.standard,
+                }),
+              width: desktop ? desktopRailWidth : axisTokens.spacing.shellRail,
+              '@media (prefers-reduced-motion: reduce)': {
+                transition: 'none',
+              },
             },
           },
         }}
@@ -133,6 +172,7 @@ export function AppShell({
       >
         <NavigationRail
           activePath={location.pathname}
+          compact={desktop && navigationCompact}
           groups={groups}
           query={query}
           onNavigate={navigateTo}
@@ -141,10 +181,17 @@ export function AppShell({
       <Box
         sx={{
           flexGrow: 1,
-          ml: { md: `${String(axisTokens.spacing.shellRail)}px` },
+          ml: { md: `${String(desktopRailWidth)}px` },
           minWidth: 0,
           pt: `${String(axisTokens.spacing.header)}px`,
-          width: { md: `calc(100% - ${String(axisTokens.spacing.shellRail)}px)` },
+          transition: (currentTheme) =>
+            currentTheme.transitions.create(['margin-left', 'width'], {
+              duration: axisTokens.motion.standard,
+            }),
+          width: { md: `calc(100% - ${String(desktopRailWidth)}px)` },
+          '@media (prefers-reduced-motion: reduce)': {
+            transition: 'none',
+          },
         }}
       >
         <Stack

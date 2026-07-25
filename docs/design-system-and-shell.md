@@ -60,9 +60,11 @@ tenant, or backend configuration and are deliberately not persisted yet.
 
 The shared authenticated shell provides:
 
-1. a permanent desktop navigation rail and temporary mobile navigation drawer;
-2. a top bar with navigation search, quick-create placeholder, My Work,
-   notifications, and employee menu;
+1. an expandable desktop navigation rail, compact icon-only desktop rail, and
+   temporary mobile navigation drawer;
+2. a top bar with navigation search, an optional backend-advertised Axis
+   Assistant shortcut, quick-create placeholder, My Work, notifications, and
+   employee menu;
 3. an active context bar showing the backend-reported environment, configured
    enterprise, CMS Site, and CMS Catalog;
 4. employee lock and logout actions;
@@ -89,6 +91,26 @@ Incompatible modules are excluded by the bootstrap parser. Unavailable
 destinations are disabled and degraded destinations remain visible with a
 warning state. A navigation item with permissions not covered by its already
 authorized module contribution is rejected rather than displayed.
+
+When the authorized `aiAssistant` contribution contains its `assistant`
+navigation item, the same backend-provided label, route, icon key, and
+availability also drive the top-bar shortcut. The shortcut is absent when the
+employee has no contribution, enabled for `UP` and `DEGRADED`, and disabled for
+`UNAVAILABLE` or `UNKNOWN`. Axis does not maintain a second Assistant route or
+label authority.
+
+The desktop menu control switches between the full rail and the compact rail.
+The compact rail retains every authorized destination as an icon with an
+accessible name and hover/focus tooltip; it does not hide or re-authorize
+capabilities. The Nodics Axis wordmark contracts to the Nodics mark and the top
+bar and content region reclaim the released width. Reduced-motion preferences
+disable the width transition.
+
+Each module-owned navigation entry may supply a semantic `icon` key. Axis maps
+that non-executable key to an Axis-owned vector icon. The entry-level key takes
+precedence over the module-level key, and an unknown key uses the governed
+generic module icon instead of loading remote or CMS-provided executable
+assets.
 
 Discovered module routes currently open an explicit placeholder workspace until
 their dedicated Axis feature is implemented. The placeholder confirms the
@@ -140,13 +162,14 @@ safe for an unknown backend mutation.
   contribution. Do not hardcode module routes in Axis.
 - Keep the single local Dashboard route recovery-safe. Every other displayed
   functional destination must come from authenticated bootstrap.
-- Do not persist appearance or navigation state until its privacy and
-  multi-user cache behavior is approved.
+- Keep the expanded/compact navigation choice in application memory. Do not
+  persist appearance or navigation state until its privacy and multi-user cache
+  behavior is approved.
 
 ## Verification
 
 Run `npm run verify`. The foundation tests cover recovery variants, retry and
 correlation presentation, authorized navigation parsing and grouping,
 navigation landmarks, module placeholder routing, context labels, employee
-logout, density and color controls, dialogs, notifications, offline behavior,
-formatting, lint, types, and build.
+logout, Assistant shortcut capability gating, density and color controls,
+dialogs, notifications, offline behavior, formatting, lint, types, and build.

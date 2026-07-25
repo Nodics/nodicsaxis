@@ -18,6 +18,7 @@ import { availabilityLabel, type ShellNavigationGroup } from './shellNavigation'
 
 interface NavigationRailProps {
   readonly activePath: string;
+  readonly compact: boolean;
   readonly groups: readonly ShellNavigationGroup[];
   readonly query: string;
   readonly onNavigate: (route: string) => void;
@@ -25,6 +26,7 @@ interface NavigationRailProps {
 
 export function NavigationRail({
   activePath,
+  compact,
   groups,
   onNavigate,
   query,
@@ -51,8 +53,16 @@ export function NavigationRail({
         height: '100%',
       }}
     >
-      <Box sx={{ alignItems: 'center', display: 'flex', minHeight: 72, px: 2.5 }}>
-        <AxisMark reverse />
+      <Box
+        sx={{
+          alignItems: 'center',
+          display: 'flex',
+          justifyContent: compact ? 'center' : 'flex-start',
+          minHeight: 72,
+          px: compact ? 1 : 2.5,
+        }}
+      >
+        <AxisMark compact={compact} reverse />
       </Box>
       <Divider sx={{ borderColor: alpha('#ffffff', 0.1) }} />
       <Box
@@ -70,6 +80,7 @@ export function NavigationRail({
             <Typography
               sx={{
                 color: alpha('#ffffff', 0.48),
+                display: compact ? 'none' : 'block',
                 px: 2.5,
                 pb: 0.75,
                 pt: 1.25,
@@ -78,10 +89,10 @@ export function NavigationRail({
             >
               {group.label}
             </Typography>
-            <List disablePadding sx={{ px: 1 }}>
+            <List disablePadding sx={{ px: compact ? 1.25 : 1 }}>
               {group.items.map((item) => {
                 const unavailable = item.availability === 'UNAVAILABLE';
-                return (
+                const navigationItem = (
                   <ListItemButton
                     key={`${item.moduleName}:${item.id}`}
                     aria-label={item.label}
@@ -92,7 +103,8 @@ export function NavigationRail({
                       color: alpha('#ffffff', 0.74),
                       mb: 0.5,
                       minHeight: 42,
-                      px: 1.5,
+                      justifyContent: compact ? 'center' : 'flex-start',
+                      px: compact ? 1 : 1.5,
                       position: 'relative',
                       '&:hover': {
                         bgcolor: alpha('#ffffff', 0.07),
@@ -126,12 +138,14 @@ export function NavigationRail({
                           activePath === item.route
                             ? 'primary.main'
                             : alpha('#ffffff', 0.5),
-                        minWidth: 36,
+                        justifyContent: 'center',
+                        minWidth: compact ? 0 : 36,
                       }}
                     >
                       <ShellIcon fontSize="small" name={item.icon} />
                     </ListItemIcon>
                     <ListItemText
+                      sx={{ display: compact ? 'none' : 'block' }}
                       primary={item.label}
                       secondary={
                         item.availability === 'UP'
@@ -155,13 +169,29 @@ export function NavigationRail({
                                 : 'error.main',
                             borderRadius: '50%',
                             height: 7,
-                            mr: 0.5,
+                            position: compact ? 'absolute' : 'static',
+                            right: compact ? 5 : 'auto',
+                            top: compact ? 5 : 'auto',
+                            mr: compact ? 0 : 0.5,
                             width: 7,
                           }}
                         />
                       </Tooltip>
                     ) : null}
                   </ListItemButton>
+                );
+                return compact ? (
+                  <Tooltip
+                    key={`${item.moduleName}:${item.id}`}
+                    placement="right"
+                    title={item.label}
+                  >
+                    <Box component="span" sx={{ display: 'block' }}>
+                      {navigationItem}
+                    </Box>
+                  </Tooltip>
+                ) : (
+                  navigationItem
                 );
               })}
             </List>
@@ -174,7 +204,7 @@ export function NavigationRail({
         ) : null}
       </Box>
       <Divider sx={{ borderColor: alpha('#ffffff', 0.1) }} />
-      <Box sx={{ p: 2 }}>
+      <Box sx={{ p: compact ? 1.5 : 2 }}>
         <Stack direction="row" spacing={1} sx={{ alignItems: 'center' }}>
           <Box
             aria-hidden="true"
@@ -187,7 +217,7 @@ export function NavigationRail({
             }}
           />
           <Typography sx={{ color: alpha('#ffffff', 0.64) }} variant="caption">
-            Registry connected
+            {compact ? null : 'Registry connected'}
           </Typography>
         </Stack>
       </Box>

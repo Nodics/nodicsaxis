@@ -14,25 +14,32 @@ import {
 } from '@mui/material';
 import { useState, type MouseEvent } from 'react';
 
+import type { AxisNavigationItem } from '../../bootstrap/publicBootstrap';
 import { AxisMark } from './AxisMark';
 import { ShellIcon } from './ShellIcon';
 
 interface TopNavigationProps {
+  readonly assistant?: AxisNavigationItem | undefined;
   readonly employeeId?: string | undefined;
+  readonly navigationToggleLabel: string;
   readonly query: string;
   readonly onQueryChange: (value: string) => void;
-  readonly onOpenNavigation: () => void;
+  readonly onNavigate: (route: string) => void;
+  readonly onToggleNavigation: () => void;
   readonly onLock?: (() => void) | undefined;
   readonly onLogout?: (() => void) | undefined;
   readonly onNotify: (message: string) => void;
 }
 
 export function TopNavigation({
+  assistant,
   employeeId,
+  navigationToggleLabel,
   onLock,
   onLogout,
   onNotify,
-  onOpenNavigation,
+  onNavigate,
+  onToggleNavigation,
   onQueryChange,
   query,
 }: TopNavigationProps) {
@@ -45,12 +52,11 @@ export function TopNavigation({
       spacing={1}
       sx={{ alignItems: 'center', minWidth: 0, width: '100%' }}
     >
-      <Tooltip title="Open navigation">
+      <Tooltip title={navigationToggleLabel}>
         <IconButton
-          aria-label="Open navigation"
+          aria-label={navigationToggleLabel}
           edge="start"
-          sx={{ display: { md: 'none' } }}
-          onClick={onOpenNavigation}
+          onClick={onToggleNavigation}
         >
           <ShellIcon name="menu" />
         </IconButton>
@@ -82,6 +88,21 @@ export function TopNavigation({
         }}
       />
       <Stack direction="row" spacing={0.5} sx={{ ml: 'auto !important' }}>
+        {assistant ? (
+          <Tooltip title={assistant.label}>
+            <span>
+              <IconButton
+                aria-label={assistant.label}
+                disabled={!['UP', 'DEGRADED'].includes(assistant.availability)}
+                onClick={() => {
+                  onNavigate(assistant.route);
+                }}
+              >
+                <ShellIcon name={assistant.icon} />
+              </IconButton>
+            </span>
+          </Tooltip>
+        ) : null}
         <Tooltip title="Quick create">
           <Button
             color="primary"

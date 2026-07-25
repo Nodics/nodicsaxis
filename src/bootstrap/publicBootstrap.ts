@@ -154,9 +154,11 @@ function parseNavigation(
               ? metadata.category
               : 'other',
           icon:
-            typeof metadata.icon === 'string' && metadata.icon !== ''
-              ? metadata.icon
-              : 'module',
+            typeof item.icon === 'string' && item.icon !== ''
+              ? item.icon
+              : typeof metadata.icon === 'string' && metadata.icon !== ''
+                ? metadata.icon
+                : 'module',
           availability: moduleAvailability,
         }),
       );

@@ -66,6 +66,24 @@ Capabilities are stable; implementations may evolve.
   sessionStorage, IndexedDB, URLs, telemetry, or logs.
 - Do not download or execute JavaScript supplied by CMS or another module.
   Backend composition descriptors map only to Axis-owned components.
+- Treat CMS-delivered component properties as the authority for configurable
+  page copy: headings, labels, placeholders, help text, empty-state text,
+  action captions, and content fragments. Do not hardcode business-facing copy
+  in page or component renderers when the owning backend contract can supply
+  it.
+- Keep copy ownership explicit. Owning backend modules provide stable domain
+  error codes and client-safe messages; CMS provides configurable presentation
+  copy; Axis owns only generic browser/transport fallbacks that cannot come
+  from an unavailable backend. Never localize by parsing English error text.
+- Consume the locale resolved by the backend CMS contract and preserve its
+  fallback result. Renderers must tolerate translated text expansion and
+  locale direction, and formatting must use locale-aware browser APIs. Axis
+  must not become a second translation catalogue for backend-owned content.
+- Backend-driven presentation remains declarative and non-executable. Accept
+  only allowlisted renderer keys, versioned typed properties, safe content,
+  permissions, and configuration. Reject arbitrary HTML, CSS, JavaScript,
+  component imports, expressions, event handlers, or URLs used as renderer
+  implementations.
 - Every route and control must respect backend-provided permissions, while
   recognizing that UI filtering never replaces backend authorization.
 - Preserve responsive layout, touch behavior, keyboard operation, screen
@@ -90,6 +108,21 @@ but its view model must never become an authoritative universal graph.
 
 Document implemented behavior in this repository. Keep unimplemented plans in
 an explicitly temporary planning location until verified.
+
+Design Axis for partial discovery. A developer or AI tool may read only this
+file, the nearest feature source, its focused tests, and one linked guide.
+Critical repository ownership, backend authority, renderer placement, security,
+accessibility, responsive behavior, extension, and verification rules must
+therefore be present in the nearest maintained files and enforced by tests
+where possible. Do not leave mandatory implementation knowledge only in a prior
+conversation, remote design sample, temporary plan, or backend repository.
+
+Every significant implemented feature must document successful, unauthorized
+or invalid, boundary/responsive, failure/recovery, and supported customization
+use cases. Cover the frontend contributor and operator in this repository;
+business-user, administrator, backend contract, and partner backend
+customization guidance remains owned by Nodics and must be linked rather than
+duplicated.
 
 For each implemented behavior, cover applicable:
 

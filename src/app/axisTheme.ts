@@ -57,6 +57,7 @@ export const axisTokens = {
   },
   spacing: {
     shellRail: 264,
+    shellRailCompact: 76,
     header: 64,
     context: 48,
     grid: 8,

@@ -47,6 +47,7 @@ const authenticatedData = {
           id: 'cms',
           label: 'Content',
           route: '/content',
+          icon: 'cms',
           order: 200,
           requiredPermissions: ['cms.backoffice.view'],
         },
@@ -125,6 +126,7 @@ describe('Axis bootstrap clients', () => {
       expect.objectContaining({
         label: 'Content',
         moduleName: 'cms',
+        icon: 'cms',
         availability: 'UP',
       }),
     ]);

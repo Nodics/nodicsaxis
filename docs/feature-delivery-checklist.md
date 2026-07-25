@@ -48,6 +48,15 @@ Confirm:
 - logout, revocation, and context switching cancel requests and clear affected
   data;
 - CMS or another module cannot supply executable browser code.
+- configurable business-facing labels, help text, placeholders, empty states,
+  action captions, and content fragments come from typed CMS properties rather
+  than renderer literals;
+- domain errors retain stable backend codes and safe messages, while generic
+  Axis fallbacks are limited to browser and transport failures;
+- locale, direction, translated text expansion, and locale-aware formatting
+  are covered without creating a second translation authority in Axis;
+- arbitrary HTML, CSS, JavaScript, expressions, event handlers, and remote
+  renderer imports are rejected.
 
 ## 4. Interaction quality
 
@@ -58,6 +67,8 @@ Implement and verify applicable:
 - keyboard operation and visible focus;
 - screen-reader names, roles, states, and announcements;
 - responsive desktop, tablet, and mobile WebView layouts;
+- long translated labels, right-to-left direction, locale fallback, and
+  locale-aware dates, numbers, currency, and pluralization where applicable;
 - touch target sizing and non-hover alternatives;
 - reduced motion;
 - comfortable and compact density;
@@ -105,7 +116,24 @@ Keep proposals, unresolved decisions, and future action lists only in the
 temporary ignored planning workspace. Do not document planned UI as available
 product behavior.
 
-## 7. Completion evidence
+## 7. Partial-discovery and use-case proof
+
+Confirm that a contributor or AI tool opening only the nearest maintained files
+can identify:
+
+- whether behavior belongs in Axis or Nodics;
+- the owning feature, route, component, hook, client, contract, and test;
+- the supported extension point and prohibited bypass;
+- backend authority and permission expectations;
+- accessibility, responsive, WebView, security, and recovery requirements;
+- the focused verification command.
+
+Document successful, unauthorized/invalid, boundary/responsive,
+failure/recovery, and supported customization examples with expected outcomes.
+Link Nodics-owned business and backend guidance rather than copying it into
+Axis.
+
+## 8. Completion evidence
 
 Before marking the feature complete:
 

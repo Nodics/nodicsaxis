@@ -31,6 +31,11 @@ Use the [Feature Delivery Checklist](docs/feature-delivery-checklist.md) for
 repository-boundary analysis, security, contract testing, accessibility,
 documentation placement, and completion evidence for every Axis slice.
 
+Read the
+[Axis Implementation And Documentation Contract](docs/implementation-and-documentation-contract.md)
+for partial-discovery rules, repository placement, required use cases, and the
+acceptance contract followed by human developers and AI tools.
+
 See [CMS Delivery and Renderer Integration](docs/cms-delivery-and-renderers.md)
 for the resolved-page client, trusted renderer boundary, validation rules,
 cache isolation, and login integration.
