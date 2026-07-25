@@ -8,10 +8,12 @@ interface AssistantConfirmationCardProps {
   readonly title: string;
   readonly approveLabel: string;
   readonly executeLabel: string;
+  readonly rejectLabel: string;
   readonly expiredLabel: string;
   readonly completedLabel: string;
   readonly onApprove: () => Promise<void>;
   readonly onExecute: () => Promise<void>;
+  readonly onReject: () => Promise<void>;
 }
 
 function text(value: unknown): string | undefined {
@@ -52,24 +54,27 @@ export function AssistantConfirmationCard(props: AssistantConfirmationCardProps)
         <Typography>{summary}</Typography>
         {expired ? <Typography>{props.expiredLabel}</Typography> : null}
         {completed ? <Typography>{props.completedLabel}</Typography> : null}
-        {!expired && props.confirmation.state === 'PENDING' ? (
-          <Button
-            sx={{ alignSelf: 'flex-start' }}
-            variant="contained"
-            onClick={() => void props.onApprove()}
-          >
-            {props.approveLabel}
-          </Button>
-        ) : null}
-        {!expired && !completed && props.confirmation.state === 'APPROVED' ? (
-          <Button
-            color="warning"
-            sx={{ alignSelf: 'flex-start' }}
-            variant="contained"
-            onClick={() => void props.onExecute()}
-          >
-            {props.executeLabel}
-          </Button>
+        {!expired &&
+        !completed &&
+        ['PENDING', 'APPROVED'].includes(props.confirmation.state) ? (
+          <Stack direction="row" sx={{ alignSelf: 'flex-start', gap: 1 }}>
+            {props.confirmation.state === 'PENDING' ? (
+              <Button variant="contained" onClick={() => void props.onApprove()}>
+                {props.approveLabel}
+              </Button>
+            ) : (
+              <Button
+                color="warning"
+                variant="contained"
+                onClick={() => void props.onExecute()}
+              >
+                {props.executeLabel}
+              </Button>
+            )}
+            <Button variant="outlined" onClick={() => void props.onReject()}>
+              {props.rejectLabel}
+            </Button>
+          </Stack>
         ) : null}
       </Stack>
     </Alert>

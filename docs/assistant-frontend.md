@@ -104,7 +104,7 @@ The current client implements only backend routes that exist:
 - submit and retrieve a turn;
 - replay persisted turn events;
 - cancel a turn;
-- create and approve a mutation confirmation;
+- create, retrieve, approve, and reject a mutation confirmation;
 - execute or hand off an approved confirmation.
 
 Requests use:
@@ -141,18 +141,21 @@ prematurely closing the stream that carries the authoritative terminal event.
 It holds no provider credentials and does not reproduce backend validation.
 
 On authenticated entry, the controller loads a bounded employee-owned
-conversation page. Selecting a conversation loads its durable turn/message
-projection from `aiAssistant`; it does not reconstruct long-term history from
-short-lived SSE events. Older conversation and turn pages are merged without
-changing chronological order or crossing enterprise and employee scope.
+conversation page. Selecting a conversation loads its durable turn/message and
+structured-interaction projection from `aiAssistant`; it does not reconstruct
+long-term history from short-lived SSE events. Clarification, tool state, safe
+usage, citations, and confirmation lifecycle therefore survive reload. Older
+conversation and turn pages are merged without changing chronological order or
+crossing enterprise and employee scope.
 
 Backend error `code`, safe `message`, HTTP status, and optional `traceId` remain
 structured. Axis uses a generic fallback only when the backend supplies no
 safe response.
 
-Archive conversation, reject confirmation, separate usage-summary, and
-clarification submission APIs are not implemented by the current backend
-contract and are not invented in Axis.
+Archive conversation and a dedicated usage-summary screen are not yet
+implemented in Axis. The employee-owned summary endpoint belongs directly to
+`aiProviders`; Axis must discover and call that module rather than proxying
+through Assistant when that screen is added.
 
 ## Accessibility and responsive behavior
 
@@ -219,7 +222,8 @@ headings and action labels come from the authenticated Assistant CMS component.
 Axis does not reconstruct mutation arguments, target routes, authorization, or
 confirmation identity.
 
-Approval returns the backend-issued argument digest and optimistic revision.
+Approval and rejection return the backend-issued argument digest and
+optimistic revision. Rejection is available only before execution begins.
 Execution sends only the backend-issued confirmation code. Invalid event
 payloads fail closed; expired, stale, unauthorized, conflicting, and uncertain
 outcomes remain backend decisions and are shown through the normal safe error
@@ -234,14 +238,18 @@ arguments, target URLs, credentials, and result content are neither projected
 nor rendered.
 
 Citation cards display backend-issued identity, title, section, locator, and
-version. Locators are intentionally plain text because the current backend
-contract does not classify any citation URL as safe for browser navigation.
-Axis must not convert arbitrary locator text into a link.
+version. A title becomes a link only when AI Knowledge explicitly classifies
+it as `INTERNAL_ROUTE` and supplies a validated same-application path.
+Unclassified locators and rejected external or scheme-based values remain
+plain text. Axis validates the path again and never invents navigation from
+locator text.
 
 Usage cards display the normalized input, output, cached-input, reasoning, and
 embedding token values plus reconciliation state. Reservation identifiers are
-discarded. Axis does not infer cost, quota, remaining budget, or authoritative
-totals; these require a future client-safe backend projection.
+discarded. Axis does not infer cost, quota, or remaining budget. `aiProviders`
+now exposes the separate direct, employee-owned
+`GET /operations/ai-ledger/usage/me` projection for a future budget-summary
+surface.
 
 Malformed citation, usage, tool lifecycle, and reconciliation payloads fail
 closed through the same event-data boundary.

@@ -68,6 +68,7 @@ export interface AssistantMessage {
 export interface AssistantHistoryEntry {
   readonly turn: AssistantTurn;
   readonly messages: readonly AssistantMessage[];
+  readonly interactions?: readonly AssistantTurnEvent[] | undefined;
 }
 
 export interface AssistantConversationHistory {
@@ -75,6 +76,7 @@ export interface AssistantConversationHistory {
   readonly page: number;
   readonly limit: number;
   readonly items: readonly AssistantHistoryEntry[];
+  readonly confirmations?: readonly AssistantConfirmation[] | undefined;
 }
 
 export interface AssistantConfirmation {
@@ -95,6 +97,8 @@ export interface AssistantCitation {
   readonly locator?: string | undefined;
   readonly section?: string | undefined;
   readonly version?: string | undefined;
+  readonly navigationType?: 'NONE' | 'INTERNAL_ROUTE' | undefined;
+  readonly navigationTarget?: string | undefined;
 }
 
 export interface AssistantUsage {
@@ -162,6 +166,10 @@ export interface CreateConfirmationInput {
 export interface ApproveConfirmationInput {
   readonly expectedRevision: number;
   readonly argumentsDigest: string;
+}
+
+export interface RejectConfirmationInput extends ApproveConfirmationInput {
+  readonly reason?: string | undefined;
 }
 
 export const ASSISTANT_API_CONTRACT_VERSION = 1;

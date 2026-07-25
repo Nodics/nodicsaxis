@@ -132,6 +132,39 @@ describe('Assistant API client', () => {
     expect(request).not.toHaveBeenCalled();
   });
 
+  it('retrieves and rejects only the backend-bound confirmation lifecycle', async () => {
+    const confirmation = {
+      confirmationCode: 'confirmation-1',
+      conversationCode: 'conversation-1',
+      operationId: 'profile_createenterprise',
+      state: 'REJECTED',
+      argumentsDigest: 'a'.repeat(64),
+      revision: 1,
+      expiresAt: '2099-01-01T00:00:00.000Z',
+      impact: { summary: 'Create Acme' },
+    };
+    const request = vi
+      .fn<typeof fetch>()
+      .mockResolvedValue(json({ data: { confirmation } }));
+    const client = createAssistantClient(configuration, request);
+
+    await expect(
+      client.rejectConfirmation('confirmation-1', {
+        expectedRevision: 0,
+        argumentsDigest: 'a'.repeat(64),
+      }),
+    ).resolves.toEqual(confirmation);
+    const [url, options] = request.mock.calls[0] ?? [];
+    expect((url as URL).pathname).toContain('/confirmations/confirmation-1/reject');
+    expect(options?.method).toBe('POST');
+    const body = options?.body;
+    if (typeof body !== 'string') throw new Error('Expected JSON request body');
+    expect(JSON.parse(body)).toEqual({
+      expectedRevision: 0,
+      argumentsDigest: 'a'.repeat(64),
+    });
+  });
+
   it('returns stable backend error codes without parsing message text', async () => {
     const request = vi.fn<typeof fetch>().mockResolvedValue(
       json(

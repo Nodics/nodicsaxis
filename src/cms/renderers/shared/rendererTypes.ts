@@ -12,6 +12,7 @@ export interface AssistantRendererController {
   readonly loadMoreConversations: () => Promise<void>;
   readonly loadMoreHistory: () => Promise<void>;
   readonly approveConfirmation: () => Promise<void>;
+  readonly rejectConfirmation: () => Promise<void>;
   readonly executeConfirmation: () => Promise<void>;
 }
 

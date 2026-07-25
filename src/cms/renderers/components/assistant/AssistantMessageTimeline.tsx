@@ -40,10 +40,12 @@ interface AssistantMessageTimelineProps {
   readonly executeLabel: string;
   readonly confirmationExpiredLabel: string;
   readonly confirmationCompletedLabel: string;
+  readonly confirmationRejectLabel: string;
   readonly onLoadMore: () => Promise<void>;
   readonly onSubmit: (message: string) => Promise<void>;
   readonly onApprove: () => Promise<void>;
   readonly onExecute: () => Promise<void>;
+  readonly onReject: () => Promise<void>;
 }
 
 export function AssistantMessageTimeline(props: AssistantMessageTimelineProps) {
@@ -158,11 +160,13 @@ export function AssistantMessageTimeline(props: AssistantMessageTimelineProps) {
           completedLabel={props.confirmationCompletedLabel}
           confirmation={active.confirmation}
           executeLabel={props.executeLabel}
+          rejectLabel={props.confirmationRejectLabel}
           expiredLabel={props.confirmationExpiredLabel}
           result={active.confirmationResult}
           title={props.confirmationTitle}
           onApprove={props.onApprove}
           onExecute={props.onExecute}
+          onReject={props.onReject}
         />
       ) : null}
       {active.citations ? (

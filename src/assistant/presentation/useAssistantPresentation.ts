@@ -256,6 +256,37 @@ export function useAssistantPresentation(
     }
   }, [configuration.client, state.activeConversationCode, state.conversations]);
 
+  const rejectConfirmation = useCallback(async () => {
+    const code = state.activeConversationCode;
+    const confirmation = code ? state.conversations[code]?.confirmation : undefined;
+    if (
+      !code ||
+      !confirmation ||
+      !['PENDING', 'APPROVED'].includes(confirmation.state)
+    ) {
+      return;
+    }
+    try {
+      const rejected = await configuration.client.rejectConfirmation(
+        confirmation.confirmationCode,
+        {
+          expectedRevision: confirmation.revision,
+          argumentsDigest: confirmation.argumentsDigest,
+        },
+      );
+      dispatch({
+        type: 'CONFIRMATION_UPDATED',
+        conversationCode: code,
+        confirmation: rejected,
+      });
+    } catch (error: unknown) {
+      dispatch({
+        type: 'FAILED',
+        message: error instanceof Error ? error.message : 'Assistant rejection failed',
+      });
+    }
+  }, [configuration.client, state.activeConversationCode, state.conversations]);
+
   return {
     state,
     submit,
@@ -265,6 +296,7 @@ export function useAssistantPresentation(
     loadMoreConversations,
     loadMoreHistory,
     approveConfirmation,
+    rejectConfirmation,
     executeConfirmation,
   } as const;
 }

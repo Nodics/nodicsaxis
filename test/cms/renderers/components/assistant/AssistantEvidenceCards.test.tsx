@@ -30,6 +30,28 @@ describe('Assistant evidence and operational cards', () => {
     expect(screen.queryByRole('link')).not.toBeInTheDocument();
   });
 
+  it('navigates only when Knowledge supplies a validated internal route', () => {
+    render(
+      <AssistantCitationList
+        citations={[
+          {
+            citationId: 'guide-2',
+            title: 'Internal enterprise guide',
+            locator: '/guides/enterprise',
+            navigationType: 'INTERNAL_ROUTE',
+            navigationTarget: '/guides/enterprise',
+          },
+        ]}
+        emptyLabel="No sources supplied"
+        title="Sources"
+      />,
+    );
+
+    expect(
+      screen.getByRole('link', { name: 'Internal enterprise guide' }),
+    ).toHaveAttribute('href', '/guides/enterprise');
+  });
+
   it('renders only normalized usage and reconciliation fields', () => {
     render(
       <AssistantUsageCard

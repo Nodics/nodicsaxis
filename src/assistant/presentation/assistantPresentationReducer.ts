@@ -84,33 +84,7 @@ export function assistantPresentationReducer(
         error: undefined,
       });
     case 'HISTORY_RECEIVED':
-      return updateConversation(
-        updateState(state, {
-          activeConversationCode: action.history.conversation.conversationCode,
-          availableConversations: upsertConversation(
-            state.availableConversations,
-            action.history.conversation,
-          ),
-          historyLoading: false,
-          status: 'READY',
-          error: undefined,
-        }),
-        action.history.conversation.conversationCode,
-        Object.freeze({
-          ...createConversationPresentation(action.history.conversation),
-          history: Object.freeze(
-            action.append
-              ? [
-                  ...action.history.items,
-                  ...(state.conversations[action.history.conversation.conversationCode]
-                    ?.history ?? []),
-                ]
-              : [...action.history.items],
-          ),
-          historyPage: action.history.page,
-          historyHasMore: action.history.items.length === action.history.limit,
-        }),
-      );
+      return historyReceived(state, action.history, action.append);
     case 'TURN_SUBMITTING': {
       const current = state.conversations[action.conversationCode];
       if (!current) return state;
@@ -189,6 +163,58 @@ export function assistantPresentationReducer(
     case 'FAILED':
       return updateState(state, { status: 'FAILED', error: action.message });
   }
+}
+
+function historyReceived(
+  state: AssistantPresentationState,
+  history: import('../api/assistantContracts').AssistantConversationHistory,
+  append: boolean,
+): AssistantPresentationState {
+  const conversationCode = history.conversation.conversationCode;
+  const existing = state.conversations[conversationCode];
+  const combinedHistory = append
+    ? [...history.items, ...(existing?.history ?? [])]
+    : [...history.items];
+  let presentation: AssistantConversationPresentation = Object.freeze({
+    ...createConversationPresentation(history.conversation),
+    history: Object.freeze(combinedHistory),
+    historyPage: history.page,
+    historyHasMore: history.items.length === history.limit,
+  });
+  try {
+    for (const entry of combinedHistory) {
+      for (const event of entry.interactions ?? []) {
+        presentation = applyEvent(presentation, event);
+      }
+    }
+    const latestConfirmation = history.confirmations?.[0];
+    if (latestConfirmation) {
+      presentation = Object.freeze({
+        ...presentation,
+        confirmation: latestConfirmation,
+      });
+    }
+  } catch {
+    return updateState(state, {
+      historyLoading: false,
+      status: 'FAILED',
+      error: 'Assistant history interaction data is invalid',
+    });
+  }
+  return updateConversation(
+    updateState(state, {
+      activeConversationCode: conversationCode,
+      availableConversations: upsertConversation(
+        state.availableConversations,
+        history.conversation,
+      ),
+      historyLoading: false,
+      status: 'READY',
+      error: undefined,
+    }),
+    conversationCode,
+    presentation,
+  );
 }
 
 function reduceStreamEvent(
@@ -332,7 +358,11 @@ function appendCurrentHistory(
     ...current,
     history: Object.freeze([
       ...current.history,
-      Object.freeze({ turn: current.turn, messages: Object.freeze(messages) }),
+      Object.freeze({
+        turn: current.turn,
+        messages: Object.freeze(messages),
+        interactions: Object.freeze([]),
+      }),
     ]),
   });
 }

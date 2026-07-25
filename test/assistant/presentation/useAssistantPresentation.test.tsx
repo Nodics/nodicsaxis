@@ -35,6 +35,8 @@ function client() {
   const cancelTurn = vi.fn();
   const getConversationHistory = vi.fn();
   const approveConfirmation = vi.fn();
+  const getConfirmation = vi.fn();
+  const rejectConfirmation = vi.fn();
   const executeConfirmation = vi.fn();
   const value: AssistantClient = {
     createConversation,
@@ -47,6 +49,8 @@ function client() {
     cancelTurn,
     createConfirmation: vi.fn(),
     approveConfirmation,
+    getConfirmation,
+    rejectConfirmation,
     executeConfirmation,
   };
   return {

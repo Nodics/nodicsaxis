@@ -24,6 +24,7 @@ describe('AssistantConfirmationCard', () => {
       title: 'Review and confirm',
       approveLabel: 'Approve action',
       executeLabel: 'Execute approved action',
+      rejectLabel: 'Reject action',
       expiredLabel: 'Confirmation expired',
       completedLabel: 'Action completed',
     };
@@ -33,6 +34,7 @@ describe('AssistantConfirmationCard', () => {
         confirmation={confirmation}
         onApprove={approve}
         onExecute={execute}
+        onReject={vi.fn()}
       />,
     );
 
@@ -47,6 +49,7 @@ describe('AssistantConfirmationCard', () => {
         confirmation={{ ...confirmation, state: 'APPROVED', revision: 1 }}
         onApprove={approve}
         onExecute={execute}
+        onReject={vi.fn()}
       />,
     );
     await user.click(screen.getByRole('button', { name: 'Execute approved action' }));
@@ -60,10 +63,12 @@ describe('AssistantConfirmationCard', () => {
         completedLabel="Action completed"
         confirmation={{ ...confirmation, state: 'EXPIRED' }}
         executeLabel="Execute approved action"
+        rejectLabel="Reject action"
         expiredLabel="Confirmation expired"
         title="Review and confirm"
         onApprove={vi.fn()}
         onExecute={vi.fn()}
+        onReject={vi.fn()}
       />,
     );
 

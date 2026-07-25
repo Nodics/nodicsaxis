@@ -55,6 +55,7 @@ export function AssistantWorkspaceRenderer({
     component,
     'confirmationCompletedLabel',
   );
+  const confirmationRejectLabel = stringProperty(component, 'rejectLabel');
   const controller = actions?.assistant;
   const disconnectedState = {
     scope: { enterpriseCode: '', employeeId: '' },
@@ -117,6 +118,7 @@ export function AssistantWorkspaceRenderer({
               clarificationTitle={clarificationTitle}
               confirmationCompletedLabel={confirmationCompletedLabel}
               confirmationExpiredLabel={confirmationExpiredLabel}
+              confirmationRejectLabel={confirmationRejectLabel}
               confirmationTitle={confirmationTitle}
               employeeLabel={employeeLabel}
               embeddingTokensLabel={embeddingTokensLabel}
@@ -139,6 +141,7 @@ export function AssistantWorkspaceRenderer({
               workingLabel={workingLabel}
               onApprove={controller?.approveConfirmation ?? (() => Promise.resolve())}
               onExecute={controller?.executeConfirmation ?? (() => Promise.resolve())}
+              onReject={controller?.rejectConfirmation ?? (() => Promise.resolve())}
               onLoadMore={controller?.loadMoreHistory ?? (() => Promise.resolve())}
               onSubmit={controller?.submit ?? (() => Promise.resolve())}
             />

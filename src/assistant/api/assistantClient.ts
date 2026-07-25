@@ -18,6 +18,7 @@ import {
   type CreateConfirmationInput,
   type CreateConversationInput,
   type ListConversationsInput,
+  type RejectConfirmationInput,
   type SubmitTurnInput,
 } from './assistantContracts';
 import {
@@ -80,6 +81,15 @@ export interface AssistantClient {
   approveConfirmation(
     confirmationCode: string,
     input: ApproveConfirmationInput,
+    signal?: AbortSignal,
+  ): Promise<AssistantConfirmation>;
+  getConfirmation(
+    confirmationCode: string,
+    signal?: AbortSignal,
+  ): Promise<AssistantConfirmation>;
+  rejectConfirmation(
+    confirmationCode: string,
+    input: RejectConfirmationInput,
     signal?: AbortSignal,
   ): Promise<AssistantConfirmation>;
   executeConfirmation(
@@ -241,6 +251,26 @@ export function createAssistantClient(
           { method: 'POST', body: { ...input }, signal },
         ),
         'Approve confirmation data',
+      );
+      return parseAssistantConfirmation(data.confirmation);
+    },
+    getConfirmation: async (confirmationCode, signal) => {
+      const data = assistantRecord(
+        await transport.request(
+          `/confirmations/${assistantPathSegment(confirmationCode, 'confirmationCode')}`,
+          { signal },
+        ),
+        'Get confirmation data',
+      );
+      return parseAssistantConfirmation(data.confirmation);
+    },
+    rejectConfirmation: async (confirmationCode, input, signal) => {
+      const data = assistantRecord(
+        await transport.request(
+          `/confirmations/${assistantPathSegment(confirmationCode, 'confirmationCode')}/reject`,
+          { method: 'POST', body: { ...input }, signal },
+        ),
+        'Reject confirmation data',
       );
       return parseAssistantConfirmation(data.confirmation);
     },

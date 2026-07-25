@@ -251,4 +251,64 @@ describe('Assistant presentation reducer', () => {
     ).toEqual(['Older question', 'Older answer', 'Recent question', 'Recent answer']);
     expect(state.availableConversations).toHaveLength(1);
   });
+
+  it('restores safe structured interactions and confirmation state after reload', () => {
+    const confirmation = {
+      confirmationCode: 'confirmation-1',
+      conversationCode: 'conversation-1',
+      operationId: 'profile_createenterprise',
+      state: 'APPROVED',
+      argumentsDigest: 'a'.repeat(64),
+      revision: 1,
+      expiresAt: '2099-01-01T00:00:00.000Z',
+      impact: { summary: 'Create enterprise Acme' },
+    };
+    const state = assistantPresentationReducer(
+      initialAssistantPresentationState(scope),
+      {
+        type: 'HISTORY_RECEIVED',
+        append: false,
+        history: {
+          conversation,
+          page: 1,
+          limit: 20,
+          confirmations: [confirmation],
+          items: [
+            {
+              turn,
+              messages: [{ role: 'user', content: 'Create Acme', sequence: 1 }],
+              interactions: [
+                event(2, 'TOOL_RESULT', {
+                  toolId: 'profile.enterprise.create',
+                  ownerModule: 'profile',
+                  operationId: 'profile_createenterprise',
+                  outcome: 'SUCCEEDED',
+                }),
+                event(3, 'CITATIONS', {
+                  citations: [
+                    {
+                      citationId: 'guide-1',
+                      title: 'Enterprise guide',
+                      navigationType: 'INTERNAL_ROUTE',
+                      navigationTarget: '/guides/enterprise',
+                    },
+                  ],
+                }),
+                event(4, 'USAGE', {
+                  usage: { inputTokens: 8, outputTokens: 3 },
+                  reconciliation: { state: 'RECONCILED' },
+                }),
+              ],
+            },
+          ],
+        },
+      },
+    );
+
+    const active = state.conversations['conversation-1'];
+    expect(active?.confirmation).toEqual(confirmation);
+    expect(active?.toolActivity?.state).toBe('SUCCEEDED');
+    expect(active?.citations?.[0]?.navigationTarget).toBe('/guides/enterprise');
+    expect(active?.usage?.inputTokens).toBe(8);
+  });
 });

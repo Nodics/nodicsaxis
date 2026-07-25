@@ -1,4 +1,12 @@
-import { List, ListItem, ListItemText, Paper, Stack, Typography } from '@mui/material';
+import {
+  Link,
+  List,
+  ListItem,
+  ListItemText,
+  Paper,
+  Stack,
+  Typography,
+} from '@mui/material';
 
 import type { AssistantCitation } from '../../../../assistant/api/assistantContracts';
 
@@ -24,7 +32,14 @@ export function AssistantCitationList(props: AssistantCitationListProps) {
               return (
                 <ListItem key={citation.citationId} disableGutters>
                   <ListItemText
-                    primary={citation.title}
+                    primary={
+                      citation.navigationType === 'INTERNAL_ROUTE' &&
+                      citation.navigationTarget ? (
+                        <Link href={citation.navigationTarget}>{citation.title}</Link>
+                      ) : (
+                        citation.title
+                      )
+                    }
                     secondary={details || citation.citationId}
                   />
                 </ListItem>

@@ -109,6 +109,7 @@ describe('AssistantWorkspaceRenderer', () => {
             loadMoreConversations: vi.fn(),
             loadMoreHistory: vi.fn(),
             approveConfirmation: vi.fn(),
+            rejectConfirmation: vi.fn(),
             executeConfirmation: vi.fn(),
           },
         }}
@@ -165,6 +166,7 @@ describe('AssistantWorkspaceRenderer', () => {
             loadMoreConversations: vi.fn(),
             loadMoreHistory: vi.fn(),
             approveConfirmation: vi.fn(),
+            rejectConfirmation: vi.fn(),
             executeConfirmation: vi.fn(),
           },
         }}

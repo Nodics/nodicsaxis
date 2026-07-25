@@ -184,11 +184,27 @@ export function parseConversationHistory(value: unknown): AssistantConversationH
         if (!Array.isArray(entry.messages)) {
           throw new Error('Assistant history messages must be an array');
         }
+        if (entry.interactions !== undefined && !Array.isArray(entry.interactions)) {
+          throw new Error('Assistant history interactions must be an array');
+        }
         return Object.freeze({
           turn: parseAssistantTurn(entry.turn),
           messages: Object.freeze(entry.messages.map(parseAssistantMessage)),
+          interactions: Object.freeze(
+            (entry.interactions ?? []).map((event) =>
+              parseAssistantEvent({
+                contractVersion: ASSISTANT_API_CONTRACT_VERSION,
+                ...assistantRecord(event, 'Assistant history interaction'),
+              }),
+            ),
+          ),
         });
       }),
+    ),
+    confirmations: Object.freeze(
+      Array.isArray(history.confirmations)
+        ? history.confirmations.map(parseAssistantConfirmation)
+        : [],
     ),
   });
 }
@@ -217,12 +233,39 @@ export function parseAssistantCitations(value: unknown): readonly AssistantCitat
   return Object.freeze(
     raw.map((value) => {
       const citation = assistantRecord(value, 'Assistant citation');
+      const navigationType = citation.navigationType;
+      if (
+        navigationType !== undefined &&
+        (typeof navigationType !== 'string' ||
+          !['NONE', 'INTERNAL_ROUTE'].includes(navigationType))
+      ) {
+        throw new Error('Assistant citation navigation type is unsupported');
+      }
+      const navigationTarget = optionalText(
+        citation.navigationTarget,
+        'citation navigation target',
+      );
+      if (
+        navigationType === 'INTERNAL_ROUTE' &&
+        (!navigationTarget ||
+          !navigationTarget.startsWith('/') ||
+          navigationTarget.startsWith('//') ||
+          navigationTarget.includes('\\') ||
+          [...navigationTarget].some((character) => {
+            const code = character.charCodeAt(0);
+            return code <= 31 || code === 127;
+          }))
+      ) {
+        throw new Error('Assistant citation navigation target is unsafe');
+      }
       return Object.freeze({
         citationId: text(citation.citationId, 'citationId'),
         title: text(citation.title, 'citation title'),
         locator: optionalText(citation.locator, 'citation locator'),
         section: optionalText(citation.section, 'citation section'),
         version: optionalText(citation.version, 'citation version'),
+        navigationType: navigationType as 'NONE' | 'INTERNAL_ROUTE' | undefined,
+        navigationTarget,
       });
     }),
   );
