@@ -10,6 +10,9 @@ const validConfig = {
   enterpriseCode: 'default',
   clientContractVersion: 1,
   requestTimeoutMs: 10_000,
+  assistantMaximumEventBytes: 65_536,
+  assistantReconnectWindowMs: 120_000,
+  assistantIdleTimeoutMs: 45_000,
 };
 const publicBootstrap = {
   code: 'SUC_BOF_00014',

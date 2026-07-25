@@ -3,6 +3,9 @@ export interface AxisRuntimeConfig {
   readonly enterpriseCode: string;
   readonly clientContractVersion: number;
   readonly requestTimeoutMs: number;
+  readonly assistantMaximumEventBytes: number;
+  readonly assistantReconnectWindowMs: number;
+  readonly assistantIdleTimeoutMs: number;
 }
 
 const MINIMUM_TIMEOUT_MS = 1_000;
@@ -44,6 +47,21 @@ function parsePositiveInteger(value: unknown, fieldName: string): number {
   return Number(value);
 }
 
+function parseBoundedInteger(
+  value: unknown,
+  fieldName: string,
+  minimum: number,
+  maximum: number,
+): number {
+  const parsed = parsePositiveInteger(value, fieldName);
+  if (parsed < minimum || parsed > maximum) {
+    throw new Error(
+      `${fieldName} must be between ${String(minimum)} and ${String(maximum)}`,
+    );
+  }
+  return parsed;
+}
+
 export function parseRuntimeConfig(value: unknown): AxisRuntimeConfig {
   if (!isRecord(value)) {
     throw new Error('Axis runtime configuration must be a JSON object');
@@ -54,6 +72,9 @@ export function parseRuntimeConfig(value: unknown): AxisRuntimeConfig {
     'enterpriseCode',
     'clientContractVersion',
     'requestTimeoutMs',
+    'assistantMaximumEventBytes',
+    'assistantReconnectWindowMs',
+    'assistantIdleTimeoutMs',
   ]);
   const unknownKeys = Object.keys(value).filter((key) => !allowedKeys.has(key));
   if (unknownKeys.length > 0) {
@@ -86,5 +107,23 @@ export function parseRuntimeConfig(value: unknown): AxisRuntimeConfig {
       'clientContractVersion',
     ),
     requestTimeoutMs,
+    assistantMaximumEventBytes: parseBoundedInteger(
+      value.assistantMaximumEventBytes,
+      'assistantMaximumEventBytes',
+      1_024,
+      1_048_576,
+    ),
+    assistantReconnectWindowMs: parseBoundedInteger(
+      value.assistantReconnectWindowMs,
+      'assistantReconnectWindowMs',
+      1_000,
+      600_000,
+    ),
+    assistantIdleTimeoutMs: parseBoundedInteger(
+      value.assistantIdleTimeoutMs,
+      'assistantIdleTimeoutMs',
+      5_000,
+      300_000,
+    ),
   });
 }

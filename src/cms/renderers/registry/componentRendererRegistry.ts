@@ -48,6 +48,11 @@ export const COMPONENT_RENDERER_REGISTRY = Object.freeze({
       default: module.DashboardActionsRenderer,
     })),
   ),
+  'axis.component.assistant-workspace': lazy(() =>
+    import('../components/assistant/AssistantWorkspaceRenderer').then((module) => ({
+      default: module.AssistantWorkspaceRenderer,
+    })),
+  ),
 } satisfies Readonly<Record<string, ComponentType<CmsComponentRendererProps>>>);
 
 export type ComponentRendererKey = keyof typeof COMPONENT_RENDERER_REGISTRY;

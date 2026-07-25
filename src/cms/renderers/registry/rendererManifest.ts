@@ -14,11 +14,19 @@ export const CMS_RENDERER_MANIFEST = Object.freeze({
     kind: 'page',
     contractVersions: Object.freeze([1]),
   },
+  'axis.page.assistant': {
+    kind: 'page',
+    contractVersions: Object.freeze([1]),
+  },
   'axis.template.authentication': {
     kind: 'template',
     contractVersions: Object.freeze([1]),
   },
   'axis.template.dashboard': {
+    kind: 'template',
+    contractVersions: Object.freeze([1]),
+  },
+  'axis.template.assistant': {
     kind: 'template',
     contractVersions: Object.freeze([1]),
   },
@@ -55,6 +63,10 @@ export const CMS_RENDERER_MANIFEST = Object.freeze({
     contractVersions: Object.freeze([1]),
   },
   'axis.component.dashboard-actions': {
+    kind: 'component',
+    contractVersions: Object.freeze([1]),
+  },
+  'axis.component.assistant-workspace': {
     kind: 'component',
     contractVersions: Object.freeze([1]),
   },

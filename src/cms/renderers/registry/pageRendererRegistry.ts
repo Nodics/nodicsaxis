@@ -13,6 +13,11 @@ export const PAGE_RENDERER_REGISTRY = Object.freeze({
       default: module.DashboardPageRenderer,
     })),
   ),
+  'axis.page.assistant': lazy(() =>
+    import('../pages/AssistantPageRenderer').then((module) => ({
+      default: module.AssistantPageRenderer,
+    })),
+  ),
 } satisfies Readonly<Record<string, ComponentType<CmsPagePresentationProps>>>);
 
 export function getPageRenderer(

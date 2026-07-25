@@ -3,6 +3,7 @@ import { describe, expect, it, vi } from 'vitest';
 import {
   loadAuthenticatedBootstrap,
   loadPublicBootstrap,
+  selectModuleConnection,
 } from '../../src/bootstrap/publicBootstrap';
 
 const document = {
@@ -31,7 +32,11 @@ const authenticatedData = {
     cms: [
       {
         moduleName: 'cms',
+        instanceId: 'runtime-1',
         environment: 'startioLocal',
+        clientCallable: true,
+        endpoint: 'https://cms.example.com/nodics/cms',
+        state: 'UP',
       },
     ],
   },
@@ -122,6 +127,18 @@ describe('Axis bootstrap clients', () => {
     );
     expect(result.axisPolicy.idleTimeoutSeconds).toBe(900);
     expect(result.environments).toEqual(['startioLocal']);
+    expect(result.moduleConnections.cms).toEqual([
+      {
+        moduleName: 'cms',
+        instanceId: 'runtime-1',
+        endpoint: 'https://cms.example.com/nodics/cms',
+        environment: 'startioLocal',
+        state: 'UP',
+      },
+    ]);
+    expect(selectModuleConnection(result, 'cms')?.endpoint).toBe(
+      'https://cms.example.com/nodics/cms',
+    );
     expect(result.navigation).toEqual([
       expect.objectContaining({
         label: 'Content',
@@ -130,6 +147,40 @@ describe('Axis bootstrap clients', () => {
         availability: 'UP',
       }),
     ]);
+  });
+
+  it('rejects unsafe direct-module connection settings', async () => {
+    const request = vi.fn<typeof fetch>().mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          data: {
+            ...authenticatedData,
+            modules: {
+              cms: [
+                {
+                  moduleName: 'cms',
+                  instanceId: 'unsafe',
+                  environment: 'startioLocal',
+                  clientCallable: true,
+                  endpoint: 'https://user:secret@cms.example.com/nodics/cms',
+                  state: 'UP',
+                },
+              ],
+            },
+          },
+        }),
+        { status: 200 },
+      ),
+    );
+    await expect(
+      loadAuthenticatedBootstrap(
+        'https://backoffice.example.com',
+        1,
+        'employee-access',
+        10_000,
+        request,
+      ),
+    ).rejects.toThrow(/safe HTTP endpoint/);
   });
 
   it('rejects navigation permissions not covered by the authorized module', async () => {

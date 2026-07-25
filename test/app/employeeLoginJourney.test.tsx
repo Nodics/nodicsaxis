@@ -11,6 +11,9 @@ const runtimeConfig = {
   enterpriseCode: 'enterprise-a',
   clientContractVersion: 1,
   requestTimeoutMs: 10_000,
+  assistantMaximumEventBytes: 65_536,
+  assistantReconnectWindowMs: 120_000,
+  assistantIdleTimeoutMs: 45_000,
 };
 
 const publicBootstrap = {
@@ -94,6 +97,75 @@ const dashboardPage = {
   },
 };
 
+const assistantPage = {
+  ...validResolvedPage,
+  path: '/assistant',
+  page: {
+    ...validResolvedPage.page,
+    code: 'axisAssistantPage',
+    name: 'Axis Assistant',
+    typeCode: 'axisAssistantPageType',
+    renderer: 'axis.page.assistant',
+    template: 'axisAssistantPageTemplate',
+    templateContract: {
+      code: 'axisAssistantPageTemplate',
+      renderer: 'axis.template.assistant',
+      contractVersion: 1,
+    },
+    components: [
+      {
+        code: 'axisAssistantWorkspaceComponent',
+        typeCode: 'axisAssistantWorkspaceComponentType',
+        renderer: 'axis.component.assistant-workspace',
+        rendererContractVersion: 1,
+        rendererChannels: ['web', 'mobile-webview'],
+        rendererDeprecated: false,
+        properties: {
+          title: 'How can I help?',
+          welcomeMessage: 'Ask about authorized operations.',
+          inputPlaceholder: 'Describe what you want to do',
+          submitLabel: 'Send',
+          stopLabel: 'Stop',
+          emptyState: 'Assistant activity appears here.',
+          employeeLabel: 'You',
+          assistantLabel: 'Axis Assistant',
+          workingLabel: 'Working',
+          cancellingLabel: 'Stopping',
+          errorLabel: 'Request failed',
+          historyLabel: 'Conversations',
+          newConversationLabel: 'New conversation',
+          noConversationsLabel: 'No conversations',
+          loadMoreLabel: 'Load more',
+          clarificationTitle: 'More information required',
+          clarificationSubmitLabel: 'Continue',
+          toolPlanTitle: 'Proposed governed action',
+          confirmationTitle: 'Review and confirm',
+          approveLabel: 'Approve action',
+          executeLabel: 'Execute approved action',
+          confirmationExpiredLabel: 'Confirmation expired',
+          confirmationCompletedLabel: 'Action completed',
+          toolPlannedLabel: 'Action prepared',
+          toolRunningLabel: 'Action in progress',
+          toolSucceededLabel: 'Action completed',
+          toolFailedLabel: 'Action failed',
+          citationsTitle: 'Sources',
+          noCitationsLabel: 'No sources supplied',
+          usageTitle: 'AI usage',
+          inputTokensLabel: 'Input',
+          outputTokensLabel: 'Output',
+          cachedTokensLabel: 'Cached input',
+          reasoningTokensLabel: 'Reasoning',
+          embeddingTokensLabel: 'Embedding',
+          reconciliationLabel: 'Accounting status',
+        },
+        slot: 'workspace',
+        index: 20,
+        components: [],
+      },
+    ],
+  },
+};
+
 describe('employee login journey', () => {
   it('discovers modules, authenticates through Profile, and protects dashboard', async () => {
     window.history.pushState({}, '', '/login');
@@ -129,6 +201,16 @@ describe('employee login journey', () => {
               data: {
                 modules: {
                   cms: [{ moduleName: 'cms', environment: 'startioLocal' }],
+                  aiAssistant: [
+                    {
+                      moduleName: 'aiAssistant',
+                      instanceId: 'runtime-1',
+                      environment: 'startioLocal',
+                      clientCallable: true,
+                      endpoint: 'https://assistant.example.com/nodics/aiAssistant',
+                      state: 'UP',
+                    },
+                  ],
                 },
                 catalogue: {
                   cms: {
@@ -147,9 +229,26 @@ describe('employee login journey', () => {
                       },
                     ],
                   },
+                  aiAssistant: {
+                    enabled: true,
+                    category: 'platform',
+                    icon: 'assistant',
+                    requiredPermissions: ['ai.assistant.use'],
+                    compatibility: { status: 'COMPATIBLE' },
+                    navigation: [
+                      {
+                        id: 'assistant',
+                        label: 'Axis Assistant',
+                        route: '/assistant',
+                        order: 50,
+                        requiredPermissions: ['ai.assistant.use'],
+                      },
+                    ],
+                  },
                 },
                 availability: {
                   cms: { state: 'UP' },
+                  aiAssistant: { state: 'UP' },
                 },
                 axisPolicy: {
                   contractVersion: 1,
@@ -170,10 +269,15 @@ describe('employee login journey', () => {
         );
       }
       const authenticated = new Headers(options?.headers).get('Authorization');
+      const deliveredPage = url.includes('path=%2Fassistant')
+        ? assistantPage
+        : authenticated
+          ? dashboardPage
+          : loginPage;
       return Promise.resolve(
         new Response(
           JSON.stringify({
-            result: authenticated ? dashboardPage : loginPage,
+            result: deliveredPage,
           }),
           { status: 200 },
         ),
@@ -193,6 +297,10 @@ describe('employee login journey', () => {
     await user.click(screen.getByRole('button', { name: 'Sign in' }));
 
     expect(await screen.findByText('Authenticated employee workspace')).toBeVisible();
+    await user.click(screen.getByRole('button', { name: 'Axis Assistant' }));
+    expect(
+      await screen.findByRole('heading', { name: 'How can I help?' }),
+    ).toBeVisible();
     await user.click(screen.getByRole('button', { name: 'Open navigation' }));
     expect(
       screen.getByRole('navigation', { name: 'Primary navigation' }),

@@ -9,10 +9,12 @@ import {
 import {
   loadAuthenticatedBootstrap,
   loadPublicBootstrap,
+  selectModuleConnection,
   type AxisAuthenticatedBootstrap,
   type AxisEmployeePolicy,
   type AxisPublicBootstrap,
 } from '../bootstrap/publicBootstrap';
+import { AssistantRoutePage } from '../assistant/AssistantRoutePage';
 import { useIdleScreenLock } from '../auth/useIdleScreenLock';
 import type { CmsRendererActions } from '../cms/renderers/shared/rendererTypes';
 import { useRuntimeConfig } from '../runtime/RuntimeConfigContext';
@@ -93,6 +95,12 @@ export function App() {
   if (!bootstrap) return <LoadingScreen />;
 
   const composition = bootstrap.uiComposition;
+  const assistantNavigation = authenticatedBootstrap?.navigation.find(
+    (item) => item.id === 'assistant' && item.moduleName === 'aiAssistant',
+  );
+  const assistantConnection = authenticatedBootstrap
+    ? selectModuleConnection(authenticatedBootstrap, 'aiAssistant')
+    : undefined;
   const page = (
     path: string,
     accessToken?: string,
@@ -249,13 +257,52 @@ export function App() {
           )
         }
       />
+      <Route
+        path="/assistant"
+        element={
+          session && !locked && authenticatedBootstrap && assistantNavigation ? (
+            authenticatedShell(
+              ['UP', 'DEGRADED'].includes(assistantNavigation.availability) &&
+                assistantConnection ? (
+                <AssistantRoutePage
+                  accessToken={session.accessToken}
+                  channel={composition.channel}
+                  cmsBaseUrl={bootstrap.endpoints.cms}
+                  connection={assistantConnection}
+                  employeeId={session.loginId}
+                  locale={composition.locale}
+                  runtime={runtime}
+                  site={composition.site}
+                />
+              ) : (
+                <ModuleWorkspacePlaceholder item={assistantNavigation} />
+              ),
+            )
+          ) : (
+            <Navigate
+              replace
+              to={
+                session && !locked
+                  ? composition.defaultAuthenticatedPage
+                  : session
+                    ? '/lock-screen'
+                    : composition.defaultPublicPage
+              }
+            />
+          )
+        }
+      />
       {session && !locked && authenticatedBootstrap
         ? authenticatedBootstrap.navigation
             .filter(
               (item) =>
-                !['/dashboard', '/login', '/forgot-password', '/lock-screen'].includes(
-                  item.route,
-                ),
+                ![
+                  '/assistant',
+                  '/dashboard',
+                  '/login',
+                  '/forgot-password',
+                  '/lock-screen',
+                ].includes(item.route),
             )
             .map((item) => (
               <Route

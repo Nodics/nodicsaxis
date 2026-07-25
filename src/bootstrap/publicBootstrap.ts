@@ -37,10 +37,30 @@ export interface AxisNavigationItem {
   readonly availability: AxisModuleAvailability;
 }
 
+export interface AxisModuleConnection {
+  readonly moduleName: string;
+  readonly instanceId: string;
+  readonly endpoint: string;
+  readonly environment: string;
+  readonly state: AxisModuleAvailability;
+}
+
 export interface AxisAuthenticatedBootstrap {
   readonly axisPolicy: AxisEmployeePolicy;
   readonly navigation: readonly AxisNavigationItem[];
   readonly environments: readonly string[];
+  readonly moduleConnections: Readonly<Record<string, readonly AxisModuleConnection[]>>;
+}
+
+export function selectModuleConnection(
+  bootstrap: AxisAuthenticatedBootstrap,
+  moduleName: string,
+): AxisModuleConnection | undefined {
+  const connections = bootstrap.moduleConnections[moduleName] ?? [];
+  return (
+    connections.find((connection) => connection.state === 'UP') ??
+    connections.find((connection) => connection.state === 'DEGRADED')
+  );
 }
 
 function record(value: unknown, name: string): Record<string, unknown> {
@@ -173,20 +193,53 @@ function parseNavigation(
   );
 }
 
-function parseEnvironments(modulesValue: unknown): readonly string[] {
+function parseModuleContext(modulesValue: unknown): {
+  readonly environments: readonly string[];
+  readonly connections: Readonly<Record<string, readonly AxisModuleConnection[]>>;
+} {
   const modules = record(modulesValue, 'BackOffice authorized modules');
-  const environments = Object.values(modules).flatMap((instances) => {
+  const environments: string[] = [];
+  const connections: Record<string, readonly AxisModuleConnection[]> = {};
+  Object.entries(modules).forEach(([moduleName, instances]) => {
     if (!Array.isArray(instances)) {
       throw new Error('BackOffice module instances must be a list');
     }
-    return instances.flatMap((instance) => {
+    const moduleConnections: AxisModuleConnection[] = [];
+    instances.forEach((instance) => {
       const lease = record(instance, 'BackOffice module lease');
-      return typeof lease.environment === 'string' && lease.environment !== ''
-        ? [lease.environment]
-        : [];
+      const environment =
+        typeof lease.environment === 'string' && lease.environment !== ''
+          ? lease.environment
+          : undefined;
+      if (environment) environments.push(environment);
+      if (
+        lease.clientCallable === true &&
+        lease.endpoint !== undefined &&
+        environment
+      ) {
+        moduleConnections.push(
+          Object.freeze({
+            moduleName,
+            instanceId: text(lease.instanceId, `${moduleName} instanceId`),
+            endpoint: baseUrl(lease.endpoint, `${moduleName} endpoint`),
+            environment,
+            state: availabilityState(lease.state),
+          }),
+        );
+      }
     });
+    if (moduleConnections.length > 0) {
+      connections[moduleName] = Object.freeze(
+        moduleConnections.sort((left, right) =>
+          left.instanceId.localeCompare(right.instanceId),
+        ),
+      );
+    }
   });
-  return Object.freeze([...new Set(environments)].sort());
+  return Object.freeze({
+    environments: Object.freeze([...new Set(environments)].sort()),
+    connections: Object.freeze({ ...connections }),
+  });
 }
 
 export function parseEmployeePolicy(value: unknown): AxisEmployeePolicy {
@@ -325,10 +378,12 @@ export async function loadAuthenticatedBootstrap(
       'BackOffice employee bootstrap response',
     );
     const data = record(envelope.data, 'BackOffice employee bootstrap data');
+    const moduleContext = parseModuleContext(data.modules);
     return Object.freeze({
       axisPolicy: parseEmployeePolicy(data.axisPolicy),
       navigation: parseNavigation(data.catalogue, data.availability),
-      environments: parseEnvironments(data.modules),
+      environments: moduleContext.environments,
+      moduleConnections: moduleContext.connections,
     });
   } finally {
     globalThis.clearTimeout(timeout);

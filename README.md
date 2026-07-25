@@ -79,6 +79,9 @@ AXIS_BACKOFFICE_BASE_URL=http://localhost:3000
 AXIS_ENTERPRISE_CODE=default
 AXIS_CLIENT_CONTRACT_VERSION=1
 AXIS_REQUEST_TIMEOUT_MS=10000
+AXIS_ASSISTANT_MAXIMUM_EVENT_BYTES=65536
+AXIS_ASSISTANT_RECONNECT_WINDOW_MS=120000
+AXIS_ASSISTANT_IDLE_TIMEOUT_MS=45000
 AXIS_DEV_HOST=0.0.0.0
 AXIS_DEV_PORT=3100
 AXIS_STRICT_PORT=true
@@ -92,7 +95,10 @@ Vite validates these values and generates `/axis-config.json`:
   "backofficeBaseUrl": "http://localhost:3000",
   "enterpriseCode": "default",
   "clientContractVersion": 1,
-  "requestTimeoutMs": 10000
+  "requestTimeoutMs": 10000,
+  "assistantMaximumEventBytes": 65536,
+  "assistantReconnectWindowMs": 120000,
+  "assistantIdleTimeoutMs": 45000
 }
 ```
 
@@ -127,10 +133,16 @@ The implemented Gold and Charcoal foundations, responsive shell, recovery
 states, accessibility behavior, and extension rules are documented in
 [Axis Design System And Static Shell](docs/design-system-and-shell.md).
 
+The implemented authenticated Assistant CMS route, renderer hierarchy,
+direct-module connection validation, and typed HTTP client are documented in
+[Axis Assistant Frontend](docs/assistant-frontend.md).
+
 ## Current scope
 
 The current foundation proves the frontend runtime boundary, safe startup, CMS
 delivery/renderers, employee authentication, secured BackOffice bootstrap,
 CMS-driven login/recovery/lock pages, idle screen locking, protected dashboard
-routing, and logout. Functional module workspaces and visual designers remain
-future slices.
+routing, logout, the CMS-driven Assistant workspace shell, typed Assistant HTTP
+contracts, authenticated resumable SSE transport, and isolated Assistant
+presentation state. The visible conversation workspace, functional module
+workspaces, and visual designers remain future slices.

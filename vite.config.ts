@@ -40,6 +40,15 @@ export function buildRuntimeConfig(env: Record<string, string>): AxisRuntimeConf
     enterpriseCode: required(env, 'AXIS_ENTERPRISE_CODE'),
     clientContractVersion: positiveInteger(env, 'AXIS_CLIENT_CONTRACT_VERSION'),
     requestTimeoutMs: positiveInteger(env, 'AXIS_REQUEST_TIMEOUT_MS'),
+    assistantMaximumEventBytes: positiveInteger(
+      env,
+      'AXIS_ASSISTANT_MAXIMUM_EVENT_BYTES',
+    ),
+    assistantReconnectWindowMs: positiveInteger(
+      env,
+      'AXIS_ASSISTANT_RECONNECT_WINDOW_MS',
+    ),
+    assistantIdleTimeoutMs: positiveInteger(env, 'AXIS_ASSISTANT_IDLE_TIMEOUT_MS'),
   });
 }
 

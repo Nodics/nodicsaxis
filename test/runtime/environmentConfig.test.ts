@@ -7,6 +7,9 @@ const validEnvironment = {
   AXIS_ENTERPRISE_CODE: 'default',
   AXIS_CLIENT_CONTRACT_VERSION: '1',
   AXIS_REQUEST_TIMEOUT_MS: '10000',
+  AXIS_ASSISTANT_MAXIMUM_EVENT_BYTES: '65536',
+  AXIS_ASSISTANT_RECONNECT_WINDOW_MS: '120000',
+  AXIS_ASSISTANT_IDLE_TIMEOUT_MS: '45000',
 };
 
 describe('Axis environment configuration', () => {
@@ -16,6 +19,9 @@ describe('Axis environment configuration', () => {
       enterpriseCode: 'default',
       clientContractVersion: 1,
       requestTimeoutMs: 10000,
+      assistantMaximumEventBytes: 65536,
+      assistantReconnectWindowMs: 120000,
+      assistantIdleTimeoutMs: 45000,
     });
   });
 
