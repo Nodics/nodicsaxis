@@ -24,7 +24,7 @@ export const CMS_RENDERER_MANIFEST = Object.freeze({
   },
   'documentation.page.article': {
     kind: 'page',
-    contractVersions: Object.freeze([1]),
+    contractVersions: Object.freeze([1, 2]),
   },
   'axis.template.authentication': {
     kind: 'template',
@@ -44,7 +44,7 @@ export const CMS_RENDERER_MANIFEST = Object.freeze({
   },
   'documentation.template.article': {
     kind: 'template',
-    contractVersions: Object.freeze([1]),
+    contractVersions: Object.freeze([1, 2]),
   },
   'axis.component.brand': {
     kind: 'component',
@@ -92,11 +92,11 @@ export const CMS_RENDERER_MANIFEST = Object.freeze({
   },
   'documentation.component.article': {
     kind: 'component',
-    contractVersions: Object.freeze([1]),
+    contractVersions: Object.freeze([1, 2]),
   },
   'documentation.component.navigation': {
     kind: 'component',
-    contractVersions: Object.freeze([1]),
+    contractVersions: Object.freeze([1, 2]),
   },
 } satisfies Readonly<Record<string, CmsRendererManifestEntry>>);
 

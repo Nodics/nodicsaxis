@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { COMPONENT_RENDERER_REGISTRY } from '../../../../src/cms/renderers/registry/componentRendererRegistry';
 import { PAGE_RENDERER_REGISTRY } from '../../../../src/cms/renderers/registry/pageRendererRegistry';
 import { CMS_RENDERER_MANIFEST } from '../../../../src/cms/renderers/registry/rendererManifest';
+import { isRendererSupported } from '../../../../src/cms/renderers/registry/rendererManifest';
 
 describe('CMS renderer registries', () => {
   it('maps every declared component renderer to one Axis implementation', () => {
@@ -32,5 +33,17 @@ describe('CMS renderer registries', () => {
     ).toBeDefined();
     expect(PAGE_RENDERER_REGISTRY['axis.page.authentication']).toBeDefined();
     expect(PAGE_RENDERER_REGISTRY['documentation.page.article']).toBeDefined();
+  });
+
+  it('accepts both supported documentation contracts and rejects unknown versions', () => {
+    expect(isRendererSupported('documentation.page.article', 'page', 1)).toBe(true);
+    expect(isRendererSupported('documentation.page.article', 'page', 2)).toBe(true);
+    expect(isRendererSupported('documentation.template.article', 'template', 2)).toBe(
+      true,
+    );
+    expect(
+      isRendererSupported('documentation.component.navigation', 'component', 2),
+    ).toBe(true);
+    expect(isRendererSupported('documentation.page.article', 'page', 3)).toBe(false);
   });
 });

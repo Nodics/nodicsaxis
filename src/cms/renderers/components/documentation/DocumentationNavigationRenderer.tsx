@@ -25,6 +25,7 @@ interface DocumentationNavigationItem {
   readonly route: string;
   readonly category: string;
   readonly audience: readonly string[];
+  readonly searchText: string;
 }
 
 function boundedString(value: unknown): string {
@@ -50,12 +51,16 @@ function parseItems(value: readonly unknown[]): readonly DocumentationNavigation
     const record = candidate as Readonly<Record<string, unknown>>;
     const title = boundedString(record.title);
     const route = boundedString(record.route);
-    const category = boundedString(record.category);
+    const category =
+      boundedString(record.sectionTitle) ||
+      boundedString(record.category) ||
+      boundedString(record.section);
+    const searchText = boundedString(record.searchText);
     if (!title || !route.startsWith('/docs')) return [];
     const audience = Array.isArray(record.audience)
       ? record.audience.map(boundedString).filter(Boolean).slice(0, 20)
       : [];
-    return [{ title, route, category, audience }];
+    return [{ title, route, category, audience, searchText }];
   });
 }
 
@@ -87,7 +92,7 @@ export function DocumentationNavigationRenderer({
   );
   const normalizedQuery = query.trim().toLocaleLowerCase();
   const filtered = items.filter((item) => {
-    const searchable = [item.title, item.category, ...item.audience]
+    const searchable = [item.title, item.category, item.searchText, ...item.audience]
       .join(' ')
       .toLocaleLowerCase();
     return (
