@@ -1,7 +1,9 @@
+import { ThemeProvider } from '@mui/material/styles';
 import { render, screen } from '@testing-library/react';
 import { MemoryRouter } from 'react-router';
 import { describe, expect, it } from 'vitest';
 
+import { createAxisTheme } from '../../../../../src/app/axisTheme';
 import type { CmsComponentContract } from '../../../../../src/cms/cmsContract';
 import { DocumentationArticleRenderer } from '../../../../../src/cms/renderers/components/documentation/DocumentationArticleRenderer';
 
@@ -16,10 +18,19 @@ const article: CmsComponentContract = {
     title: 'Build your first capability',
     category: 'Getting started',
     audience: ['developer'],
+    headings: [{ level: 2, text: 'Configure safely', anchor: 'configure-safely' }],
+    previous: { title: 'Introduction', route: '/docs/introduction' },
+    next: { title: 'Deployment', route: '/docs/deployment' },
     blocks: [
       {
+        kind: 'heading',
+        level: 2,
+        text: 'Configure safely',
+        anchor: 'configure-safely',
+      },
+      {
         kind: 'paragraph',
-        text: 'Continue with the [configuration guide](/docs/configuration).',
+        text: 'Continue with the [configuration guide](/docs/configuration), [official reference](https://example.com/reference), or [support](mailto:support@example.com).',
       },
       { kind: 'unordered-list', items: ['First step', 'Second step'] },
       { kind: 'code', text: 'npm run test:basic' },
@@ -37,20 +48,51 @@ const article: CmsComponentContract = {
 describe('DocumentationArticleRenderer', () => {
   it('renders bounded declarative documentation and safe internal links', () => {
     render(
-      <MemoryRouter>
-        <DocumentationArticleRenderer component={article} />
-      </MemoryRouter>,
+      <ThemeProvider theme={createAxisTheme('light', 'comfortable')}>
+        <MemoryRouter>
+          <DocumentationArticleRenderer component={article} />
+        </MemoryRouter>
+      </ThemeProvider>,
     );
 
     expect(
       screen.getByRole('heading', { name: 'Build your first capability' }),
     ).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: 'configuration guide' })).toHaveAttribute(
+    const guide = screen.getByRole('link', { name: 'configuration guide' });
+    expect(guide).toHaveAttribute('href', '/docs/configuration');
+    expect(guide).toHaveStyle({ color: 'var(--mui-palette-secondary-main)' });
+    expect(guide).toHaveClass('MuiLink-underlineAlways');
+    expect(screen.getByRole('link', { name: 'Configure safely' })).toHaveAttribute(
       'href',
-      '/docs/configuration',
+      '#configure-safely',
+    );
+    expect(screen.getByRole('link', { name: 'official reference' })).toHaveAttribute(
+      'href',
+      'https://example.com/reference',
+    );
+    expect(screen.getByRole('link', { name: 'official reference' })).toHaveAttribute(
+      'target',
+      '_blank',
+    );
+    expect(screen.getByRole('link', { name: 'support' })).toHaveAttribute(
+      'href',
+      'mailto:support@example.com',
+    );
+    expect(screen.getByRole('link', { name: '← Introduction' })).toHaveAttribute(
+      'href',
+      '/docs/introduction',
+    );
+    expect(screen.getByRole('link', { name: 'Deployment →' })).toHaveAttribute(
+      'href',
+      '/docs/deployment',
     );
     expect(screen.getByText('First step')).toBeInTheDocument();
-    expect(screen.getByText('npm run test:basic')).toBeInTheDocument();
+    const code = screen.getByText('npm run test:basic');
+    expect(code).toBeInTheDocument();
+    expect(code.closest('pre')).toHaveStyle({
+      backgroundColor: 'var(--mui-palette-grey-900)',
+      color: 'var(--mui-palette-grey-100)',
+    });
     expect(screen.getByText(/Unsafe/)).toBeInTheDocument();
     expect(screen.queryByRole('link', { name: 'Unsafe' })).not.toBeInTheDocument();
   });

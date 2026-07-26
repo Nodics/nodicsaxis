@@ -23,6 +23,7 @@ export function DocumentationArticlePageRenderer({
       actions,
     );
   const slots: DocumentationArticleTemplateSlots = {
+    navigation: slot('navigation'),
     article: slot('article'),
   };
   return <DocumentationArticleTemplateRenderer page={page} slots={slots} />;

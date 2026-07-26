@@ -1,6 +1,8 @@
 import {
   Alert,
   Box,
+  Breadcrumbs,
+  Button,
   Chip,
   Divider,
   Link,
@@ -16,6 +18,7 @@ import {
 import type { ReactNode } from 'react';
 import { Link as RouterLink } from 'react-router';
 
+import { axisTokens } from '../../../../app/axisTheme';
 import { arrayProperty, stringProperty } from '../../shared/rendererProperties';
 import type { CmsComponentRendererProps } from '../../shared/rendererTypes';
 
@@ -26,12 +29,37 @@ const MAX_TEXT_LENGTH = 100_000;
 
 type DocumentationBlock = Readonly<Record<string, unknown>>;
 
+interface DocumentationLink {
+  readonly title: string;
+  readonly route: string;
+}
+
+const readableLinkSx = {
+  color: 'secondary.main',
+  fontWeight: axisTokens.typography.weight.medium,
+  textDecorationColor: 'primary.main',
+  textDecorationThickness: '1px',
+  textUnderlineOffset: '0.2em',
+  '&:hover': {
+    color: 'text.primary',
+    textDecorationColor: 'primary.main',
+  },
+} as const;
+
 function text(value: unknown, fallback = ''): string {
   return typeof value === 'string' ? value.slice(0, MAX_TEXT_LENGTH) : fallback;
 }
 
 function stringList(value: unknown, limit = MAX_LIST_ITEMS): readonly string[] {
   return Array.isArray(value) ? value.slice(0, limit).map((item) => text(item)) : [];
+}
+
+function documentationLink(value: unknown): DocumentationLink | undefined {
+  if (typeof value !== 'object' || value === null || Array.isArray(value)) return;
+  const record = value as Readonly<Record<string, unknown>>;
+  const title = text(record.title);
+  const route = text(record.route);
+  return title && route.startsWith('/docs') ? { title, route } : undefined;
 }
 
 function safeHref(value: string): string | undefined {
@@ -60,7 +88,13 @@ function inlineContent(value: string): ReactNode {
       parts.push(label);
     } else if (href.startsWith('/')) {
       parts.push(
-        <Link component={RouterLink} key={`${match.index}:${href}`} to={href}>
+        <Link
+          component={RouterLink}
+          key={`${match.index}:${href}`}
+          sx={readableLinkSx}
+          to={href}
+          underline="always"
+        >
           {label}
         </Link>,
       );
@@ -70,7 +104,9 @@ function inlineContent(value: string): ReactNode {
           href={href}
           key={`${match.index}:${href}`}
           rel={href.startsWith('http') ? 'noreferrer' : undefined}
+          sx={readableLinkSx}
           target={href.startsWith('http') ? '_blank' : undefined}
+          underline="always"
         >
           {label}
         </Link>,
@@ -157,11 +193,12 @@ function DocumentationBlockRenderer({
         component="pre"
         key={key}
         sx={{
-          bgcolor: 'grey.950',
+          bgcolor: 'grey.900',
           borderRadius: 1.5,
-          color: 'common.white',
+          color: 'grey.100',
           fontFamily: 'monospace',
           fontSize: '0.875rem',
+          lineHeight: 1.65,
           m: 0,
           overflowX: 'auto',
           p: 2,
@@ -220,6 +257,20 @@ export function DocumentationArticleRenderer({ component }: CmsComponentRenderer
   const title = stringProperty(component, 'title', 'Documentation');
   const category = stringProperty(component, 'category');
   const audience = stringList(arrayProperty(component, 'audience'), 20);
+  const headings = arrayProperty(component, 'headings')
+    .slice(0, 100)
+    .flatMap((heading) => {
+      if (typeof heading !== 'object' || heading === null || Array.isArray(heading)) {
+        return [];
+      }
+      const record = heading as Readonly<Record<string, unknown>>;
+      const label = text(record.text);
+      const anchor = text(record.anchor);
+      const level = typeof record.level === 'number' ? record.level : 2;
+      return label && anchor && level > 1 ? [{ label, anchor, level }] : [];
+    });
+  const previous = documentationLink(component.properties.previous);
+  const next = documentationLink(component.properties.next);
   const blocks = arrayProperty(component, 'blocks')
     .slice(0, MAX_BLOCKS)
     .filter(
@@ -239,6 +290,18 @@ export function DocumentationArticleRenderer({ component }: CmsComponentRenderer
   return (
     <Stack spacing={3}>
       <Stack spacing={1}>
+        <Breadcrumbs aria-label="Documentation breadcrumb">
+          <Link
+            component={RouterLink}
+            sx={readableLinkSx}
+            to="/docs"
+            underline="always"
+          >
+            Documentation
+          </Link>
+          {category ? <Typography color="text.secondary">{category}</Typography> : null}
+          <Typography color="text.primary">{title}</Typography>
+        </Breadcrumbs>
         <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
           {category ? <Chip label={category} size="small" /> : null}
           {audience.map((item) => (
@@ -248,11 +311,46 @@ export function DocumentationArticleRenderer({ component }: CmsComponentRenderer
         <Typography component="p" color="text.secondary" variant="overline">
           Nodics documentation
         </Typography>
-        <Typography component="h1" variant="h1">
+        <Typography
+          component="h1"
+          sx={{
+            fontSize: { xs: '2rem', sm: '2.5rem', lg: '3rem' },
+            letterSpacing: '-0.035em',
+            lineHeight: 1.08,
+          }}
+          variant="h1"
+        >
           {title}
         </Typography>
       </Stack>
       <Divider />
+      {headings.length > 0 ? (
+        <Box
+          component="nav"
+          aria-label="On this page"
+          sx={{ bgcolor: 'action.hover', borderRadius: 1.5, p: 2 }}
+        >
+          <Typography component="h2" gutterBottom variant="subtitle1">
+            On this page
+          </Typography>
+          <Stack spacing={0.75}>
+            {headings.map((heading) => (
+              <Link
+                href={`#${heading.anchor}`}
+                key={heading.anchor}
+                sx={{
+                  ...readableLinkSx,
+                  pl: Math.max(0, heading.level - 2) * 1.5,
+                }}
+                underline="always"
+                variant="body2"
+              >
+                {heading.label}
+              </Link>
+            ))}
+          </Stack>
+        </Box>
+      ) : null}
       {blocks.map((block, index) => (
         <DocumentationBlockRenderer
           block={block}
@@ -260,6 +358,47 @@ export function DocumentationArticleRenderer({ component }: CmsComponentRenderer
           key={`${text(block.kind)}:${String(index)}`}
         />
       ))}
+      {previous || next ? (
+        <>
+          <Divider />
+          <Box
+            component="nav"
+            aria-label="Adjacent documentation"
+            sx={{
+              display: 'grid',
+              gap: 2,
+              gridTemplateColumns: { xs: '1fr', sm: 'repeat(2, minmax(0, 1fr))' },
+            }}
+          >
+            <Box>
+              {previous ? (
+                <Button
+                  component={RouterLink}
+                  fullWidth
+                  sx={{ justifyContent: 'flex-start', textAlign: 'left' }}
+                  to={previous.route}
+                  variant="outlined"
+                >
+                  ← {previous.title}
+                </Button>
+              ) : null}
+            </Box>
+            <Box>
+              {next ? (
+                <Button
+                  component={RouterLink}
+                  fullWidth
+                  sx={{ justifyContent: 'flex-end', textAlign: 'right' }}
+                  to={next.route}
+                  variant="outlined"
+                >
+                  {next.title} →
+                </Button>
+              ) : null}
+            </Box>
+          </Box>
+        </>
+      ) : null}
     </Stack>
   );
 }

@@ -17,6 +17,7 @@ import {
 } from '../bootstrap/publicBootstrap';
 import { AssistantRoutePage } from '../assistant/AssistantRoutePage';
 import { WorkbenchRoutePage } from '../workbench/WorkbenchRoutePage';
+import { DocumentationRoutePage } from '../documentation/DocumentationRoutePage';
 import { useIdleScreenLock } from '../auth/useIdleScreenLock';
 import type { CmsRendererActions } from '../cms/renderers/shared/rendererTypes';
 import { useRuntimeConfig } from '../runtime/RuntimeConfigContext';
@@ -146,6 +147,9 @@ export function App() {
   const documentationNavigation = authenticatedBootstrap?.navigation.find(
     (item) => item.id === 'documentation' && item.moduleName === 'backoffice',
   );
+  const importConnection = authenticatedBootstrap
+    ? selectModuleConnection(authenticatedBootstrap, 'system')
+    : undefined;
   const page = (
     path: string,
     accessToken?: string,
@@ -390,8 +394,18 @@ export function App() {
         element={
           session && !locked && authenticatedBootstrap && documentationNavigation ? (
             authenticatedShell(
-              ['UP', 'DEGRADED'].includes(documentationNavigation.availability) ? (
-                page(location.pathname, session.accessToken)
+              ['UP', 'DEGRADED'].includes(documentationNavigation.availability) &&
+                importConnection ? (
+                <DocumentationRoutePage
+                  accessToken={session.accessToken}
+                  channel={composition.channel}
+                  cmsBaseUrl={bootstrap.endpoints.cms}
+                  connection={importConnection}
+                  locale={composition.locale}
+                  path={location.pathname}
+                  runtime={runtime}
+                  site={composition.site}
+                />
               ) : (
                 <ModuleWorkspacePlaceholder item={documentationNavigation} />
               ),

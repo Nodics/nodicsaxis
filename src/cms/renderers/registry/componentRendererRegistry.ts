@@ -65,6 +65,13 @@ export const COMPONENT_RENDERER_REGISTRY = Object.freeze({
       }),
     ),
   ),
+  'documentation.component.navigation': lazy(() =>
+    import('../components/documentation/DocumentationNavigationRenderer').then(
+      (module) => ({
+        default: module.DocumentationNavigationRenderer,
+      }),
+    ),
+  ),
 } satisfies Readonly<Record<string, ComponentType<CmsComponentRendererProps>>>);
 
 export type ComponentRendererKey = keyof typeof COMPONENT_RENDERER_REGISTRY;
