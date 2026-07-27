@@ -49,8 +49,9 @@ See [Module Health](docs/module-health.md) for backend-driven operational
 navigation, the typed registry client, module and node readiness presentation,
 security boundaries, responsive behavior, and extension rules.
 
-See [Core Data](docs/core-data.md) for the authorized, explicit nImport-backed
-baseline data installation and update workspace.
+See [Imports and Exports](docs/imports-and-exports.md) for immutable init, core,
+and sample release discovery, validation, installation, history, security, and
+the intentionally disabled export surface.
 
 See [Employee Login, Recovery, Screen Lock, and Dashboard](docs/employee-login.md)
 for startup discovery, employee-only authentication, persistent BackOffice

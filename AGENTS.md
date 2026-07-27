@@ -113,11 +113,12 @@ Capabilities are stable; implementations may evolve.
   registered-instance projection. Axis must not poll each module independently,
   retain a browser health registry, expose raw diagnostics, or infer expected
   cluster membership from missing leases.
-- Core-data operations may invoke only the existing secured nImport core API.
-  Axis must not inspect module data folders, sequence imports, connect to a
-  database, or become a second import authority. Permission or policy changes
-  require a newly authenticated employee session; never silently elevate an
-  existing token.
+- Init, core, and sample operations may invoke only the secured nImport release
+  catalogue, preflight, type-specific execution, and history APIs. Axis must
+  not inspect module data folders, discover releases, calculate installation
+  state, sequence imports, connect to a database, or become a second import
+  authority. Permission or policy changes require a newly authenticated
+  employee session; never silently elevate an existing token.
 - Preserve responsive layout, touch behavior, keyboard operation, screen
   reader support, reduced motion, and WebView compatibility.
 - Avoid a service worker until an explicit offline and administrative-cache

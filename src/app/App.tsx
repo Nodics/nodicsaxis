@@ -19,7 +19,7 @@ import { AssistantRoutePage } from '../assistant/AssistantRoutePage';
 import { WorkbenchRoutePage } from '../workbench/WorkbenchRoutePage';
 import { DocumentationRoutePage } from '../documentation/DocumentationRoutePage';
 import { ModuleHealthRoutePage } from '../operations/moduleHealth/ModuleHealthRoutePage';
-import { CoreDataRoutePage } from '../administration/coreData/CoreDataRoutePage';
+import { ImportExportRoutePage } from '../operations/importExport/ImportExportRoutePage';
 import { useIdleScreenLock } from '../auth/useIdleScreenLock';
 import {
   clearScreenLock,
@@ -163,8 +163,8 @@ export function App() {
   const moduleHealthNavigation = authenticatedBootstrap?.navigation.find(
     (item) => item.id === 'module-health' && item.moduleName === 'backoffice',
   );
-  const coreDataNavigation = authenticatedBootstrap?.navigation.find(
-    (item) => item.id === 'core-data' && item.moduleName === 'backoffice',
+  const importExportNavigation = authenticatedBootstrap?.navigation.find(
+    (item) => item.id === 'imports-exports' && item.moduleName === 'backoffice',
   );
   const page = (
     path: string,
@@ -438,18 +438,18 @@ export function App() {
         }
       />
       <Route
-        path="/administration/core-data"
+        path="/operations/imports-exports"
         element={
-          session && !locked && authenticatedBootstrap && coreDataNavigation ? (
+          session && !locked && authenticatedBootstrap && importExportNavigation ? (
             authenticatedShell(
-              ['UP', 'DEGRADED'].includes(coreDataNavigation.availability) ? (
-                <CoreDataRoutePage
+              ['UP', 'DEGRADED'].includes(importExportNavigation.availability) ? (
+                <ImportExportRoutePage
                   accessToken={session.accessToken}
                   bootstrap={authenticatedBootstrap}
                   runtime={runtime}
                 />
               ) : (
-                <ModuleWorkspacePlaceholder item={coreDataNavigation} />
+                <ModuleWorkspacePlaceholder item={importExportNavigation} />
               ),
             )
           ) : (
@@ -508,7 +508,7 @@ export function App() {
                   '/assistant',
                   '/schema-workbench',
                   '/operations/module-health',
-                  '/administration/core-data',
+                  '/operations/imports-exports',
                   '/dashboard',
                   '/login',
                   '/forgot-password',
