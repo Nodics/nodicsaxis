@@ -142,6 +142,7 @@ describe('Axis application shell navigation', () => {
     const shortcut = screen.getByRole('button', { name: 'Ask Axis' });
     expect(shortcut).toBeEnabled();
     expect(shortcut.querySelector('svg')).toHaveClass('MuiSvgIcon-colorPrimary');
+    expect(shortcut.querySelector('svg')).toHaveStyle({ fontSize: '32px' });
     expect(shortcut.querySelectorAll('svg path')[1]).toHaveAttribute('fill', '#1b1e20');
     await user.click(shortcut);
     expect(screen.getAllByRole('button', { name: 'Ask Axis' })).not.toHaveLength(0);

@@ -118,7 +118,7 @@ export function TopNavigation({
                 <ShellIcon
                   color={assistantActive ? 'primary' : 'disabled'}
                   name={assistant.icon}
-                  sx={{ fontSize: 28 }}
+                  sx={{ fontSize: 32 }}
                 />
               </IconButton>
             </span>

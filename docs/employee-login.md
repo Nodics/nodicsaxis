@@ -51,7 +51,8 @@ when the page becomes visible again.
 
 When the deadline passes, Axis:
 
-1. records the current protected route in memory;
+1. records a bounded lock marker and same-application return path in
+   `sessionStorage`;
 2. replaces it with `/lock-screen`;
 3. keeps tokens and the employee identifier in memory only;
 4. hides protected application content;
@@ -59,9 +60,15 @@ When the deadline passes, Axis:
 6. sends that password directly to Profile.
 
 A successful unlock receives fresh Profile tokens, reloads secured BackOffice
-bootstrap and policy, and returns to the prior protected route. A failed unlock
-stays locked and shows a safe authentication error. “Not you? Sign out” clears
-the local session, asks Profile to revoke it, and returns to `/login`.
+bootstrap and policy, removes the lock marker, and returns to the prior
+protected route. A failed unlock stays locked and shows a safe authentication
+error. “Not you? Sign out” clears the marker and local session, asks Profile to
+revoke it, and returns to `/login`.
+
+The marker contains only `locked: true` and a validated relative return path.
+It never contains a password, access token, refresh token, employee identifier,
+backend response, or authorization data. External, malformed, authentication,
+and lock-screen return paths fall back to `/dashboard`.
 
 The screen lock is presentation defense-in-depth. It never replaces bearer
 expiry, revocation, Profile authentication, or target-module authorization.
@@ -71,8 +78,11 @@ Profile browser restore endpoint with credentials included. Profile requires
 the exact allowed Origin and matching `X-CSRF-Token`, consumes the refresh
 credential once, rotates it, and returns a replacement access token and
 employee identifier. Axis then reloads the secured BackOffice bootstrap and
-preserves the requested protected route. An expired, revoked, replayed, or
-otherwise invalid session returns to the public login experience.
+restores the lock gate before protected routing. A session that was locked
+before refresh remains on `/lock-screen` until successful password
+re-verification; refresh cannot silently return it to the dashboard. An
+expired, revoked, replayed, or otherwise invalid session returns to the public
+login experience.
 
 ## Logout
 
@@ -113,6 +123,8 @@ passwords or tokens in `.env`, browser storage, URLs, logs, or query-cache keys.
   absent or invalid refresh state redirects to `/login`.
 - Direct `/lock-screen` navigation without an authenticated locked session
   redirects safely.
+- Refreshing a locked session restores the lock marker and requires password
+  verification before any protected route is rendered.
 - Invalid or incompatible Axis policy rejects authenticated bootstrap.
 - Persistent-policy read failure is handled by BackOffice using its safe
   configured default.

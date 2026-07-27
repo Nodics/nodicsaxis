@@ -19,6 +19,11 @@ import { AssistantRoutePage } from '../assistant/AssistantRoutePage';
 import { WorkbenchRoutePage } from '../workbench/WorkbenchRoutePage';
 import { DocumentationRoutePage } from '../documentation/DocumentationRoutePage';
 import { useIdleScreenLock } from '../auth/useIdleScreenLock';
+import {
+  clearScreenLock,
+  persistScreenLock,
+  restoreScreenLock,
+} from '../auth/screenLockState';
 import type { CmsRendererActions } from '../cms/renderers/shared/rendererTypes';
 import { useRuntimeConfig } from '../runtime/RuntimeConfigContext';
 import { CmsRoutePage } from './CmsRoutePage';
@@ -85,6 +90,11 @@ export function App() {
         setSession(nextSession);
         setAuthenticatedBootstrap(employeeBootstrap);
         setEmployeePolicy(employeeBootstrap.axisPolicy);
+        const persistedLock = restoreScreenLock();
+        if (persistedLock) {
+          setLockedReturnPath(persistedLock.returnPath);
+          setLocked(true);
+        }
       })
       .catch(() => {
         if (active) {
@@ -109,6 +119,7 @@ export function App() {
       ? '/dashboard'
       : location.pathname;
     setLockedReturnPath(returnPath);
+    persistScreenLock(returnPath);
     setAuthenticationError(undefined);
     setLocked(true);
     void navigate('/lock-screen', { replace: true });
@@ -187,6 +198,7 @@ export function App() {
       setSession(nextSession);
       setAuthenticatedBootstrap(employeeBootstrap);
       setEmployeePolicy(employeeBootstrap.axisPolicy);
+      clearScreenLock();
       setLocked(false);
       void navigate(composition.defaultAuthenticatedPage, { replace: true });
     } catch (error: unknown) {
@@ -214,6 +226,7 @@ export function App() {
         setSession(undefined);
         setAuthenticatedBootstrap(undefined);
         setEmployeePolicy(undefined);
+        clearScreenLock();
         setLocked(false);
         void navigate(composition.defaultPublicPage, { replace: true });
       })
@@ -246,6 +259,7 @@ export function App() {
       setSession(nextSession);
       setAuthenticatedBootstrap(employeeBootstrap);
       setEmployeePolicy(employeeBootstrap.axisPolicy);
+      clearScreenLock();
       setLocked(false);
       void navigate(lockedReturnPath, { replace: true });
     } catch (error: unknown) {

@@ -1,6 +1,6 @@
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { App } from '../../src/app/App';
 import { AppProviders } from '../../src/app/AppProviders';
@@ -168,6 +168,10 @@ const assistantPage = {
 };
 
 describe('employee login journey', () => {
+  beforeEach(() => {
+    window.sessionStorage.clear();
+  });
+
   it('discovers modules, authenticates through Profile, and protects dashboard', async () => {
     window.history.pushState({}, '', '/login');
     const request = vi.fn<typeof fetch>().mockImplementation((input, options) => {
@@ -363,5 +367,126 @@ describe('employee login journey', () => {
     await user.click(screen.getByRole('button', { name: 'Open employee menu' }));
     await user.click(screen.getByRole('menuitem', { name: 'Sign out' }));
     expect(await screen.findByLabelText(/Employee ID/)).toBeVisible();
+  });
+
+  it('restores the lock screen after a browser refresh until password verification', async () => {
+    window.history.pushState({}, '', '/dashboard');
+    window.sessionStorage.setItem(
+      'nodics-axis-screen-lock-v1',
+      JSON.stringify({ locked: true, returnPath: '/dashboard' }),
+    );
+    const request = vi.fn<typeof fetch>().mockImplementation((input, options) => {
+      const url =
+        typeof input === 'string'
+          ? input
+          : input instanceof URL
+            ? input.href
+            : input.url;
+      if (url.includes('/bootstrap/public')) {
+        return Promise.resolve(
+          new Response(JSON.stringify(publicBootstrap), { status: 200 }),
+        );
+      }
+      if (url.includes('/employee/browser/restore')) {
+        return Promise.resolve(
+          new Response(
+            JSON.stringify({
+              result: {
+                authToken: 'restored-employee-access',
+                loginId: 'operator',
+              },
+            }),
+            { status: 200 },
+          ),
+        );
+      }
+      if (url.includes('/employee/browser/authenticate')) {
+        return Promise.resolve(
+          new Response(
+            JSON.stringify({
+              result: {
+                authToken: 'unlocked-employee-access',
+                loginId: 'operator',
+              },
+            }),
+            { status: 200 },
+          ),
+        );
+      }
+      if (url.includes('/bootstrap')) {
+        return Promise.resolve(
+          new Response(
+            JSON.stringify({
+              data: {
+                modules: {},
+                catalogue: {},
+                availability: {},
+                axisPolicy: {
+                  contractVersion: 1,
+                  screenLockEnabled: true,
+                  idleTimeoutSeconds: 900,
+                  revision: 0,
+                  source: 'DEFAULT',
+                },
+                documentationSources: [],
+                tenantCode: 'default',
+              },
+            }),
+            { status: 200 },
+          ),
+        );
+      }
+      const path = new URL(url).searchParams.get('path');
+      const deliveredPage =
+        path === '/lock-screen'
+          ? {
+              ...loginPage,
+              path: '/lock-screen',
+              page: {
+                ...loginPage.page,
+                components: [
+                  {
+                    code: 'axisEmployeeLockFormComponent',
+                    typeCode: 'axisEmployeeLockFormComponentType',
+                    renderer: 'axis.component.employee-lock-form',
+                    rendererContractVersion: 1,
+                    rendererChannels: ['web'],
+                    rendererDeprecated: false,
+                    properties: {
+                      passwordLabel: 'Password',
+                      submitLabel: 'Unlock',
+                    },
+                    slot: 'authentication',
+                    index: 30,
+                    components: [],
+                  },
+                ],
+              },
+            }
+          : dashboardPage;
+      expect(new Headers(options?.headers).get('Authorization')).toBeTruthy();
+      return Promise.resolve(
+        new Response(JSON.stringify({ result: deliveredPage }), { status: 200 }),
+      );
+    });
+    vi.stubGlobal('fetch', request);
+    const user = userEvent.setup();
+
+    render(
+      <AppProviders runtimeConfig={runtimeConfig}>
+        <App />
+      </AppProviders>,
+    );
+
+    expect(await screen.findByRole('button', { name: 'Unlock' })).toBeVisible();
+    expect(
+      screen.queryByText('Authenticated employee workspace'),
+    ).not.toBeInTheDocument();
+
+    await user.type(screen.getByLabelText(/Password/), 'secret');
+    await user.click(screen.getByRole('button', { name: 'Unlock' }));
+
+    expect(await screen.findByText('Authenticated employee workspace')).toBeVisible();
+    expect(window.sessionStorage.getItem('nodics-axis-screen-lock-v1')).toBeNull();
   });
 });
