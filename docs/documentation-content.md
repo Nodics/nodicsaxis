@@ -1,24 +1,54 @@
 # Documentation Content In Axis
 
-Axis renders Nodics documentation as authenticated CMS pages under `/docs/*`.
-The documentation source and generated import data live in the separate
-`nodicsdocs` repository; Nodics CMS remains the runtime content,
-authorization, routing, and import authority.
+Axis renders an authorized, backend-provided list of documentation products
+under `/docs/*`. BackOffice aggregates the list from active module metadata;
+Axis does not hardcode product tabs or maintain another registry.
+
+- **Framework** renders the canonical `nodicsdocs` content pack through CMS.
+- **Swaggers** renders the active System-owned OpenAPI contract in an
+  Axis-owned, searchable reference and links to the backend's standalone
+  interactive Swagger UI. API descriptions are not copied into a content
+  catalog.
+- **Nodics Axis** renders this repository's committed documentation content
+  pack through its own CMS Site and content catalog.
+- A future customer project contributes its own source from its backend project
+  module and supplies import-ready data from the corresponding project
+  repository.
+
+Each CMS documentation product has a separate Site/catalog pair. CMS resolves
+the Site to its catalog, so Axis never adds a second catalog-routing authority.
+Nodics CMS remains runtime content and route authority; nImport remains the
+only content-pack installation and update authority.
 
 ## Employee Journey
 
 1. Sign in with an authorized employee account.
 2. Open **Documentation > Nodics Documentation**.
-3. Axis asks the registered System module for the configured documentation
-   content-pack state.
-4. When the pack is absent, an authorized administrator may select **Import
+3. Axis renders the ordered source tabs returned by the secured BackOffice
+   bootstrap.
+4. Select a CMS product or **Swaggers**. Axis resolves the configured runtime
+   connection by `connectionModule`; it never stores a second endpoint list.
+5. For a CMS source, Axis asks the registered System module for that source's
+   configured content-pack state.
+6. When the pack is absent, an authorized administrator may select **Import
    documentation**. Axis never reads a repository or imports records itself.
-5. When the pack is current, Axis requests the current `/docs` path from the CMS endpoint supplied by
+7. When the pack is current, Axis requests the selected product path from the CMS endpoint supplied by
    BackOffice bootstrap.
-6. CMS resolves the Site, locale, channel, route, page, template, component,
+8. CMS resolves the Site, locale, channel, route, page, template, component,
    renderer mappings, and access mode.
-7. Axis validates the renderer contract and displays the declarative article.
-8. Internal documentation links remain inside the authenticated Axis shell.
+9. Axis validates the renderer contract and displays the declarative article.
+10. Internal documentation links remain inside the authenticated Axis shell.
+
+For **Swaggers**, Axis uses the selected source's registered System connection,
+OpenAPI path, and Swagger path. Axis fetches and bounds the JSON OpenAPI
+contract, then renders searchable method, path, summary, description, and tag
+information as text through its own components. The backend Swagger page is
+opened as a separate browser page for interactive use; it is never embedded in
+an iframe because Nodics correctly protects backend pages with
+`X-Frame-Options: DENY` and `frame-ancestors 'none'`. Both routes remain subject
+to Nodics API exposure policy. If exposure is disabled or the runtime is
+unavailable, Axis reports the failure and does not substitute a stale copied
+contract.
 
 When a newer pack version is available, Axis keeps the installed Wiki readable
 and offers the backend-authorized **Update documentation** action. Labels and
@@ -32,9 +62,30 @@ category grouping, audience filters, and configurable labels. Each article
 supplies breadcrumb context, its table of contents, and previous/next
 references. Axis owns only their responsive and accessible presentation.
 
+The documentation-product switcher is a responsive, horizontally scrollable
+segmented control. Its ordered products, labels, routes, and selected identity
+come from BackOffice bootstrap; its spacing, selected state, keyboard roles,
+focus behavior, and responsive presentation belong to Axis. It must remain
+visually consistent across installed documentation, import/update states,
+OpenAPI reference, unavailable connections, and future project products.
+
 Refreshing a documentation URL restores the Profile-owned browser session
 before resolving the same CMS path. An expired or rejected session returns the
 employee to the public authentication journey.
+
+## Nodics Axis Content Pack
+
+Axis documentation data is directly importable and committed under
+`data/core`. Its immutable release manifest is
+`manifest/docs-content-pack.json`. The manifest pack identity is `nodicsaxis`;
+the configured nImport pack code is `axisDocumentation`; and its CMS binding is
+`axisDocumentationSite` → `axisDocumentationContentCatalog`.
+
+The pack explains project purpose, architecture and repository boundaries,
+supported setup, page/template/component/renderer organization, backend
+contracts and security, responsive/accessibility behavior, extension,
+troubleshooting, and verification. Change the pack version whenever committed
+content hashes change. A same-version checksum change is rejected by default.
 
 ## Renderer Ownership
 

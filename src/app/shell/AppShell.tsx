@@ -167,6 +167,11 @@ export function AppShell({
     saveNavigationPreferences(navigationPreferences);
   }, [navigationPreferences]);
 
+  useEffect(() => {
+    if (location.hash) return;
+    window.scrollTo({ behavior: 'auto', left: 0, top: 0 });
+  }, [location.hash, location.pathname]);
+
   const navigateTo = (route: string) => {
     const item = navigation.find((candidate) => candidate.route === route);
     if (item) {

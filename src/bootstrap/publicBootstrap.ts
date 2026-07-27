@@ -70,8 +70,37 @@ export interface AxisAuthenticatedBootstrap {
   readonly navigation: readonly AxisNavigationItem[];
   readonly environments: readonly string[];
   readonly moduleConnections: Readonly<Record<string, readonly AxisModuleConnection[]>>;
+  readonly documentationSources: readonly AxisDocumentationSource[];
   readonly tenantCode: string;
 }
+
+export type AxisDocumentationSource =
+  | {
+      readonly id: string;
+      readonly label: string;
+      readonly type: 'CMS';
+      readonly route: string;
+      readonly order: number;
+      readonly ownerModule: string;
+      readonly connectionModule: string;
+      readonly site: string;
+      readonly catalog: string;
+      readonly defaultPage: string;
+      readonly packCode: string;
+      readonly labelKey?: string | undefined;
+    }
+  | {
+      readonly id: string;
+      readonly label: string;
+      readonly type: 'OPENAPI';
+      readonly route: string;
+      readonly order: number;
+      readonly ownerModule: string;
+      readonly connectionModule: string;
+      readonly openApiPath: string;
+      readonly swaggerPath: string;
+      readonly labelKey?: string | undefined;
+    };
 
 export function selectModuleConnection(
   bootstrap: AxisAuthenticatedBootstrap,
@@ -336,6 +365,57 @@ function parseModuleContext(modulesValue: unknown): {
   });
 }
 
+function parseDocumentationSources(value: unknown): readonly AxisDocumentationSource[] {
+  if (!Array.isArray(value)) {
+    throw new Error('BackOffice documentation sources must be a list');
+  }
+  const ids = new Set<string>();
+  const sources = value.map((candidate, index): AxisDocumentationSource => {
+    const source = record(candidate, 'BackOffice documentation source');
+    const id = text(source.id, 'documentation source id');
+    if (ids.has(id))
+      throw new Error('BackOffice documentation sources contain duplicate ids');
+    ids.add(id);
+    const common = {
+      id,
+      label: text(source.label, `${id} documentation label`),
+      route: relativeRoute(source.route, `${id} documentation route`),
+      order: Number.isInteger(source.order) ? Number(source.order) : index,
+      ownerModule: text(source.ownerModule, `${id} documentation owner`),
+      connectionModule: text(
+        source.connectionModule,
+        `${id} documentation connection module`,
+      ),
+      labelKey: optionalText(source.labelKey, `${id} documentation label key`),
+    };
+    if (source.type === 'CMS') {
+      return Object.freeze({
+        ...common,
+        type: 'CMS',
+        site: text(source.site, `${id} documentation Site`),
+        catalog: text(source.catalog, `${id} documentation catalog`),
+        defaultPage: relativeRoute(source.defaultPage, `${id} default page`),
+        packCode: text(source.packCode, `${id} content-pack code`),
+      });
+    }
+    if (source.type === 'OPENAPI') {
+      return Object.freeze({
+        ...common,
+        type: 'OPENAPI',
+        openApiPath: relativeRoute(source.openApiPath, `${id} OpenAPI path`),
+        swaggerPath: relativeRoute(source.swaggerPath, `${id} Swagger path`),
+      });
+    }
+    throw new Error(`${id} documentation source type is unsupported`);
+  });
+  return Object.freeze(
+    sources.sort(
+      (left, right) =>
+        left.order - right.order || left.label.localeCompare(right.label),
+    ),
+  );
+}
+
 export function parseEmployeePolicy(value: unknown): AxisEmployeePolicy {
   const policy = record(value, 'BackOffice Axis employee policy');
   if (
@@ -478,6 +558,7 @@ export async function loadAuthenticatedBootstrap(
       navigation: parseNavigation(data.catalogue, data.availability),
       environments: moduleContext.environments,
       moduleConnections: moduleContext.connections,
+      documentationSources: parseDocumentationSources(data.documentationSources),
       tenantCode: text(data.tenantCode, 'BackOffice employee tenant code'),
     });
   } finally {

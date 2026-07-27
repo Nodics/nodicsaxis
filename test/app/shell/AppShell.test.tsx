@@ -1,17 +1,45 @@
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { MemoryRouter } from 'react-router';
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { Link, MemoryRouter } from 'react-router';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { AppShell } from '../../../src/app/shell/AppShell';
 import { AxisThemeProvider } from '../../../src/app/AxisThemeProvider';
 
+let scrollTo = vi.fn();
+
+beforeEach(() => {
+  scrollTo = vi.fn();
+  vi.stubGlobal('scrollTo', scrollTo);
+});
+
 afterEach(() => {
   window.localStorage.clear();
+  vi.restoreAllMocks();
   vi.unstubAllGlobals();
 });
 
 describe('Axis application shell navigation', () => {
+  it('starts each newly selected page at the top without overriding anchor navigation', async () => {
+    const user = userEvent.setup();
+    render(
+      <AxisThemeProvider>
+        <MemoryRouter initialEntries={['/docs/first']}>
+          <AppShell>
+            <Link to="/docs/second">Open second page</Link>
+          </AppShell>
+        </MemoryRouter>
+      </AxisThemeProvider>,
+    );
+    await user.click(screen.getByRole('link', { name: 'Open second page' }));
+
+    expect(scrollTo).toHaveBeenCalledWith({
+      behavior: 'auto',
+      left: 0,
+      top: 0,
+    });
+  });
+
   it('presents tenant and application context with readable names', () => {
     render(
       <AxisThemeProvider>

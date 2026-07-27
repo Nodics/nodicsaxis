@@ -132,6 +132,22 @@ but its view model must never become an authoritative universal graph.
 Document implemented behavior in this repository. Keep unimplemented plans in
 an explicitly temporary planning location until verified.
 
+Axis features are incomplete until their project documentation covers project
+purpose, supported technology and version ranges, setup/build/runtime
+configuration, route/page/template/component organization, renderer placement
+and registry contracts, CMS model-to-renderer mapping, backend API and security
+boundaries, responsive/accessibility behavior, extension points,
+troubleshooting, and verification. Keep business rules and backend authority in
+Nodics documentation; Axis documents its owned presentation implementation and
+links to the end-to-end capability guide.
+
+When Axis supplies an importable documentation release, committed data belongs
+under `data/core` and its manifest is
+`manifest/docs-content-pack.json`. Axis may request status or an authorized
+Nodics-owned import, but must not read sibling repositories, write CMS
+collections, connect to a database, or become another content-pack/import
+authority.
+
 Design Axis for partial discovery. A developer or AI tool may read only this
 file, the nearest feature source, its focused tests, and one linked guide.
 Critical repository ownership, backend authority, renderer placement, security,

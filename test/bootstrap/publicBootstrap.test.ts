@@ -76,6 +76,21 @@ const authenticatedData = {
   availability: {
     cms: { state: 'UP' },
   },
+  documentationSources: [
+    {
+      id: 'framework',
+      label: 'Framework',
+      type: 'CMS',
+      route: '/docs/framework',
+      order: 100,
+      ownerModule: 'backoffice',
+      connectionModule: 'cms',
+      site: 'axisCmsSite',
+      catalog: 'nodicsDocumentationContentCatalog',
+      defaultPage: '/docs',
+      packCode: 'nodicsDocumentation',
+    },
+  ],
   axisPolicy: {
     contractVersion: 1,
     screenLockEnabled: true,
@@ -143,6 +158,14 @@ describe('Axis bootstrap clients', () => {
     expect(result.axisPolicy.idleTimeoutSeconds).toBe(900);
     expect(result.environments).toEqual(['startioLocal']);
     expect(result.tenantCode).toBe('default');
+    expect(result.documentationSources).toEqual([
+      expect.objectContaining({
+        id: 'framework',
+        type: 'CMS',
+        site: 'axisCmsSite',
+        packCode: 'nodicsDocumentation',
+      }),
+    ]);
     expect(result.moduleConnections.cms).toEqual([
       {
         moduleName: 'cms',

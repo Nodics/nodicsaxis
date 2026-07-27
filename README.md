@@ -40,9 +40,10 @@ See [CMS Delivery and Renderer Integration](docs/cms-delivery-and-renderers.md)
 for the resolved-page client, trusted renderer boundary, validation rules,
 cache isolation, and login integration.
 
-See [Documentation Content In Axis](docs/documentation-content.md) for the
-authenticated `/docs/*` journey, renderer ownership, security boundary,
-failure behavior, and current binary-media limitation.
+See [Documentation Content In Axis](docs/documentation-content.md) for dynamic
+Framework, Swaggers, Nodics Axis, and future project documentation sources;
+per-product CMS catalogs; the import-ready Axis content pack; renderer
+ownership; security boundaries; and failure behavior.
 
 See [Employee Login, Recovery, Screen Lock, and Dashboard](docs/employee-login.md)
 for startup discovery, employee-only authentication, persistent BackOffice

@@ -5,22 +5,25 @@
 Nodics Axis uses one cohesive frontend application until demonstrated reuse
 and stable contracts justify extracting packages.
 
-| Concern                  | Selected technology        | Responsibility                                                                    |
-| ------------------------ | -------------------------- | --------------------------------------------------------------------------------- |
-| Package management       | npm                        | Reproducible dependency installation from `package-lock.json`                     |
-| UI runtime               | React                      | Axis-owned browser rendering and interaction                                      |
-| Language                 | TypeScript in strict mode  | Compile-time safety across UI and contract consumers                              |
-| Build and local server   | Vite                       | Development server and immutable production assets                                |
-| Client routing           | React Router               | Static recovery routes and authorized application navigation                      |
-| Server state             | TanStack Query             | Request lifecycle, caching, cancellation, and invalidation for backend-owned data |
-| Component foundation     | MUI with Emotion           | Accessible primitives and Nodics-owned tokens and components                      |
-| Unit and component tests | Vitest and Testing Library | User-observable frontend behavior and contract-consumer tests                     |
-| Static quality           | ESLint                     | TypeScript and React code-quality rules                                           |
-| Formatting               | Prettier                   | Consistent source and documentation formatting                                    |
+| Concern                  | Selected technology            | Current version | Responsibility                                                                    |
+| ------------------------ | ------------------------------ | --------------- | --------------------------------------------------------------------------------- |
+| Package management       | npm                            | 11.6.2          | Reproducible dependency installation from `package-lock.json`                     |
+| UI runtime               | React / React DOM              | 19.2.8          | Axis-owned browser rendering and interaction                                      |
+| Language                 | TypeScript in strict mode      | 6.0.3           | Compile-time safety across UI and contract consumers                              |
+| Build and local server   | Vite                           | 8.1.5           | Development server and immutable production assets                                |
+| Client routing           | React Router                   | 8.3.0           | Static recovery routes and authorized application navigation                      |
+| Server state             | TanStack Query                 | 5.101.4         | Request lifecycle, caching, cancellation, and invalidation for backend-owned data |
+| Component foundation     | MUI                            | 9.2.0           | Accessible primitives and Nodics-owned tokens and components                      |
+| Styling runtime          | Emotion React / Styled         | 11.14.0/11.14.1 | Material UI styling and theme-aware presentation                                  |
+| Unit and component tests | Vitest / Testing Library React | 4.1.10/16.3.2   | User-observable frontend behavior and contract-consumer tests                     |
+| Browser test environment | jsdom                          | 29.1.1          | Browser DOM behavior in automated tests                                           |
+| Static quality           | ESLint / typescript-eslint     | 9.39.5/8.65.0   | TypeScript and React code-quality rules                                           |
+| Formatting               | Prettier                       | 3.8.1           | Consistent source and documentation formatting                                    |
 
-Exact supported versions are declared in `package.json` and locked in
-`package-lock.json`. Those files are the dependency authority; this document
-explains the architectural choices rather than duplicating version numbers.
+Supported engines and direct versions are declared in `package.json` and the
+complete dependency graph is locked in `package-lock.json`. Those files remain
+the dependency authority. The table is an operator-friendly snapshot and must
+be updated in the same change whenever a listed package version changes.
 
 ## State ownership
 

@@ -80,4 +80,34 @@ describe('DocumentationNavigationRenderer', () => {
       screen.getByText('No documentation matches your search.'),
     ).toBeInTheDocument();
   });
+
+  it('clears the search and restores the complete authorized page list', async () => {
+    const user = userEvent.setup();
+    render(
+      <MemoryRouter>
+        <DocumentationNavigationRenderer component={navigation} />
+      </MemoryRouter>,
+    );
+
+    const search = screen.getByLabelText('Search documentation');
+    expect(
+      screen.queryByRole('button', { name: 'Clear documentation search' }),
+    ).not.toBeInTheDocument();
+
+    await user.type(search, 'security');
+    expect(
+      screen.queryByRole('link', { name: 'What Nodics Is' }),
+    ).not.toBeInTheDocument();
+
+    await user.click(
+      screen.getByRole('button', { name: 'Clear documentation search' }),
+    );
+
+    expect(search).toHaveValue('');
+    expect(screen.getByRole('link', { name: 'What Nodics Is' })).toBeVisible();
+    expect(screen.getByRole('link', { name: 'Configure Security' })).toBeVisible();
+    expect(
+      screen.queryByRole('button', { name: 'Clear documentation search' }),
+    ).not.toBeInTheDocument();
+  });
 });

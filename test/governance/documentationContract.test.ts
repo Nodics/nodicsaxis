@@ -11,6 +11,7 @@
 
 import fs from 'node:fs';
 import path from 'node:path';
+import crypto from 'node:crypto';
 import { describe, expect, it } from 'vitest';
 
 const root = process.cwd();
@@ -23,6 +24,38 @@ function requireClauses(relativePath: string, clauses: string[]): void {
 }
 
 describe('Axis distributed implementation documentation', () => {
+  it('ships a directly importable immutable documentation content pack', () => {
+    const manifest = JSON.parse(
+      fs.readFileSync(path.join(root, 'manifest/docs-content-pack.json'), 'utf8'),
+    ) as {
+      readonly pack: string;
+      readonly generatedHashes: Readonly<Record<string, string>>;
+      readonly releaseChecksum: string;
+    };
+    expect(manifest.pack).toBe('nodicsaxis');
+    for (const [relativePath, expectedHash] of Object.entries(
+      manifest.generatedHashes,
+    )) {
+      const actualHash = crypto
+        .createHash('sha256')
+        .update(fs.readFileSync(path.join(root, relativePath)))
+        .digest('hex');
+      expect(actualHash, relativePath).toBe(expectedHash);
+    }
+    const releaseChecksum = crypto
+      .createHash('sha256')
+      .update(
+        Object.keys(manifest.generatedHashes)
+          .sort()
+          .map(
+            (fileName) => `${fileName}:${String(manifest.generatedHashes[fileName])}`,
+          )
+          .join('|'),
+      )
+      .digest('hex');
+    expect(releaseChecksum).toBe(manifest.releaseChecksum);
+  });
+
   it('keeps partial-discovery and repository ownership rules enforceable', () => {
     requireClauses('AGENTS.md', [
       'Design Axis for partial discovery',

@@ -271,6 +271,7 @@ describe('employee login journey', () => {
                   revision: 0,
                   source: 'DEFAULT',
                 },
+                documentationSources: [],
                 tenantCode: 'default',
               },
             }),

@@ -3,21 +3,34 @@ import type { PropsWithChildren } from 'react';
 
 import { axisTokens } from '../axisTheme';
 
-export function WorkspaceContainer({ children }: PropsWithChildren) {
+interface WorkspaceContainerProps {
+  readonly horizontalPadding?: number | string;
+  readonly verticalPadding?: number | string;
+}
+
+export function WorkspaceContainer({
+  children,
+  horizontalPadding,
+  verticalPadding,
+}: PropsWithChildren<WorkspaceContainerProps>) {
   return (
     <Box
       sx={{
         mx: 'auto',
         maxWidth: axisTokens.spacing.contentMaxWidth,
-        px: {
-          xs: `${String(axisTokens.spacing.pageGutter.mobile)}px`,
-          sm: `${String(axisTokens.spacing.pageGutter.tablet)}px`,
-          lg: `${String(axisTokens.spacing.pageGutter.desktop)}px`,
-        },
-        py: {
-          xs: `${String(axisTokens.spacing.pageGutter.tablet)}px`,
-          lg: `${String(axisTokens.spacing.pageGutter.desktop)}px`,
-        },
+        px:
+          horizontalPadding ??
+          ({
+            xs: `${String(axisTokens.spacing.pageGutter.mobile)}px`,
+            sm: `${String(axisTokens.spacing.pageGutter.tablet)}px`,
+            lg: `${String(axisTokens.spacing.pageGutter.desktop)}px`,
+          } as const),
+        py:
+          verticalPadding ??
+          ({
+            xs: `${String(axisTokens.spacing.pageGutter.tablet)}px`,
+            lg: `${String(axisTokens.spacing.pageGutter.desktop)}px`,
+          } as const),
         width: '100%',
       }}
     >

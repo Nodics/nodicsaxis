@@ -1,6 +1,7 @@
 import { Box, Paper } from '@mui/material';
 import type { ReactNode } from 'react';
 
+import { axisTokens } from '../../../app/axisTheme';
 import { WorkspaceContainer } from '../../../app/shell/ShellPrimitives';
 import type { CmsPageContract } from '../../cmsContract';
 
@@ -19,12 +20,12 @@ export function DocumentationArticleTemplateRenderer({
   slots,
 }: DocumentationArticleTemplateRendererProps) {
   return (
-    <WorkspaceContainer>
+    <WorkspaceContainer horizontalPadding="3px" verticalPadding="3px">
       <Box
         sx={{
           alignItems: 'start',
           display: 'grid',
-          gap: 3,
+          gap: '3px',
           gridTemplateColumns: { xs: 'minmax(0, 1fr)', lg: '300px minmax(0, 1fr)' },
         }}
       >
@@ -34,11 +35,13 @@ export function DocumentationArticleTemplateRenderer({
           sx={{
             border: '1px solid',
             borderColor: 'divider',
-            maxHeight: { lg: 'calc(100vh - 140px)' },
+            maxHeight: {
+              lg: `calc(100vh - ${String(axisTokens.spacing.header + 6)}px)`,
+            },
             overflow: { lg: 'auto' },
             p: 2,
             position: { lg: 'sticky' },
-            top: { lg: 96 },
+            top: { lg: `${String(axisTokens.spacing.header + 3)}px` },
           }}
         >
           {slots.navigation}
@@ -51,7 +54,9 @@ export function DocumentationArticleTemplateRenderer({
             border: '1px solid',
             borderColor: 'divider',
             minWidth: 0,
-            p: { xs: 2.5, sm: 4, lg: 6 },
+            pb: { xs: 2.5, sm: 4, lg: 6 },
+            pt: 2,
+            px: { xs: 2.5, sm: 4, lg: 6 },
           }}
         >
           <Box sx={{ minWidth: 0 }}>{slots.article}</Box>

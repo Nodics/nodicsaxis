@@ -31,6 +31,16 @@ interface TopNavigationProps {
   readonly onNotify: (message: string) => void;
 }
 
+const utilityActionSx = {
+  height: 44,
+  width: 44,
+  p: 0,
+} as const;
+
+const utilityIconSx = {
+  fontSize: 26,
+} as const;
+
 export function TopNavigation({
   assistant,
   employeeId,
@@ -89,7 +99,11 @@ export function TopNavigation({
           onQueryChange(event.target.value);
         }}
       />
-      <Stack direction="row" spacing={0.5} sx={{ ml: 'auto !important' }}>
+      <Stack
+        direction="row"
+        spacing={0.5}
+        sx={{ alignItems: 'center', ml: 'auto !important' }}
+      >
         {assistant ? (
           <Tooltip title={assistant.label}>
             <span>
@@ -99,10 +113,12 @@ export function TopNavigation({
                 onClick={() => {
                   onNavigate(assistant.route);
                 }}
+                sx={utilityActionSx}
               >
                 <ShellIcon
                   color={assistantActive ? 'primary' : 'disabled'}
                   name={assistant.icon}
+                  sx={{ fontSize: 28 }}
                 />
               </IconButton>
             </span>
@@ -114,9 +130,24 @@ export function TopNavigation({
             onClick={() => {
               onNotify('My Work will connect to the Workflow task contract.');
             }}
+            sx={utilityActionSx}
           >
-            <Badge color="primary" badgeContent={0} showZero>
-              <ShellIcon name="tasks" />
+            <Badge
+              badgeContent={0}
+              color="primary"
+              showZero
+              slotProps={{
+                badge: {
+                  sx: {
+                    fontSize: 12,
+                    height: 20,
+                    minWidth: 20,
+                    p: 0,
+                  },
+                },
+              }}
+            >
+              <ShellIcon color="action" name="tasks" sx={utilityIconSx} />
             </Badge>
           </IconButton>
         </Tooltip>
@@ -126,21 +157,22 @@ export function TopNavigation({
             onClick={() => {
               onNotify('There are no new notifications.');
             }}
+            sx={utilityActionSx}
           >
             <Badge color="error" variant="dot" invisible>
-              <ShellIcon name="bell" />
+              <ShellIcon color="action" name="bell" sx={utilityIconSx} />
             </Badge>
           </IconButton>
         </Tooltip>
         <Button
           aria-label="Open employee menu"
           color="inherit"
-          sx={{ gap: 1, minWidth: 0, px: 1 }}
+          sx={{ gap: 1, height: 44, minWidth: 0, px: 1 }}
           onClick={(event: MouseEvent<HTMLElement>) => {
             setProfileAnchor(event.currentTarget);
           }}
         >
-          <Avatar sx={{ height: 34, width: 34 }}>{initials}</Avatar>
+          <Avatar sx={{ height: 40, width: 40 }}>{initials}</Avatar>
           <Typography
             noWrap
             sx={{ display: { xs: 'none', md: 'block' }, maxWidth: 140 }}

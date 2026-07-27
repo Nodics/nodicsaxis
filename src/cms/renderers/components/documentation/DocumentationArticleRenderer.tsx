@@ -1,5 +1,4 @@
 import {
-  Alert,
   Box,
   Breadcrumbs,
   Button,
@@ -26,6 +25,7 @@ const MAX_BLOCKS = 1000;
 const MAX_LIST_ITEMS = 200;
 const MAX_TABLE_ROWS = 200;
 const MAX_TEXT_LENGTH = 100_000;
+const MAX_IMAGE_SOURCE_LENGTH = 3_000_000;
 
 type DocumentationBlock = Readonly<Record<string, unknown>>;
 
@@ -75,44 +75,60 @@ function safeHref(value: string): string | undefined {
   return undefined;
 }
 
+function safeImageSource(value: unknown): string | undefined {
+  if (typeof value !== 'string' || value.length > MAX_IMAGE_SOURCE_LENGTH) return;
+  return /^data:image\/(?:jpeg|png);base64,[A-Za-z0-9+/=]+$/.test(value)
+    ? value
+    : undefined;
+}
+
 function inlineContent(value: string): ReactNode {
   const parts: ReactNode[] = [];
-  const linkPattern = /\[([^\]]+)\]\(([^)\s]+)(?:\s+["'][^"']*["'])?\)/g;
+  const inlinePattern =
+    /\[([^\]]+)\]\(([^)\s]+)(?:\s+["'][^"']*["'])?\)|`([^`\n]+)`|\*\*([^*\n]+)\*\*|(?<!\*)\*([^*\n]+)\*(?!\*)/g;
   let cursor = 0;
   let match: RegExpExecArray | null;
-  while ((match = linkPattern.exec(value)) !== null) {
+  while ((match = inlinePattern.exec(value)) !== null) {
     if (match.index > cursor) parts.push(value.slice(cursor, match.index));
-    const label = match[1] ?? '';
-    const href = safeHref(match[2] ?? '');
-    if (!href) {
-      parts.push(label);
-    } else if (href.startsWith('/')) {
-      parts.push(
-        <Link
-          component={RouterLink}
-          key={`${match.index}:${href}`}
-          sx={readableLinkSx}
-          to={href}
-          underline="always"
-        >
-          {label}
-        </Link>,
-      );
+    if (match[3]) {
+      parts.push(<code key={`code:${String(match.index)}`}>{match[3]}</code>);
+    } else if (match[4]) {
+      parts.push(<strong key={`strong:${String(match.index)}`}>{match[4]}</strong>);
+    } else if (match[5]) {
+      parts.push(<em key={`em:${String(match.index)}`}>{match[5]}</em>);
     } else {
-      parts.push(
-        <Link
-          href={href}
-          key={`${match.index}:${href}`}
-          rel={href.startsWith('http') ? 'noreferrer' : undefined}
-          sx={readableLinkSx}
-          target={href.startsWith('http') ? '_blank' : undefined}
-          underline="always"
-        >
-          {label}
-        </Link>,
-      );
+      const label = match[1] ?? '';
+      const href = safeHref(match[2] ?? '');
+      if (!href) {
+        parts.push(label);
+      } else if (href.startsWith('/')) {
+        parts.push(
+          <Link
+            component={RouterLink}
+            key={`${String(match.index)}:${href}`}
+            sx={readableLinkSx}
+            to={href}
+            underline="always"
+          >
+            {label}
+          </Link>,
+        );
+      } else {
+        parts.push(
+          <Link
+            href={href}
+            key={`${String(match.index)}:${href}`}
+            rel={href.startsWith('http') ? 'noreferrer' : undefined}
+            sx={readableLinkSx}
+            target={href.startsWith('http') ? '_blank' : undefined}
+            underline="always"
+          >
+            {label}
+          </Link>,
+        );
+      }
     }
-    cursor = linkPattern.lastIndex;
+    cursor = inlinePattern.lastIndex;
   }
   if (cursor < value.length) parts.push(value.slice(cursor));
   return parts.length > 0 ? parts : value;
@@ -244,10 +260,40 @@ function DocumentationBlockRenderer({
     );
   }
   if (kind === 'image') {
+    const source = safeImageSource(block.source);
+    if (!source) return null;
+    const alt = text(block.alt, text(block.title, 'Documentation illustration'));
+    const title = text(block.title);
     return (
-      <Alert icon={false} key={key} severity="info">
-        Documentation image: {text(block.alt, text(block.title, 'Image'))}
-      </Alert>
+      <Box component="figure" key={key} sx={{ m: 0 }}>
+        <Box
+          alt={alt}
+          component="img"
+          loading="lazy"
+          src={source}
+          sx={{
+            border: '1px solid',
+            borderColor: 'divider',
+            borderRadius: 1.5,
+            display: 'block',
+            height: 'auto',
+            maxHeight: { xs: 420, md: 680 },
+            maxWidth: '100%',
+            mx: 'auto',
+            objectFit: 'contain',
+          }}
+        />
+        {title ? (
+          <Typography
+            component="figcaption"
+            color="text.secondary"
+            sx={{ mt: 1, textAlign: 'center' }}
+            variant="body2"
+          >
+            {title}
+          </Typography>
+        ) : null}
+      </Box>
     );
   }
   return null;
@@ -308,9 +354,6 @@ export function DocumentationArticleRenderer({ component }: CmsComponentRenderer
             <Chip key={item} label={item} size="small" variant="outlined" />
           ))}
         </Box>
-        <Typography component="p" color="text.secondary" variant="overline">
-          Nodics documentation
-        </Typography>
         <Typography
           component="h1"
           sx={{

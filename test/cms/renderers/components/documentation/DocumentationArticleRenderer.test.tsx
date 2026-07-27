@@ -30,7 +30,12 @@ const article: CmsComponentContract = {
       },
       {
         kind: 'paragraph',
-        text: 'Continue with the [configuration guide](/docs/configuration), [official reference](https://example.com/reference), or [support](mailto:support@example.com).',
+        text: 'Continue with the **configuration guide**, *official reference*, `properties.js`, [guide](/docs/configuration), or [support](mailto:support@example.com).',
+      },
+      {
+        kind: 'image',
+        alt: 'Nodics request flow',
+        source: 'data:image/png;base64,iVBORw0KGgo=',
       },
       { kind: 'unordered-list', items: ['First step', 'Second step'] },
       { kind: 'code', text: 'npm run test:basic' },
@@ -58,7 +63,8 @@ describe('DocumentationArticleRenderer', () => {
     expect(
       screen.getByRole('heading', { name: 'Build your first capability' }),
     ).toBeInTheDocument();
-    const guide = screen.getByRole('link', { name: 'configuration guide' });
+    expect(screen.queryByText('Nodics documentation')).not.toBeInTheDocument();
+    const guide = screen.getByRole('link', { name: 'guide' });
     expect(guide).toHaveAttribute('href', '/docs/configuration');
     expect(guide).toHaveStyle({ color: 'var(--mui-palette-secondary-main)' });
     expect(guide).toHaveClass('MuiLink-underlineAlways');
@@ -66,17 +72,16 @@ describe('DocumentationArticleRenderer', () => {
       'href',
       '#configure-safely',
     );
-    expect(screen.getByRole('link', { name: 'official reference' })).toHaveAttribute(
-      'href',
-      'https://example.com/reference',
-    );
-    expect(screen.getByRole('link', { name: 'official reference' })).toHaveAttribute(
-      'target',
-      '_blank',
-    );
     expect(screen.getByRole('link', { name: 'support' })).toHaveAttribute(
       'href',
       'mailto:support@example.com',
+    );
+    expect(screen.getByText('configuration guide').tagName).toBe('STRONG');
+    expect(screen.getByText('official reference').tagName).toBe('EM');
+    expect(screen.getByText('properties.js').tagName).toBe('CODE');
+    expect(screen.getByRole('img', { name: 'Nodics request flow' })).toHaveAttribute(
+      'src',
+      'data:image/png;base64,iVBORw0KGgo=',
     );
     expect(screen.getByRole('link', { name: '← Introduction' })).toHaveAttribute(
       'href',

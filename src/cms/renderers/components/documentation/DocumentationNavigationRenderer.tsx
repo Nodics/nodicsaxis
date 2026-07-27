@@ -2,6 +2,7 @@ import {
   Box,
   Chip,
   Divider,
+  IconButton,
   InputAdornment,
   Link,
   List,
@@ -119,6 +120,18 @@ export function DocumentationNavigationRenderer({
         slotProps={{
           input: {
             startAdornment: <InputAdornment position="start">⌕</InputAdornment>,
+            endAdornment: query ? (
+              <InputAdornment position="end">
+                <IconButton
+                  aria-label="Clear documentation search"
+                  edge="end"
+                  size="small"
+                  onClick={() => setQuery('')}
+                >
+                  <span aria-hidden="true">×</span>
+                </IconButton>
+              </InputAdornment>
+            ) : undefined,
           },
         }}
         value={query}
