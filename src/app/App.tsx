@@ -18,6 +18,8 @@ import {
 import { AssistantRoutePage } from '../assistant/AssistantRoutePage';
 import { WorkbenchRoutePage } from '../workbench/WorkbenchRoutePage';
 import { DocumentationRoutePage } from '../documentation/DocumentationRoutePage';
+import { ModuleHealthRoutePage } from '../operations/moduleHealth/ModuleHealthRoutePage';
+import { CoreDataRoutePage } from '../administration/coreData/CoreDataRoutePage';
 import { useIdleScreenLock } from '../auth/useIdleScreenLock';
 import {
   clearScreenLock,
@@ -157,6 +159,12 @@ export function App() {
   );
   const documentationNavigation = authenticatedBootstrap?.navigation.find(
     (item) => item.id === 'documentation' && item.moduleName === 'backoffice',
+  );
+  const moduleHealthNavigation = authenticatedBootstrap?.navigation.find(
+    (item) => item.id === 'module-health' && item.moduleName === 'backoffice',
+  );
+  const coreDataNavigation = authenticatedBootstrap?.navigation.find(
+    (item) => item.id === 'core-data' && item.moduleName === 'backoffice',
   );
   const page = (
     path: string,
@@ -401,6 +409,64 @@ export function App() {
         }
       />
       <Route
+        path="/operations/module-health"
+        element={
+          session && !locked && authenticatedBootstrap && moduleHealthNavigation ? (
+            authenticatedShell(
+              ['UP', 'DEGRADED'].includes(moduleHealthNavigation.availability) ? (
+                <ModuleHealthRoutePage
+                  accessToken={session.accessToken}
+                  bootstrap={authenticatedBootstrap}
+                  runtime={runtime}
+                />
+              ) : (
+                <ModuleWorkspacePlaceholder item={moduleHealthNavigation} />
+              ),
+            )
+          ) : (
+            <Navigate
+              replace
+              to={
+                session && !locked
+                  ? composition.defaultAuthenticatedPage
+                  : session
+                    ? '/lock-screen'
+                    : composition.defaultPublicPage
+              }
+            />
+          )
+        }
+      />
+      <Route
+        path="/administration/core-data"
+        element={
+          session && !locked && authenticatedBootstrap && coreDataNavigation ? (
+            authenticatedShell(
+              ['UP', 'DEGRADED'].includes(coreDataNavigation.availability) ? (
+                <CoreDataRoutePage
+                  accessToken={session.accessToken}
+                  bootstrap={authenticatedBootstrap}
+                  runtime={runtime}
+                />
+              ) : (
+                <ModuleWorkspacePlaceholder item={coreDataNavigation} />
+              ),
+            )
+          ) : (
+            <Navigate
+              replace
+              to={
+                session && !locked
+                  ? composition.defaultAuthenticatedPage
+                  : session
+                    ? '/lock-screen'
+                    : composition.defaultPublicPage
+              }
+            />
+          )
+        }
+      />
+      <Route
         path="/docs/*"
         element={
           session && !locked && authenticatedBootstrap && documentationNavigation ? (
@@ -441,6 +507,8 @@ export function App() {
                 ![
                   '/assistant',
                   '/schema-workbench',
+                  '/operations/module-health',
+                  '/administration/core-data',
                   '/dashboard',
                   '/login',
                   '/forgot-password',

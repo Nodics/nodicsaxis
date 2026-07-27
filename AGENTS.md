@@ -109,6 +109,15 @@ Capabilities are stable; implementations may evolve.
   Persist only bounded `moduleName:navigationId` values for favourites and
   recents; never persist routes, labels, tokens, context, records, or backend
   payloads as navigation preferences.
+- Operational health views consume BackOffice's sanitized, freshness-bounded
+  registered-instance projection. Axis must not poll each module independently,
+  retain a browser health registry, expose raw diagnostics, or infer expected
+  cluster membership from missing leases.
+- Core-data operations may invoke only the existing secured nImport core API.
+  Axis must not inspect module data folders, sequence imports, connect to a
+  database, or become a second import authority. Permission or policy changes
+  require a newly authenticated employee session; never silently elevate an
+  existing token.
 - Preserve responsive layout, touch behavior, keyboard operation, screen
   reader support, reduced motion, and WebView compatibility.
 - Avoid a service worker until an explicit offline and administrative-cache

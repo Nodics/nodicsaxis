@@ -45,6 +45,13 @@ Framework, Swaggers, Nodics Axis, and future project documentation sources;
 per-product CMS catalogs; the import-ready Axis content pack; renderer
 ownership; security boundaries; and failure behavior.
 
+See [Module Health](docs/module-health.md) for backend-driven operational
+navigation, the typed registry client, module and node readiness presentation,
+security boundaries, responsive behavior, and extension rules.
+
+See [Core Data](docs/core-data.md) for the authorized, explicit nImport-backed
+baseline data installation and update workspace.
+
 See [Employee Login, Recovery, Screen Lock, and Dashboard](docs/employee-login.md)
 for startup discovery, employee-only authentication, persistent BackOffice
 policy consumption, protected routing, logout, and failure recovery.
@@ -159,4 +166,6 @@ contracts, authenticated resumable SSE transport, isolated Assistant
 presentation state, and the CMS-driven Schema Workbench browser with
 direct-module schema discovery, bounded record reads, and independent Address
 and Contact creation, relationship coordination, record detail, generated
-Update, and governed Delete. Visual designers remain future slices.
+Update, and governed Delete. The Operations workspace includes Module Health
+with permission-filtered navigation, module summaries, on-demand registered
+node details, and governed refresh. Visual designers remain future slices.

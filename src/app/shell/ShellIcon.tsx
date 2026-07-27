@@ -17,6 +17,10 @@ const iconPaths: Readonly<Record<string, string>> = Object.freeze({
     'M12 2a10 10 0 1 0 10 10A10.01 10.01 0 0 0 12 2Zm0 18a8 8 0 1 1 8-8 8.01 8.01 0 0 1-8 8Zm1-13h-2v6l5 3 1-1.73-4-2.27V7Z',
   dashboard:
     'M3 3h8v8H3V3Zm2 2v4h4V5H5Zm8-2h8v5h-8V3Zm2 2v1h4V5h-4Zm-2 5h8v11h-8V10Zm2 2v7h4v-7h-4ZM3 13h8v8H3v-8Zm2 2v4h4v-4H5Z',
+  health:
+    'M3 4h18v16H3V4Zm2 2v12h14V6H5Zm1 5h3l1.25-3 2.5 7 1.5-4H18v2h-2.35l-2.9 7-2.5-7L9 16H6v-5Z',
+  import:
+    'M5 3h9l5 5v13H5V3Zm2 2v14h10V9h-4V5H7Zm4 4h2v5.17l1.59-1.58L16 14l-4 4-4-4 1.41-1.41L11 14.17V9Z',
   menu: 'M3 6h18v2H3V6Zm0 5h18v2H3v-2Zm0 5h18v2H3v-2Z',
   module: 'M4 4h6v6H4V4Zm10 0h6v6h-6V4ZM4 14h6v6H4v-6Zm10 0h6v6h-6v-6Z',
   operations:
