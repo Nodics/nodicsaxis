@@ -88,7 +88,9 @@ Every significant feature guide explains:
 Business workflows and backend customization belong in Nodics documentation.
 Axis guides link to them and focus on frontend setup and contribution.
 
-Every feature guide includes a **Customize and extend safely** section. It
+## Customize and extend safely
+
+Every feature guide includes this section. It
 shows the smallest supported project-owned Axis customization, identifies the
 backend contract and security boundary that remain authoritative, lists
 prohibited frontend shortcuts or parallel authorities, and names the focused

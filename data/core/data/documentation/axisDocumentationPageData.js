@@ -1,42 +1,304 @@
 'use strict';
 
-/** @description Nodics Axis documentation pages. */
-const pages = [
-  ['overview', 'What Is Nodics Axis?'],
-  ['architecture', 'Architecture and Repository Boundaries'],
-  ['technology-stack', 'Technology Stack and Package Versions'],
-  ['setup', 'Install, Configure, and Start Axis'],
-  ['pages-and-renderers', 'Pages, Components, and Renderers'],
-  ['backend-contracts', 'Backend Contracts and Security'],
-  ['responsive-accessibility', 'Responsive and Accessible Experiences'],
-  ['extend-and-test', 'Extend, Troubleshoot, and Verify Axis'],
-];
-
-module.exports = Object.fromEntries(
-  pages.map((page, index) => [
-    'record' + index,
-    {
-      code: 'axisDocsPage' + page[0].replaceAll('-', ''),
-      name: page[1],
-      cmsSite: ['axisDocumentationSite'],
-      typeCode: 'axisDocumentationArticlePageType',
-      template: 'axisDocumentationArticleTemplate',
-      renderer: 'documentation.page.article',
-      cmsComponents: [
-        {
-          target: 'axisDocumentationNavigation',
-          slot: 'navigation',
-          index: 5,
-          active: true,
-        },
-        {
-          target: 'axisDocsComponent' + page[0].replaceAll('-', ''),
-          slot: 'article',
-          index: 10,
-          active: true,
-        },
-      ],
-      active: true,
-    },
-  ]),
-);
+/** @description Generated Nodics Axis documentation pages. */
+module.exports = {
+  record0: {
+    code: 'axisDocsPageoverview',
+    name: 'What Is Nodics Axis?',
+    cmsSite: ['axisDocumentationSite'],
+    typeCode: 'axisDocumentationArticlePageType',
+    template: 'axisDocumentationArticleTemplate',
+    renderer: 'documentation.page.article',
+    cmsComponents: [
+      {
+        target: 'axisDocumentationNavigation',
+        slot: 'navigation',
+        index: 5,
+        active: true,
+      },
+      {
+        target: 'axisDocsComponentoverview',
+        slot: 'article',
+        index: 10,
+        active: true,
+      },
+    ],
+    active: true,
+  },
+  record1: {
+    code: 'axisDocsPagearchitecture',
+    name: 'Architecture and Repository Boundaries',
+    cmsSite: ['axisDocumentationSite'],
+    typeCode: 'axisDocumentationArticlePageType',
+    template: 'axisDocumentationArticleTemplate',
+    renderer: 'documentation.page.article',
+    cmsComponents: [
+      {
+        target: 'axisDocumentationNavigation',
+        slot: 'navigation',
+        index: 5,
+        active: true,
+      },
+      {
+        target: 'axisDocsComponentarchitecture',
+        slot: 'article',
+        index: 10,
+        active: true,
+      },
+    ],
+    active: true,
+  },
+  record2: {
+    code: 'axisDocsPagetechnologystack',
+    name: 'Frontend Technology Stack',
+    cmsSite: ['axisDocumentationSite'],
+    typeCode: 'axisDocumentationArticlePageType',
+    template: 'axisDocumentationArticleTemplate',
+    renderer: 'documentation.page.article',
+    cmsComponents: [
+      {
+        target: 'axisDocumentationNavigation',
+        slot: 'navigation',
+        index: 5,
+        active: true,
+      },
+      {
+        target: 'axisDocsComponenttechnologystack',
+        slot: 'article',
+        index: 10,
+        active: true,
+      },
+    ],
+    active: true,
+  },
+  record3: {
+    code: 'axisDocsPagedesignsystem',
+    name: 'Design System and Application Shell',
+    cmsSite: ['axisDocumentationSite'],
+    typeCode: 'axisDocumentationArticlePageType',
+    template: 'axisDocumentationArticleTemplate',
+    renderer: 'documentation.page.article',
+    cmsComponents: [
+      {
+        target: 'axisDocumentationNavigation',
+        slot: 'navigation',
+        index: 5,
+        active: true,
+      },
+      {
+        target: 'axisDocsComponentdesignsystem',
+        slot: 'article',
+        index: 10,
+        active: true,
+      },
+    ],
+    active: true,
+  },
+  record4: {
+    code: 'axisDocsPagecmsrenderers',
+    name: 'CMS Delivery and Renderer Integration',
+    cmsSite: ['axisDocumentationSite'],
+    typeCode: 'axisDocumentationArticlePageType',
+    template: 'axisDocumentationArticleTemplate',
+    renderer: 'documentation.page.article',
+    cmsComponents: [
+      {
+        target: 'axisDocumentationNavigation',
+        slot: 'navigation',
+        index: 5,
+        active: true,
+      },
+      {
+        target: 'axisDocsComponentcmsrenderers',
+        slot: 'article',
+        index: 10,
+        active: true,
+      },
+    ],
+    active: true,
+  },
+  record5: {
+    code: 'axisDocsPagedocumentationcontent',
+    name: 'Documentation Content in Axis',
+    cmsSite: ['axisDocumentationSite'],
+    typeCode: 'axisDocumentationArticlePageType',
+    template: 'axisDocumentationArticleTemplate',
+    renderer: 'documentation.page.article',
+    cmsComponents: [
+      {
+        target: 'axisDocumentationNavigation',
+        slot: 'navigation',
+        index: 5,
+        active: true,
+      },
+      {
+        target: 'axisDocsComponentdocumentationcontent',
+        slot: 'article',
+        index: 10,
+        active: true,
+      },
+    ],
+    active: true,
+  },
+  record6: {
+    code: 'axisDocsPageemployeeaccess',
+    name: 'Employee Login, Recovery, Lock, and Dashboard',
+    cmsSite: ['axisDocumentationSite'],
+    typeCode: 'axisDocumentationArticlePageType',
+    template: 'axisDocumentationArticleTemplate',
+    renderer: 'documentation.page.article',
+    cmsComponents: [
+      {
+        target: 'axisDocumentationNavigation',
+        slot: 'navigation',
+        index: 5,
+        active: true,
+      },
+      {
+        target: 'axisDocsComponentemployeeaccess',
+        slot: 'article',
+        index: 10,
+        active: true,
+      },
+    ],
+    active: true,
+  },
+  record7: {
+    code: 'axisDocsPageassistant',
+    name: 'Axis Assistant Frontend',
+    cmsSite: ['axisDocumentationSite'],
+    typeCode: 'axisDocumentationArticlePageType',
+    template: 'axisDocumentationArticleTemplate',
+    renderer: 'documentation.page.article',
+    cmsComponents: [
+      {
+        target: 'axisDocumentationNavigation',
+        slot: 'navigation',
+        index: 5,
+        active: true,
+      },
+      {
+        target: 'axisDocsComponentassistant',
+        slot: 'article',
+        index: 10,
+        active: true,
+      },
+    ],
+    active: true,
+  },
+  record8: {
+    code: 'axisDocsPageschemaworkbench',
+    name: 'Axis Schema Workbench',
+    cmsSite: ['axisDocumentationSite'],
+    typeCode: 'axisDocumentationArticlePageType',
+    template: 'axisDocumentationArticleTemplate',
+    renderer: 'documentation.page.article',
+    cmsComponents: [
+      {
+        target: 'axisDocumentationNavigation',
+        slot: 'navigation',
+        index: 5,
+        active: true,
+      },
+      {
+        target: 'axisDocsComponentschemaworkbench',
+        slot: 'article',
+        index: 10,
+        active: true,
+      },
+    ],
+    active: true,
+  },
+  record9: {
+    code: 'axisDocsPagemodulehealth',
+    name: 'Module Health',
+    cmsSite: ['axisDocumentationSite'],
+    typeCode: 'axisDocumentationArticlePageType',
+    template: 'axisDocumentationArticleTemplate',
+    renderer: 'documentation.page.article',
+    cmsComponents: [
+      {
+        target: 'axisDocumentationNavigation',
+        slot: 'navigation',
+        index: 5,
+        active: true,
+      },
+      {
+        target: 'axisDocsComponentmodulehealth',
+        slot: 'article',
+        index: 10,
+        active: true,
+      },
+    ],
+    active: true,
+  },
+  record10: {
+    code: 'axisDocsPageimportsexports',
+    name: 'Imports and Exports Workspace',
+    cmsSite: ['axisDocumentationSite'],
+    typeCode: 'axisDocumentationArticlePageType',
+    template: 'axisDocumentationArticleTemplate',
+    renderer: 'documentation.page.article',
+    cmsComponents: [
+      {
+        target: 'axisDocumentationNavigation',
+        slot: 'navigation',
+        index: 5,
+        active: true,
+      },
+      {
+        target: 'axisDocsComponentimportsexports',
+        slot: 'article',
+        index: 10,
+        active: true,
+      },
+    ],
+    active: true,
+  },
+  record11: {
+    code: 'axisDocsPagefeaturedelivery',
+    name: 'Axis Feature Delivery Checklist',
+    cmsSite: ['axisDocumentationSite'],
+    typeCode: 'axisDocumentationArticlePageType',
+    template: 'axisDocumentationArticleTemplate',
+    renderer: 'documentation.page.article',
+    cmsComponents: [
+      {
+        target: 'axisDocumentationNavigation',
+        slot: 'navigation',
+        index: 5,
+        active: true,
+      },
+      {
+        target: 'axisDocsComponentfeaturedelivery',
+        slot: 'article',
+        index: 10,
+        active: true,
+      },
+    ],
+    active: true,
+  },
+  record12: {
+    code: 'axisDocsPageimplementationcontract',
+    name: 'Axis Implementation and Documentation Contract',
+    cmsSite: ['axisDocumentationSite'],
+    typeCode: 'axisDocumentationArticlePageType',
+    template: 'axisDocumentationArticleTemplate',
+    renderer: 'documentation.page.article',
+    cmsComponents: [
+      {
+        target: 'axisDocumentationNavigation',
+        slot: 'navigation',
+        index: 5,
+        active: true,
+      },
+      {
+        target: 'axisDocsComponentimplementationcontract',
+        slot: 'article',
+        index: 10,
+        active: true,
+      },
+    ],
+    active: true,
+  },
+};

@@ -114,4 +114,60 @@ describe('documentation content-pack client', () => {
       'You are not authorized to manage documentation.',
     );
   });
+
+  it('explains an immutable documentation release conflict safely', async () => {
+    const client = createDocumentationContentPackClient(
+      {
+        connection,
+        enterpriseCode: 'default',
+        accessToken: 'employee-token',
+        timeoutMs: 1_000,
+      },
+      vi.fn<typeof fetch>().mockResolvedValue(
+        new Response(
+          JSON.stringify({
+            code: 'ERR_IMP_00003',
+            message: 'Content-pack release changed without a version change',
+            stack: 'must not reach the browser',
+          }),
+          {
+            status: 400,
+            headers: { 'Content-Type': 'application/json' },
+          },
+        ),
+      ),
+    );
+
+    await expect(client.importOrUpdate()).rejects.toThrow(
+      'The documentation content changed without a new release version. ' +
+        'Ask the release owner to increment and regenerate the content pack, then try again.',
+    );
+  });
+
+  it('does not expose unknown backend diagnostics', async () => {
+    const client = createDocumentationContentPackClient(
+      {
+        connection,
+        enterpriseCode: 'default',
+        accessToken: 'employee-token',
+        timeoutMs: 1_000,
+      },
+      vi.fn<typeof fetch>().mockResolvedValue(
+        new Response(
+          JSON.stringify({
+            code: 'ERR_UNKNOWN',
+            message: 'Sensitive backend detail',
+          }),
+          {
+            status: 400,
+            headers: { 'Content-Type': 'application/json' },
+          },
+        ),
+      ),
+    );
+
+    await expect(client.importOrUpdate()).rejects.toThrow(
+      'Documentation service returned HTTP 400',
+    );
+  });
 });

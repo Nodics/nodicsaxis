@@ -4,6 +4,15 @@ interface CmsResponseEnvelope {
   readonly result?: unknown;
 }
 
+const CMS_ERROR_MESSAGES: Readonly<Record<string, string>> = Object.freeze({
+  ERR_CMS_00087:
+    'The requested CMS route is not available for this Site. Install or update the owning content pack, then try again.',
+  ERR_CMS_00088:
+    'The requested CMS page is not available. Install or update the owning content pack, then try again.',
+  ERR_CMS_00089:
+    'The CMS page template is not available. Install or update the owning content pack, then try again.',
+});
+
 export interface ResolveCmsPageInput {
   readonly cmsBaseUrl: string;
   readonly enterpriseCode: string;
@@ -49,6 +58,24 @@ function parseEnvelope(value: unknown): unknown {
   return (value as CmsResponseEnvelope).result;
 }
 
+async function cmsFailure(response: Response): Promise<Error> {
+  const contentType = response.headers.get('Content-Type') ?? '';
+  if (contentType.toLowerCase().includes('application/json')) {
+    try {
+      const body: unknown = await response.json();
+      if (typeof body === 'object' && body !== null && !Array.isArray(body)) {
+        const code = (body as Record<string, unknown>).code;
+        if (typeof code === 'string' && CMS_ERROR_MESSAGES[code]) {
+          return new Error(CMS_ERROR_MESSAGES[code]);
+        }
+      }
+    } catch {
+      // Fall through to the bounded transport failure below.
+    }
+  }
+  return new Error(`CMS page delivery returned HTTP ${String(response.status)}`);
+}
+
 export async function resolveCmsPage(
   input: ResolveCmsPageInput,
   fetchImplementation: typeof fetch = fetch,
@@ -89,7 +116,7 @@ export async function resolveCmsPage(
       });
     }
     if (!response.ok) {
-      throw new Error(`CMS page delivery returned HTTP ${String(response.status)}`);
+      throw await cmsFailure(response);
     }
 
     let document: unknown;

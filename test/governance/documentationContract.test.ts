@@ -16,6 +16,17 @@ import { describe, expect, it } from 'vitest';
 
 const root = process.cwd();
 
+function markdownWordCount(value: string): number {
+  return (value.match(/\b[\p{L}\p{N}][\p{L}\p{N}'’-]*\b/gu) ?? []).length;
+}
+
+function markdownHeadings(value: string): readonly string[] {
+  return value.split(/\r?\n/).flatMap((line) => {
+    const match = /^#{2,4}\s+(.+)$/.exec(line.trim());
+    return match?.[1] ? [match[1]] : [];
+  });
+}
+
 function requireClauses(relativePath: string, clauses: string[]): void {
   const content = fs.readFileSync(path.join(root, relativePath), 'utf8');
   for (const clause of clauses) {
@@ -56,6 +67,73 @@ describe('Axis distributed implementation documentation', () => {
     expect(releaseChecksum).toBe(manifest.releaseChecksum);
   });
 
+  it('generates every granular Axis page from canonical source without losing README or docs detail', () => {
+    const navigation = JSON.parse(
+      fs.readFileSync(path.join(root, 'source/documentation/navigation.json'), 'utf8'),
+    ) as {
+      readonly pages: readonly {
+        readonly title: string;
+        readonly source: string;
+        readonly evidence: string;
+        readonly route: string;
+      }[];
+    };
+    const register = JSON.parse(
+      fs.readFileSync(
+        path.join(root, 'source/documentation/migration-register.json'),
+        'utf8',
+      ),
+    ) as {
+      readonly sources: readonly {
+        readonly evidence: string;
+        readonly canonicalSource: string;
+        readonly destinationRoute: string;
+        readonly disposition: string;
+        readonly wordCount: number;
+        readonly headings: readonly string[];
+      }[];
+    };
+    const expectedEvidence = [
+      'README.md',
+      ...fs
+        .readdirSync(path.join(root, 'docs'))
+        .filter((fileName) => fileName.endsWith('.md'))
+        .sort()
+        .map((fileName) => `docs/${fileName}`),
+    ].sort();
+
+    expect(register.sources.map((source) => source.evidence).sort()).toEqual(
+      expectedEvidence,
+    );
+    expect(navigation.pages).toHaveLength(expectedEvidence.length);
+
+    const generatedComponents = fs.readFileSync(
+      path.join(root, 'data/core/data/documentation/axisDocumentationComponentData.js'),
+      'utf8',
+    );
+    for (const page of navigation.pages) {
+      const migration = register.sources.find(
+        (source) => source.evidence === page.evidence,
+      );
+      expect(migration).toBeDefined();
+      expect(migration?.disposition).toBe('migrated');
+      expect(migration?.destinationRoute).toBe(page.route);
+
+      const evidence = fs.readFileSync(path.join(root, page.evidence), 'utf8');
+      const canonical = fs.readFileSync(
+        path.join(root, 'source/documentation', page.source),
+        'utf8',
+      );
+      expect(markdownWordCount(canonical)).toBeGreaterThanOrEqual(
+        markdownWordCount(evidence),
+      );
+      expect(migration?.wordCount).toBe(markdownWordCount(canonical));
+      expect(migration?.headings).toEqual(markdownHeadings(canonical));
+      expect(generatedComponents).toContain(page.title);
+      expect(generatedComponents).toContain(`source/documentation/${page.source}`);
+    }
+  });
+
   it('keeps partial-discovery and repository ownership rules enforceable', () => {
     requireClauses('AGENTS.md', [
       'Design Axis for partial discovery',
@@ -64,6 +142,7 @@ describe('Axis distributed implementation documentation', () => {
       'CMS-delivered component properties as the authority',
       'Never localize by parsing English error text',
       'Backend-driven presentation remains declarative and non-executable',
+      'Every implemented Axis functionality must include a dedicated safe',
     ]);
     requireClauses('docs/implementation-and-documentation-contract.md', [
       '## Local Discovery Chain',
@@ -75,6 +154,7 @@ describe('Axis distributed implementation documentation', () => {
       '### Boundary',
       '### Failure And Recovery',
       '### Customization',
+      'Customize and extend safely',
       'Configurable page copy comes from CMS component properties',
       'Locale, channel, and backend-resolved fallback',
       '## Acceptance',
@@ -85,5 +165,20 @@ describe('Axis distributed implementation documentation', () => {
       'Link Nodics-owned business and backend guidance',
       'long translated labels, right-to-left direction',
     ]);
+  });
+
+  it('gives every canonical feature page a safe customization path', () => {
+    const navigation = JSON.parse(
+      fs.readFileSync(path.join(root, 'source/documentation/navigation.json'), 'utf8'),
+    ) as {
+      readonly pages: readonly { readonly source: string }[];
+    };
+    for (const page of navigation.pages) {
+      const canonical = fs.readFileSync(
+        path.join(root, 'source', 'documentation', page.source),
+        'utf8',
+      );
+      expect(canonical, page.source).toContain('## Customize and extend safely');
+    }
   });
 });

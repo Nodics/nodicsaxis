@@ -1,0 +1,241 @@
+{
+  "pack": "nodicsaxis",
+  "version": "0.3.3",
+  "generatedAtPolicy": "deterministic-no-timestamp",
+  "sources": [
+    {
+      "evidence": "README.md",
+      "canonicalSource": "source/documentation/pages/project-overview.md",
+      "destinationRoute": "/docs/nodics-axis",
+      "disposition": "migrated",
+      "sourceHash": "9f8924022eb98b7e299ccae766b718ecce40c2843637443d98641d053944e58f",
+      "wordCount": 921,
+      "headings": [
+        "Boundaries",
+        "Prerequisites",
+        "Start locally",
+        "Environment and runtime configuration",
+        "Quality commands",
+        "Current scope",
+        "Customize and extend safely"
+      ]
+    },
+    {
+      "evidence": "docs/architecture-and-ownership.md",
+      "canonicalSource": "source/documentation/pages/architecture-and-ownership.md",
+      "destinationRoute": "/docs/nodics-axis/architecture",
+      "disposition": "migrated",
+      "sourceHash": "f47604672729255bb987075b091a9ced856766fdb0b699f3f4f6037d3439293c",
+      "wordCount": 611,
+      "headings": [
+        "Decision",
+        "Deployment model",
+        "Contract authority",
+        "Security boundary",
+        "Documentation ownership",
+        "Customize and extend safely",
+        "Verification expectations"
+      ]
+    },
+    {
+      "evidence": "docs/frontend-technology-stack.md",
+      "canonicalSource": "source/documentation/pages/frontend-technology-stack.md",
+      "destinationRoute": "/docs/nodics-axis/technology-stack",
+      "disposition": "migrated",
+      "sourceHash": "b715a440e2bbd5540c037fac19ba3838852b3a13238c7e1c0c9a192cf9be7ac7",
+      "wordCount": 921,
+      "headings": [
+        "Selected foundation",
+        "State ownership",
+        "Styling decision",
+        "Repository shape",
+        "CMS renderer organization",
+        "Dependency decision rule",
+        "Customize and extend safely",
+        "Verification"
+      ]
+    },
+    {
+      "evidence": "docs/design-system-and-shell.md",
+      "canonicalSource": "source/documentation/pages/design-system-and-shell.md",
+      "destinationRoute": "/docs/nodics-axis/design-system",
+      "disposition": "migrated",
+      "sourceHash": "f09663503ea69f70fa934796eed52f36c0e929e68a29415a8125d358bf0f2d46",
+      "wordCount": 1492,
+      "headings": [
+        "Implemented scope",
+        "Authentication layout",
+        "Foundations",
+        "Shell structure",
+        "Recovery states",
+        "Accessibility and responsive behavior",
+        "Customize and extend safely",
+        "Verification"
+      ]
+    },
+    {
+      "evidence": "docs/cms-delivery-and-renderers.md",
+      "canonicalSource": "source/documentation/pages/cms-delivery-and-renderers.md",
+      "destinationRoute": "/docs/nodics-axis/cms-renderers",
+      "disposition": "migrated",
+      "sourceHash": "906f6077a482e2a7e572b8b6cc44e0077574d72e955f7648d90254e2202e2859",
+      "wordCount": 520,
+      "headings": [
+        "Runtime boundary",
+        "Delivery validation",
+        "Request and cache safety",
+        "Customize and extend safely",
+        "Renderer development"
+      ]
+    },
+    {
+      "evidence": "docs/documentation-content.md",
+      "canonicalSource": "source/documentation/pages/documentation-content.md",
+      "destinationRoute": "/docs/nodics-axis/documentation-content",
+      "disposition": "migrated",
+      "sourceHash": "b97ec0c316296af831dbf994711073cb89e87a2ae6df853968f3de480789204b",
+      "wordCount": 1342,
+      "headings": [
+        "Employee Journey",
+        "Nodics Axis Content Pack",
+        "Renderer Ownership",
+        "Failure And Recovery",
+        "Customize and extend safely",
+        "Contributor Verification"
+      ]
+    },
+    {
+      "evidence": "docs/employee-login.md",
+      "canonicalSource": "source/documentation/pages/employee-login.md",
+      "destinationRoute": "/docs/nodics-axis/employee-access",
+      "disposition": "migrated",
+      "sourceHash": "d57cdeb689eb8f0bfe0b3c768888fabdbbf687e80139375c3e355416c7fc0aa4",
+      "wordCount": 1019,
+      "headings": [
+        "Startup journey",
+        "Password recovery",
+        "Idle screen lock",
+        "Logout",
+        "Configuration",
+        "Failure behavior",
+        "Customize and extend safely",
+        "Verification"
+      ]
+    },
+    {
+      "evidence": "docs/assistant-frontend.md",
+      "canonicalSource": "source/documentation/pages/assistant-frontend.md",
+      "destinationRoute": "/docs/nodics-axis/assistant",
+      "disposition": "migrated",
+      "sourceHash": "4b5f2628a6a7b3e6561fef37e68c4001f02a8385700174ffd36fb293b46b2604",
+      "wordCount": 1645,
+      "headings": [
+        "Implemented scope",
+        "Authority and request flow",
+        "Source map",
+        "CMS customization",
+        "Typed API coverage",
+        "Presentation lifecycle",
+        "Accessibility and responsive behavior",
+        "Failure and security behavior",
+        "Verification",
+        "Structured interactions",
+        "Evidence and operational transparency",
+        "Customize and extend safely",
+        "Known next boundary"
+      ]
+    },
+    {
+      "evidence": "docs/schema-workbench.md",
+      "canonicalSource": "source/documentation/pages/schema-workbench.md",
+      "destinationRoute": "/docs/nodics-axis/schema-workbench",
+      "disposition": "migrated",
+      "sourceHash": "73c31ac8a44209c297948268e8e62a9a7121a8eacc6da0bbfbe3589e667e0abd",
+      "wordCount": 1487,
+      "headings": [
+        "Implemented frontend behavior",
+        "Request ownership",
+        "Successful behavior",
+        "Unauthorized or invalid behavior",
+        "Boundary and responsive behavior",
+        "Failure and recovery",
+        "Customize and extend safely",
+        "Verification"
+      ]
+    },
+    {
+      "evidence": "docs/module-health.md",
+      "canonicalSource": "source/documentation/pages/module-health.md",
+      "destinationRoute": "/docs/nodics-axis/module-health",
+      "disposition": "migrated",
+      "sourceHash": "a518daa7d48b48e8e588acfdbb99b748117d9830c4ff5c084b7160dd56dcd70a",
+      "wordCount": 503,
+      "headings": [
+        "Purpose and ownership",
+        "Navigation and access",
+        "Frontend structure",
+        "Operator workflow",
+        "Responsive, accessible, and failure behavior",
+        "Customize and extend safely"
+      ]
+    },
+    {
+      "evidence": "docs/imports-and-exports.md",
+      "canonicalSource": "source/documentation/pages/imports-and-exports.md",
+      "destinationRoute": "/docs/nodics-axis/imports-exports",
+      "disposition": "migrated",
+      "sourceHash": "6a3ab7466569cb8e56246eaf5a1af22e52e8a0713ab6d5c3b5aba63dac275a5d",
+      "wordCount": 422,
+      "headings": [
+        "Purpose and ownership",
+        "Frontend organization",
+        "Employee workflow",
+        "Security, failure, and extension",
+        "Customize and extend safely"
+      ]
+    },
+    {
+      "evidence": "docs/feature-delivery-checklist.md",
+      "canonicalSource": "source/documentation/pages/feature-delivery-checklist.md",
+      "destinationRoute": "/docs/nodics-axis/feature-delivery",
+      "disposition": "migrated",
+      "sourceHash": "d5375ac3b2b89ea80a08dc6b71adaf867f80e783ed63781ac085cbc86078eff1",
+      "wordCount": 794,
+      "headings": [
+        "1. Repository boundary",
+        "2. Reuse and dependency check",
+        "3. Security and privacy",
+        "4. Interaction quality",
+        "5. Contract tests",
+        "6. Documentation placement",
+        "7. Partial-discovery and use-case proof",
+        "8. Completion evidence",
+        "Customize and extend safely"
+      ]
+    },
+    {
+      "evidence": "docs/implementation-and-documentation-contract.md",
+      "canonicalSource": "source/documentation/pages/implementation-and-documentation-contract.md",
+      "destinationRoute": "/docs/nodics-axis/implementation-contract",
+      "disposition": "migrated",
+      "sourceHash": "c589fc75aea4d1e56c37d2870daeb7c3cfeff49899ed24ec56cbc288f397f3f9",
+      "wordCount": 966,
+      "headings": [
+        "Local Discovery Chain",
+        "Repository Ownership",
+        "Placement Rules",
+        "Required Feature Documentation",
+        "Customize and extend safely",
+        "Canonical Source and Generated Data",
+        "Required Examples",
+        "Successful",
+        "Unauthorized",
+        "Boundary",
+        "Failure And Recovery",
+        "Customization",
+        "Acceptance",
+        "Continue"
+      ]
+    }
+  ]
+}

@@ -95,6 +95,18 @@ an implemented Axis capability, then run `npm run docs:check` and
 destination, headings, and detail evidence for every README or legacy docs
 source before those transitional files are reduced or retired.
 
+`source/documentation/navigation.json` is the only authored Axis documentation
+release-version authority. Generation copies that version into CMS records,
+the migration register, and the immutable release manifest. Contributors must
+increment it before generating changed content and must not repair generated
+version projections by hand.
+
+The same generation pass projects every canonical navigation page into matching
+CMS page, component, and route records. Route lists must never be maintained
+separately. The generated manifest page and route totals therefore describe the
+records that are actually importable, and `npm run docs:check` rejects any
+generated route drift before a release can be accepted.
+
 ## Renderer Ownership
 
 - `DocumentationArticlePageRenderer` owns page-to-slot composition.
@@ -134,6 +146,11 @@ surfaces where it does not provide sufficient contrast.
 - A failed update keeps the Wiki route available and presents a retryable,
   low-disclosure failure. Import diagnostics and data reconciliation remain
   backend responsibilities.
+- An immutable-release conflict tells the operator that documentation content
+  changed without a new release version and directs the release owner to
+  increment and regenerate the pack. Axis maps the stable backend error code;
+  it never renders backend stacks, contexts, record data, or arbitrary
+  diagnostic messages.
 - A missing renderer, unsupported contract version, unsupported channel, or
   malformed property is rejected by the CMS render boundary.
 - A disabled or unavailable BackOffice documentation contribution displays the
@@ -145,6 +162,21 @@ metadata is migrated and validated by `nodicsdocs`, while Axis presents a
 non-executable placeholder until a governed CMS/DAM binary-delivery contract
 is implemented. Do not add repository file paths or ad-hoc static-file loaders
 to bypass that boundary.
+
+## Customize and extend safely
+
+Author or extend project documentation in that project's canonical structured
+source and generate its committed `data/core` content pack with
+`manifest/docs-content-pack.json`. Register the pack through the Nodics-owned
+documentation contribution contract; Axis discovers and renders the resulting
+navigation and article blocks.
+
+Do not hand-edit generated CMS records, add repository file readers to Axis,
+create a browser import engine, or duplicate a project's documentation inside
+the framework pack. Test deterministic generation, stale-pack rejection,
+permissions, checksum and version boundaries, unsafe links and blocks, missing
+media, import/update recovery, navigation, responsive rendering, and rollback
+to a previously accepted immutable release.
 
 ## Contributor Verification
 

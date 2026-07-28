@@ -99,4 +99,25 @@ describe('resolveCmsPage', () => {
       .mockResolvedValue(new Response(null, { status: 503 }));
     await expect(resolveCmsPage(baseInput, unavailable)).rejects.toThrow('HTTP 503');
   });
+
+  it('explains a missing CMS route without exposing backend diagnostics', async () => {
+    const missingRoute = vi.fn<typeof fetch>().mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          code: 'ERR_CMS_00087',
+          message: 'CMS route was not found',
+          stack: 'must not reach the browser',
+        }),
+        {
+          status: 404,
+          headers: { 'Content-Type': 'application/json' },
+        },
+      ),
+    );
+
+    await expect(resolveCmsPage(baseInput, missingRoute)).rejects.toThrow(
+      'The requested CMS route is not available for this Site. ' +
+        'Install or update the owning content pack, then try again.',
+    );
+  });
 });

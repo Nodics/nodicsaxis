@@ -37,6 +37,11 @@ interface DocumentationContentPackClientOptions {
   readonly packCode?: string;
 }
 
+const DOCUMENTATION_ERROR_MESSAGES: Readonly<Record<string, string>> = Object.freeze({
+  ERR_IMP_00003:
+    'The documentation content changed without a new release version. Ask the release owner to increment and regenerate the content pack, then try again.',
+});
+
 function record(value: unknown, name: string): Record<string, unknown> {
   if (typeof value !== 'object' || value === null || Array.isArray(value)) {
     throw new Error(`${name} must be an object`);
@@ -113,6 +118,24 @@ function parseStatus(value: unknown): DocumentationContentPackStatus {
   });
 }
 
+async function responseFailure(response: Response): Promise<Error> {
+  if (response.status === 403) {
+    return new Error('You are not authorized to manage documentation.');
+  }
+  const contentType = response.headers.get('Content-Type') ?? '';
+  if (contentType.toLowerCase().includes('application/json')) {
+    try {
+      const body = record(await response.json(), 'Documentation error response');
+      const code = typeof body.code === 'string' ? body.code : '';
+      const mappedMessage = DOCUMENTATION_ERROR_MESSAGES[code];
+      if (mappedMessage) return new Error(mappedMessage);
+    } catch {
+      // Fall through to the bounded transport failure below.
+    }
+  }
+  return new Error(`Documentation service returned HTTP ${String(response.status)}`);
+}
+
 function createRequest(
   options: DocumentationContentPackClientOptions,
   method: 'GET' | 'POST',
@@ -140,11 +163,7 @@ function createRequest(
   })
     .then(async (response) => {
       if (!response.ok) {
-        throw new Error(
-          response.status === 403
-            ? 'You are not authorized to manage documentation.'
-            : `Documentation service returned HTTP ${String(response.status)}`,
-        );
+        throw await responseFailure(response);
       }
       return parseStatus(await response.json());
     })

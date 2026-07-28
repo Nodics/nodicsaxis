@@ -176,3 +176,19 @@ and Contact creation, relationship coordination, record detail, generated
 Update, and governed Delete. The Operations workspace includes Module Health
 with permission-filtered navigation, module summaries, on-demand registered
 node details, and governed refresh. Visual designers remain future slices.
+
+## Customize and extend safely
+
+Use Axis as the reusable frontend base and place customer-specific pages,
+renderers, typed clients, theme composition, and CMS presentation data in the
+customer Axis project. Keep customer business services, schemas, workflows,
+permissions, and API implementations in its Nodics backend project.
+
+The smallest extension adds one focused feature directory, one backend-driven
+navigation or renderer contract, and mirrored tests. Do not modify reusable
+framework behavior for customer needs, hardcode backend-owned labels, create a
+parallel module registry, or move authorization into the browser. Prove
+startup, permission, contract-version, malformed-data, failure recovery,
+responsive and WebView, integration, regression, and production-build
+behavior. Rollback removes the customer registration and deployment artifact
+without mutating Nodics-owned persisted contracts.

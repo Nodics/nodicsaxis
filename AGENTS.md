@@ -158,6 +158,21 @@ Nodics-owned import, but must not read sibling repositories, write CMS
 collections, connect to a database, or become another content-pack/import
 authority.
 
+Canonical Axis documentation is authored as granular source under
+`source/documentation`; `data/core` is generated, committed CMS import data and
+must never be hand-maintained as a second documentation authority. Every
+implemented feature must update the applicable source pages, run
+`npm run docs:generate`, increment the content-pack version when generated
+content changes, and pass `npm run docs:check`. A feature is incomplete when
+its richer README or legacy `docs/` guidance is absent from the generated pack.
+`source/documentation/navigation.json` is the single authored release-version
+authority. The generator projects its version into the migration register,
+generated CMS records, and `manifest/docs-content-pack.json`; never edit those
+generated version projections independently.
+Do not reduce or remove README/docs evidence until the migration register maps
+every substantive heading to canonical source and detail-preservation checks
+pass.
+
 Design Axis for partial discovery. A developer or AI tool may read only this
 file, the nearest feature source, its focused tests, and one linked guide.
 Critical repository ownership, backend authority, renderer placement, security,
@@ -172,6 +187,14 @@ use cases. Cover the frontend contributor and operator in this repository;
 business-user, administrator, backend contract, and partner backend
 customization guidance remains owned by Nodics and must be linked rather than
 duplicated.
+
+Every implemented Axis functionality must include a dedicated safe
+customization path. Show the smallest project-owned component, renderer, typed
+client, configuration, or presentation extension; identify the backend
+authority and contract that remain unchanged; state what must not move into the
+browser or be copied into a parallel registry; and name the focused tests that
+protect the customization. A feature guide that explains only the shipped UI
+is incomplete.
 
 For each implemented behavior, cover applicable:
 
