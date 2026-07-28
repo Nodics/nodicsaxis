@@ -41,14 +41,41 @@ only content-pack installation and update authority.
 
 For **Swaggers**, Axis uses the selected source's registered System connection,
 OpenAPI path, and Swagger path. Axis fetches and bounds the JSON OpenAPI
-contract, then renders searchable method, path, summary, description, and tag
-information as text through its own components. The backend Swagger page is
-opened as a separate browser page for interactive use; it is never embedded in
-an iframe because Nodics correctly protects backend pages with
-`X-Frame-Options: DENY` and `frame-ancestors 'none'`. Both routes remain subject
-to Nodics API exposure policy. If exposure is disabled or the runtime is
-unavailable, Axis reports the failure and does not substitute a stale copied
-contract.
+contract, then renders searchable method, path, summary, description, tags,
+operation metadata, parameters, request body, response codes, content types,
+schema summaries, and declared security scheme names as text through its own
+components. Axis does not execute API calls from this read-only catalogue. API
+operations are grouped by the Nodics module hierarchy: operation ownership
+comes from the generated OpenAPI `x-nodics.moduleName` metadata, while display
+names, parent modules, and group labels come from BackOffice's authenticated
+module registry projection. Tags and path prefixes may help search and fallback
+display, but they are not the grouping authority. This keeps the API reference
+aligned with Module Health, import/export release lists, and the same
+business-facing module names shown elsewhere in Axis. Module groups start
+collapsed so an operator or developer can scan capability areas first, expand
+only the area they need, and then open individual API operations. A search
+expands matching groups so the matching operations are visible without forcing
+the user to manually open every parent. The grouped catalogue does not paginate
+by individual API operation, because operation-level paging hides module groups
+unpredictably. Instead, Axis shows the complete matching group list and renders
+operation rows only when a group is expanded or a search is active.
+
+Only one API operation detail panel stays expanded at a time. Opening another
+operation closes the previously open operation so the API reference remains
+easy to scan during long Swagger reviews.
+
+Each operation may include an **Open this operation in Swagger** action. That
+link is derived from the same backend-provided Swagger path and OpenAPI
+operation id, so Axis does not invent a second route contract. If the operation
+does not declare a stable operation id or tag, Axis falls back to the top-level
+Swagger page instead of guessing.
+
+The backend Swagger page is opened as a separate browser page for interactive
+use; it is never embedded in an iframe because Nodics correctly protects
+backend pages with `X-Frame-Options: DENY` and `frame-ancestors 'none'`. Both
+routes remain subject to Nodics API exposure policy. If exposure is disabled or
+the runtime is unavailable, Axis reports the failure and does not substitute a
+stale copied contract.
 
 When a newer pack version is available, Axis keeps the installed Wiki readable
 and offers the backend-authorized **Update documentation** action. Labels and
@@ -115,6 +142,9 @@ generated route drift before a release can be accepted.
 - `DocumentationNavigationRenderer` owns bounded search, category grouping,
   audience filtering, selected-route presentation, and documentation-home
   navigation.
+- `OpenApiDocumentationRenderer` owns the browsable API-reference
+  presentation, including module-hierarchy grouping, bounded search,
+  operation expansion, and the external Swagger link.
 - The typed renderer manifest and registries are the only mapping from CMS
   logical keys to Axis implementations.
 
@@ -175,8 +205,8 @@ Do not hand-edit generated CMS records, add repository file readers to Axis,
 create a browser import engine, or duplicate a project's documentation inside
 the framework pack. Test deterministic generation, stale-pack rejection,
 permissions, checksum and version boundaries, unsafe links and blocks, missing
-media, import/update recovery, navigation, responsive rendering, and rollback
-to a previously accepted immutable release.
+media, import/update recovery, OpenAPI module grouping, navigation, responsive
+rendering, and rollback to a previously accepted immutable release.
 
 ## Contributor Verification
 

@@ -57,11 +57,17 @@ describe('Axis application shell navigation', () => {
       </AxisThemeProvider>,
     );
 
-    expect(screen.getByText('Environment: Startio Local')).toBeVisible();
-    expect(screen.getByText('Tenant: Default')).toBeVisible();
-    expect(screen.getByText('Enterprise: Default')).toBeVisible();
-    expect(screen.getByText('Site: Axis CMS Site')).toBeVisible();
-    expect(screen.getByText('Catalog: Axis Content Catalog')).toBeVisible();
+    expect(
+      screen.getByRole('button', {
+        name: [
+          'Current context: Environment: Startio Local',
+          'Tenant: Default',
+          'Enterprise: Default',
+          'Site: Axis CMS Site',
+          'Catalog: Axis Content Catalog',
+        ].join(', '),
+      }),
+    ).toBeVisible();
     expect(screen.queryByRole('button', { name: 'Create' })).not.toBeInTheDocument();
   });
 

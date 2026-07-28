@@ -90,6 +90,7 @@ describe('DocumentationNavigationRenderer', () => {
     );
 
     const search = screen.getByLabelText('Search documentation');
+    expect(screen.queryByText('⌕')).not.toBeInTheDocument();
     expect(
       screen.queryByRole('button', { name: 'Clear documentation search' }),
     ).not.toBeInTheDocument();

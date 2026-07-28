@@ -120,6 +120,17 @@ README or legacy docs may be reduced only after all substantive guidance is
 mapped, generated, reviewed in Axis, and protected by content-preservation
 tests.
 
+Every project and module retains a concise high-level `README.md` after detailed
+guidance migrates. It remains the repository entry point for purpose, ownership,
+implemented capabilities, setup, verification, extension boundaries, and links
+to canonical pages. It must not become a second copy of the complete
+operational and developer guides. Legacy detailed `docs/` files may be retired
+only after the migration register records their hashes, word counts, headings,
+canonical destinations, and the generated and rendered verification gates pass.
+After retirement, do not recreate a parallel `docs/` directory. The project
+keeps one concise `README.md`; detailed permanent guidance belongs only under
+`source/documentation` and its generated `data/core` projection.
+
 ## Required Examples
 
 ### Successful

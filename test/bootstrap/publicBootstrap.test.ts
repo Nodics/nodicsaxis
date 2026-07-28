@@ -29,14 +29,28 @@ const document = {
 
 const authenticatedData = {
   modules: {
+    gContent: [
+      {
+        moduleName: 'gContent',
+        displayName: 'Content',
+        canonicalIdentity: 'nodics/gContent',
+        instanceId: 'runtime-0',
+        clientCallable: false,
+        moduleKind: 'group',
+      },
+    ],
     cms: [
       {
         moduleName: 'cms',
+        displayName: 'Content Management',
+        parentModule: 'gContent',
+        canonicalIdentity: 'nodics/gContent/cms',
         instanceId: 'runtime-1',
         environment: 'startioLocal',
         clientCallable: true,
         endpoint: 'https://cms.example.com/nodics/cms',
         state: 'UP',
+        moduleKind: 'capability',
       },
     ],
   },
@@ -158,6 +172,19 @@ describe('Axis bootstrap clients', () => {
     expect(result.axisPolicy.idleTimeoutSeconds).toBe(900);
     expect(result.environments).toEqual(['startioLocal']);
     expect(result.tenantCode).toBe('default');
+    expect(result.moduleCatalog.cms).toEqual({
+      moduleName: 'cms',
+      displayName: 'Content Management',
+      parentModule: 'gContent',
+      canonicalIdentity: 'nodics/gContent/cms',
+      moduleKind: 'capability',
+    });
+    expect(result.moduleCatalog.gContent).toEqual({
+      moduleName: 'gContent',
+      displayName: 'Content',
+      canonicalIdentity: 'nodics/gContent',
+      moduleKind: 'group',
+    });
     expect(result.documentationSources).toEqual([
       expect.objectContaining({
         id: 'framework',

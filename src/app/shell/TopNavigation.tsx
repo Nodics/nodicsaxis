@@ -12,6 +12,7 @@ import {
   Tooltip,
   Typography,
 } from '@mui/material';
+import type { PaletteMode } from '@mui/material/styles';
 import { useState, type MouseEvent } from 'react';
 
 import type { AxisNavigationItem } from '../../bootstrap/publicBootstrap';
@@ -20,12 +21,15 @@ import { ShellIcon } from './ShellIcon';
 
 interface TopNavigationProps {
   readonly assistant?: AxisNavigationItem | undefined;
+  readonly contextItems: readonly string[];
   readonly employeeId?: string | undefined;
   readonly navigationToggleLabel: string;
+  readonly colorMode: PaletteMode;
   readonly query: string;
   readonly onQueryChange: (value: string) => void;
   readonly onNavigate: (route: string) => void;
   readonly onToggleNavigation: () => void;
+  readonly onToggleColorMode: () => void;
   readonly onLock?: (() => void) | undefined;
   readonly onLogout?: (() => void) | undefined;
   readonly onNotify: (message: string) => void;
@@ -41,15 +45,29 @@ const utilityIconSx = {
   fontSize: 26,
 } as const;
 
+const parseContextItem = (item: string) => {
+  const separatorIndex = item.indexOf(':');
+  if (separatorIndex === -1) {
+    return { label: 'Context', value: item };
+  }
+  return {
+    label: item.slice(0, separatorIndex).trim(),
+    value: item.slice(separatorIndex + 1).trim(),
+  };
+};
+
 export function TopNavigation({
   assistant,
+  contextItems,
   employeeId,
   navigationToggleLabel,
+  colorMode,
   onLock,
   onLogout,
   onNotify,
   onNavigate,
   onToggleNavigation,
+  onToggleColorMode,
   onQueryChange,
   query,
 }: TopNavigationProps) {
@@ -57,6 +75,11 @@ export function TopNavigation({
   const initials = employeeId?.slice(0, 2).toLocaleUpperCase() ?? 'AX';
   const assistantActive =
     assistant !== undefined && ['UP', 'DEGRADED'].includes(assistant.availability);
+  const contextSummary =
+    contextItems.length === 0
+      ? 'Current context unavailable'
+      : `Current context: ${contextItems.join(', ')}`;
+  const contextRows = contextItems.map(parseContextItem);
 
   return (
     <Stack
@@ -162,6 +185,121 @@ export function TopNavigation({
             <Badge color="error" variant="dot" invisible>
               <ShellIcon color="action" name="bell" sx={utilityIconSx} />
             </Badge>
+          </IconButton>
+        </Tooltip>
+        <Tooltip
+          arrow
+          enterDelay={200}
+          placement="bottom-end"
+          slotProps={{
+            arrow: {
+              sx: {
+                color: 'background.paper',
+                '&::before': {
+                  border: '1px solid',
+                  borderColor: 'divider',
+                  boxSizing: 'border-box',
+                },
+              },
+            },
+            tooltip: {
+              sx: {
+                bgcolor: 'background.paper',
+                border: '1px solid',
+                borderColor: 'divider',
+                borderRadius: 2,
+                boxShadow: (currentTheme) => currentTheme.shadows[8],
+                color: 'text.primary',
+                maxWidth: 360,
+                p: 0,
+              },
+            },
+          }}
+          title={
+            <Box sx={{ minWidth: 320, p: 2 }}>
+              <Stack spacing={0.5}>
+                <Typography
+                  sx={{
+                    color: 'text.primary',
+                    fontWeight: 700,
+                    letterSpacing: '0.01em',
+                  }}
+                  variant="subtitle1"
+                >
+                  Current context
+                </Typography>
+                <Typography sx={{ color: 'text.secondary' }} variant="caption">
+                  Runtime scope used by this Axis workspace.
+                </Typography>
+              </Stack>
+              <Stack component="dl" spacing={1} sx={{ m: 0, mt: 1.5 }}>
+                {contextRows.map((item) => (
+                  <Box
+                    key={`${item.label}:${item.value}`}
+                    component="div"
+                    sx={{
+                      alignItems: 'baseline',
+                      borderTop: '1px solid',
+                      borderColor: 'divider',
+                      columnGap: 2,
+                      display: 'grid',
+                      gridTemplateColumns: '140px minmax(0, 1fr)',
+                      pt: 1,
+                    }}
+                  >
+                    <Typography
+                      component="dt"
+                      sx={{
+                        color: 'text.secondary',
+                        flex: '0 0 92px',
+                        fontSize: '0.75rem',
+                        fontWeight: 700,
+                        letterSpacing: '0.06em',
+                        textTransform: 'uppercase',
+                      }}
+                    >
+                      {item.label}
+                    </Typography>
+                    <Typography
+                      component="dd"
+                      sx={{
+                        color: 'text.primary',
+                        flex: 1,
+                        fontSize: '0.875rem',
+                        fontWeight: 600,
+                        lineHeight: 1.35,
+                        m: 0,
+                        minWidth: 0,
+                        overflowWrap: 'anywhere',
+                      }}
+                    >
+                      {item.value}
+                    </Typography>
+                  </Box>
+                ))}
+              </Stack>
+            </Box>
+          }
+        >
+          <IconButton aria-label={contextSummary} sx={utilityActionSx}>
+            <ShellIcon color="action" name="info" sx={utilityIconSx} />
+          </IconButton>
+        </Tooltip>
+        <Tooltip
+          title={colorMode === 'light' ? 'Switch to dark mode' : 'Switch to light mode'}
+        >
+          <IconButton
+            aria-label={
+              colorMode === 'light' ? 'Switch to dark mode' : 'Switch to light mode'
+            }
+            onClick={onToggleColorMode}
+            sx={utilityActionSx}
+          >
+            <ShellIcon
+              color="action"
+              name={colorMode === 'light' ? 'moon' : 'sun'}
+              sx={utilityIconSx}
+            />
           </IconButton>
         </Tooltip>
         <Button

@@ -46,8 +46,8 @@ inform information grouping only; their source code, components, assets,
 layouts, and branding are not dependencies.
 
 The design system must preserve keyboard operation, screen-reader support,
-responsive behavior, reduced motion, mobile WebView compatibility, and
-comfortable and compact density modes.
+responsive behavior, reduced motion, mobile WebView compatibility, and the
+fixed comfortable workspace density.
 
 ## Repository shape
 
@@ -65,8 +65,9 @@ the product has stable reuse seams.
 Production code belongs under `src/`. Tests belong under the root `test/`
 directory and mirror the production feature boundaries, for example
 `src/cms/` and `test/cms/`. Test-only fixtures belong below the matching test
-feature and must not be imported by production code. `tsconfig.app.json`
-strictly checks runtime source, while `tsconfig.test.json` strictly checks the
+feature and must not be imported by production code.
+`config/typescript/tsconfig.app.json` strictly checks runtime source, while
+`config/typescript/tsconfig.test.json` strictly checks the
 separate test tree.
 
 ## CMS renderer organization

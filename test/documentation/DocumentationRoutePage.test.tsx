@@ -33,6 +33,19 @@ const bootstrap = {
   },
   navigation: [],
   environments: ['startioLocal'],
+  moduleCatalog: {
+    gCore: {
+      moduleName: 'gCore',
+      displayName: 'Core Capabilities',
+      moduleKind: 'group',
+    },
+    profile: {
+      moduleName: 'profile',
+      displayName: 'Profile and Identity',
+      parentModule: 'gCore',
+      moduleKind: 'capability',
+    },
+  },
   moduleConnections: {
     system: [connection],
     cms: [{ ...connection, moduleName: 'cms' }],
@@ -143,8 +156,65 @@ describe('DocumentationRoutePage', () => {
           paths: {
             '/nodics/profile/v0/employees': {
               get: {
+                operationId: 'profile_employee_list_get',
                 summary: 'List employees',
+                description: 'Returns authorized employee records.',
                 tags: ['profile'],
+                parameters: [
+                  {
+                    name: 'active',
+                    in: 'query',
+                    required: false,
+                    description: 'Filter by active employees.',
+                    schema: { type: 'boolean' },
+                  },
+                ],
+                responses: {
+                  '200': {
+                    description: 'Employee records returned.',
+                    content: {
+                      'application/json': {
+                        schema: {
+                          type: 'array',
+                          items: { $ref: '#/components/schemas/Employee' },
+                        },
+                      },
+                    },
+                  },
+                  '401': { description: 'Authentication is required.' },
+                },
+                security: [{ bearerAuth: [] }],
+                'x-nodics': {
+                  moduleName: 'profile',
+                  routerGroup: 'employee',
+                  schemaName: 'employee',
+                  source: 'module-router',
+                },
+              },
+              post: {
+                operationId: 'profile_employee_create_post',
+                summary: 'Create employee',
+                description: 'Creates an employee record.',
+                tags: ['profile'],
+                requestBody: {
+                  required: true,
+                  description: 'Employee payload.',
+                  content: {
+                    'application/json': {
+                      schema: { $ref: '#/components/schemas/Employee' },
+                    },
+                  },
+                },
+                responses: {
+                  '201': { description: 'Employee created.' },
+                },
+                security: [{ bearerAuth: [] }],
+                'x-nodics': {
+                  moduleName: 'profile',
+                  routerGroup: 'employee',
+                  schemaName: 'employee',
+                  source: 'module-router',
+                },
               },
             },
           },
@@ -155,10 +225,46 @@ describe('DocumentationRoutePage', () => {
         },
       ),
     );
+    const user = userEvent.setup();
     renderPage('/docs/swaggers');
 
     expect(await screen.findByText('Nodics APIs')).toBeVisible();
-    expect(screen.getByText('/nodics/profile/v0/employees')).toBeVisible();
+    expect(
+      screen.queryByText('Search the APIs currently exposed by this Nodics runtime.'),
+    ).not.toBeInTheDocument();
+    expect(screen.getByText('Core Capabilities')).toBeVisible();
+    expect(screen.getAllByText('2 APIs').length).toBeGreaterThan(0);
+    expect(
+      screen.queryByRole('button', { name: /Load more APIs/iu }),
+    ).not.toBeInTheDocument();
+    expect(screen.queryByText('⌕')).not.toBeInTheDocument();
+    await user.type(screen.getByLabelText('Search APIs'), 'profile');
+    expect(screen.getByRole('button', { name: 'Clear API search' })).toBeVisible();
+    await user.click(screen.getByRole('button', { name: 'Clear API search' }));
+    expect(screen.getByLabelText('Search APIs')).toHaveValue('');
+    await user.click(screen.getByRole('button', { name: /Core Capabilities/iu }));
+    expect(screen.getByText('Profile and Identity')).toBeVisible();
+    await user.click(screen.getByRole('button', { name: /Profile and Identity/iu }));
+    expect(screen.getAllByText('/nodics/profile/v0/employees').length).toBe(2);
+    await user.click(
+      screen.getByRole('button', { name: /GET.*employees.*List employees/iu }),
+    );
+    expect(screen.getByText('active (query)')).toBeVisible();
+    expect(
+      screen.getByText('No request body is declared for this operation.'),
+    ).toBeVisible();
+    expect(screen.getByText('Employee records returned.')).toBeVisible();
+    expect(
+      screen.getByRole('link', { name: 'Open this operation in Swagger' }),
+    ).toHaveAttribute(
+      'href',
+      'http://localhost:3000/nodics/system/v0/contract/swagger#/profile/profile_employee_list_get',
+    );
+    await user.click(
+      screen.getByRole('button', { name: /POST.*employees.*Create employee/iu }),
+    );
+    expect(screen.getByText('Employee payload.')).toBeVisible();
+    expect(screen.getByText('Filter by active employees.')).not.toBeVisible();
     expect(
       screen.getByRole('link', { name: 'Open interactive Swagger' }),
     ).toHaveAttribute(

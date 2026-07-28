@@ -321,14 +321,22 @@ describe('employee login journey', () => {
     expect(
       await screen.findByRole('heading', { name: 'How can I help?' }),
     ).toBeVisible();
+    expect(
+      screen.getByRole('button', {
+        name: [
+          'Current context: Environment: Startio Local',
+          'Tenant: Default',
+          'Enterprise: Enterprise A',
+          'Site: Axis CMS Site',
+          'Catalog: Axis Content Catalog',
+        ].join(', '),
+      }),
+    ).toBeInTheDocument();
     await user.click(screen.getByRole('button', { name: 'Open navigation' }));
     expect(
       screen.getByRole('navigation', { name: 'Primary navigation' }),
     ).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Content' })).toBeInTheDocument();
-    expect(screen.getByText('Tenant: Default')).toBeInTheDocument();
-    expect(screen.getByText('Enterprise: Enterprise A')).toBeInTheDocument();
-    expect(screen.getByText('Environment: Startio Local')).toBeInTheDocument();
     await user.click(screen.getByRole('button', { name: 'Content' }));
     expect(
       await screen.findByText(

@@ -15,6 +15,7 @@ import {
 import { useMemo, useState } from 'react';
 import { Link as RouterLink, useLocation } from 'react-router';
 
+import { ShellIcon } from '../../../../app/shell/ShellIcon';
 import { arrayProperty, stringProperty } from '../../shared/rendererProperties';
 import type { CmsComponentRendererProps } from '../../shared/rendererTypes';
 
@@ -119,7 +120,11 @@ export function DocumentationNavigationRenderer({
         size="small"
         slotProps={{
           input: {
-            startAdornment: <InputAdornment position="start">⌕</InputAdornment>,
+            startAdornment: (
+              <InputAdornment position="start">
+                <ShellIcon color="action" fontSize="small" name="search" />
+              </InputAdornment>
+            ),
             endAdornment: query ? (
               <InputAdornment position="end">
                 <IconButton

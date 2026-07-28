@@ -1,22 +1,9 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import {
-  Alert,
-  Box,
-  Button,
-  Card,
-  CardContent,
-  Checkbox,
-  Chip,
-  CircularProgress,
-  Divider,
-  Stack,
-  Tab,
-  Tabs,
-  Typography,
-} from '@mui/material';
+import { Box, Paper, Stack, Tab, Tabs, Typography } from '@mui/material';
 import { useMemo, useState } from 'react';
 
 import { WorkspaceContainer } from '../../app/shell/ShellPrimitives';
+import { axisTokens } from '../../app/axisTheme';
 import {
   selectModuleConnection,
   type AxisAuthenticatedBootstrap,
@@ -34,6 +21,22 @@ import type {
   DataReleasePlan,
   DataReleaseType,
 } from './api/dataReleaseContracts';
+import { DataReleaseWorkbench } from './components/DataReleaseWorkbench';
+import { ExportWorkspace } from './components/ExportWorkspace';
+import { FileImportWorkspace } from './components/FileImportWorkspace';
+import { ImportExportHistoryPanel } from './components/ImportExportHistoryPanel';
+import {
+  areaCopy,
+  historySearchText,
+  importExportAreas,
+  isInstallableStatus,
+  operationSucceededWithCurrentOnly,
+  releaseKey,
+  releaseTypes,
+  type ImportExportArea,
+  type HistoryFilter,
+  typeCopy,
+} from './importExportPresentation';
 
 interface ImportExportRoutePageProps {
   readonly accessToken: string;
@@ -41,28 +44,9 @@ interface ImportExportRoutePageProps {
   readonly runtime: AxisRuntimeConfig;
 }
 
-const typeCopy: Record<
-  DataReleaseType,
-  { readonly label: string; readonly help: string; readonly warning: string }
-> = {
-  init: {
-    label: 'Initialization data',
-    help: 'Required bootstrap identities and records needed before dependent capabilities can operate.',
-    warning:
-      'Initialization data is security-sensitive. Validate it before installation.',
-  },
-  core: {
-    label: 'Core data',
-    help: 'Governed baseline business and configuration records contributed by active modules.',
-    warning:
-      'Install after adding modules or deploying a new immutable core-data release.',
-  },
-  sample: {
-    label: 'Sample data',
-    help: 'Optional demonstration records intended for permitted non-production environments.',
-    warning: 'Never use sample data as production business data.',
-  },
-};
+function isDataReleaseArea(area: ImportExportArea): area is DataReleaseType {
+  return releaseTypes.includes(area as DataReleaseType);
+}
 
 function createPlan(
   type: DataReleaseType,
@@ -80,10 +64,26 @@ function createPlan(
 }
 
 export function ImportExportRoutePage(props: ImportExportRoutePageProps) {
-  const [tab, setTab] = useState<DataReleaseType | 'history' | 'exports'>('init');
+  const [area, setArea] = useState<ImportExportArea>('init');
+  const [historyFilter, setHistoryFilter] = useState<HistoryFilter>('all');
+  const [historySearch, setHistorySearch] = useState('');
   const [selected, setSelected] = useState<ReadonlySet<string>>(new Set());
+  const [lastOperationMode, setLastOperationMode] = useState<
+    'validate' | 'install' | undefined
+  >(undefined);
   const queryClient = useQueryClient();
   const connection = selectModuleConnection(props.bootstrap, 'import');
+  const mediaConnection = selectModuleConnection(props.bootstrap, 'media');
+  const systemConnection = selectModuleConnection(props.bootstrap, 'system');
+  const schemaConnections = useMemo(
+    () =>
+      Object.freeze(
+        Object.values(props.bootstrap.moduleConnections)
+          .flat()
+          .filter((connection) => connection.state === 'UP'),
+      ),
+    [props.bootstrap.moduleConnections],
+  );
   const configuration = useMemo<DataReleaseClientConfiguration>(
     () => ({
       accessToken: props.accessToken,
@@ -106,227 +106,217 @@ export function ImportExportRoutePage(props: ImportExportRoutePageProps) {
       if (!connection) throw new Error('Import service is unavailable');
       return loadImportHistory(connection, configuration);
     },
-    enabled: Boolean(connection) && tab === 'history',
+    enabled: Boolean(connection) && area === 'history',
   });
-  const visible =
-    tab === 'history' || tab === 'exports'
-      ? []
-      : (catalogue.data ?? []).filter((release) => release.dataType === tab);
-  const chosen = visible.filter((release) => selected.has(release.moduleName));
+  const releaseType = isDataReleaseArea(area) ? area : 'init';
+  const visible = useMemo(
+    () =>
+      isDataReleaseArea(area)
+        ? (catalogue.data ?? []).filter((release) => release.dataType === area)
+        : [],
+    [area, catalogue.data],
+  );
+  const chosen = visible.filter((release) => selected.has(releaseKey(release)));
+  const executableChosen = chosen.filter((release) =>
+    isInstallableStatus(release.status),
+  );
+  const hasOnlyCurrentSelection =
+    chosen.length > 0 && chosen.every((release) => release.status === 'CURRENT');
+  const releaseSummary = useMemo(
+    () => ({
+      total: visible.length,
+      current: visible.filter((release) => release.status === 'CURRENT').length,
+      installable: visible.filter((release) => isInstallableStatus(release.status))
+        .length,
+      selected: chosen.length,
+    }),
+    [chosen.length, visible],
+  );
+  const filteredHistory = useMemo(() => {
+    if (historyFilter === 'exports') return [];
+    const normalizedSearch = historySearch.trim().toLowerCase();
+    const runs = history.data ?? [];
+    if (!normalizedSearch) return runs;
+    return runs.filter((run) => historySearchText(run).includes(normalizedSearch));
+  }, [history.data, historyFilter, historySearch]);
   const operation = useMutation({
     mutationFn: async (mode: 'validate' | 'install') => {
-      if (
-        !connection ||
-        tab === 'history' ||
-        tab === 'exports' ||
-        chosen.length === 0
-      ) {
+      if (!connection || !isDataReleaseArea(area) || chosen.length === 0) {
         throw new Error('Select at least one available data release');
       }
-      const plan = createPlan(tab, chosen);
+      const operationReleases = mode === 'validate' ? chosen : executableChosen;
+      if (operationReleases.length === 0) {
+        throw new Error('Select at least one installable data release');
+      }
+      const plan = createPlan(releaseType, operationReleases);
       return mode === 'validate'
         ? preflightDataReleases(connection, configuration, plan)
         : installDataReleases(connection, configuration, plan);
     },
-    onSuccess: async () => {
+    onSuccess: async (_data, mode) => {
+      if (mode === 'install') setSelected(new Set());
       await queryClient.invalidateQueries({
         queryKey: ['data-releases', props.runtime.enterpriseCode],
       });
     },
   });
+  const operationTypeLabel = operation.data
+    ? typeCopy[operation.data.dataType].label.toLowerCase()
+    : 'data';
+  const successMessage = operationSucceededWithCurrentOnly(
+    lastOperationMode,
+    operation.data?.releases,
+  )
+    ? `${operation.data?.releases.length ?? 0} ${operationTypeLabel} release(s) validated. Everything is already current; no import or update was required.`
+    : lastOperationMode === 'validate'
+      ? `${operation.data?.releases.length ?? 0} ${operationTypeLabel} release(s) validated by the backend.`
+      : `${operation.data?.releases.length ?? 0} ${operationTypeLabel} release(s) installed or updated.`;
 
-  const changeTab = (next: typeof tab) => {
-    setTab(next);
+  const changeArea = (next: ImportExportArea) => {
+    setArea(next);
     setSelected(new Set());
     operation.reset();
   };
 
   return (
-    <WorkspaceContainer>
-      <Stack component="section" spacing={2.5} aria-labelledby="imports-exports-title">
-        <Stack spacing={0.5}>
-          <Typography component="h1" id="imports-exports-title" variant="h2">
-            Imports and exports
-          </Typography>
-          <Typography color="text.secondary">
-            Review immutable module data releases, validate a selected plan, and run
-            only the operations authorized by Nodics.
-          </Typography>
-        </Stack>
-
-        <Tabs
-          aria-label="Import and export areas"
-          onChange={(_, value: typeof tab) => changeTab(value)}
-          value={tab}
-          variant="scrollable"
+    <WorkspaceContainer horizontalPadding="3px" verticalPadding="3px">
+      <Paper
+        component="section"
+        aria-labelledby="imports-exports-title"
+        elevation={0}
+        sx={{
+          border: 1,
+          borderColor: 'divider',
+          overflow: 'hidden',
+        }}
+      >
+        <Stack
+          spacing={2}
+          sx={{
+            p: { xs: 2, md: 3 },
+          }}
         >
-          <Tab label="Initialization data" value="init" />
-          <Tab label="Core data" value="core" />
-          <Tab label="Sample data" value="sample" />
-          <Tab label="History" value="history" />
-          <Tab label="Exports" value="exports" />
-        </Tabs>
-
-        {tab === 'exports' ? (
-          <Alert severity="info">
-            Export execution is not enabled. Nodics keeps this control unavailable until
-            the governed export contract and provider implementations are complete.
-          </Alert>
-        ) : tab === 'history' ? (
-          <Stack spacing={1.25}>
-            <Alert severity="info">
-              This is the secured Nodics import-run projection. Axis does not retain a
-              browser-side audit log.
-            </Alert>
-            {history.isLoading ? (
-              <CircularProgress aria-label="Loading import history" />
-            ) : null}
-            {history.isError ? (
-              <Alert severity="error">{history.error.message}</Alert>
-            ) : null}
-            {history.isSuccess && history.data.length === 0 ? (
-              <Alert severity="info">
-                No import runs are available for this tenant.
-              </Alert>
-            ) : null}
-            {history.data?.map((run) => (
-              <Card key={run.runId} variant="outlined">
-                <CardContent>
-                  <Stack spacing={0.5}>
-                    <Stack
-                      direction="row"
-                      sx={{ alignItems: 'center', flexWrap: 'wrap', gap: 1 }}
-                    >
-                      <Typography component="h2" variant="h6">
-                        {run.dataType
-                          ? `${run.dataType.toUpperCase()} data`
-                          : 'Data import'}
-                      </Typography>
-                      <Chip label={run.status} size="small" />
-                    </Stack>
-                    <Typography color="text.secondary" variant="body2">
-                      {run.modules.length > 0
-                        ? run.modules.join(', ')
-                        : 'No module list recorded'}
-                    </Typography>
-                    <Typography color="text.secondary" variant="caption">
-                      Run {run.runId}
-                    </Typography>
-                  </Stack>
-                </CardContent>
-              </Card>
-            ))}
+          <Stack spacing={0.4}>
+            <Typography
+              color="text.secondary"
+              sx={{
+                fontSize: '0.75rem',
+                fontWeight: axisTokens.typography.weight.bold,
+                letterSpacing: '0.18em',
+                textTransform: 'uppercase',
+              }}
+            >
+              Governed data operations
+            </Typography>
+            <Typography component="h1" id="imports-exports-title" variant="h2">
+              Imports and exports
+            </Typography>
+            <Typography color="text.secondary" sx={{ maxWidth: 980 }}>
+              Review immutable module releases, governed file intake, export readiness,
+              and secured run history through backend-owned Nodics contracts.
+            </Typography>
           </Stack>
-        ) : (
-          <>
-            <Alert severity={tab === 'sample' ? 'warning' : 'info'}>
-              <strong>{typeCopy[tab].label}.</strong> {typeCopy[tab].help}{' '}
-              {typeCopy[tab].warning}
-            </Alert>
 
-            {!connection ? (
-              <Alert severity="error">Import service is unavailable.</Alert>
-            ) : null}
-            {catalogue.isLoading ? (
-              <Box sx={{ display: 'grid', minHeight: 240, placeItems: 'center' }}>
-                <CircularProgress aria-label="Loading data releases" />
-              </Box>
-            ) : null}
-            {catalogue.isError ? (
-              <Alert severity="error">{catalogue.error.message}</Alert>
-            ) : null}
-            {catalogue.isSuccess && visible.length === 0 ? (
-              <Alert severity="info">
-                No active module publishes this data release type.
-              </Alert>
-            ) : null}
+          <Box
+            sx={{
+              bgcolor: 'background.default',
+              border: 1,
+              borderColor: 'divider',
+              borderRadius: 2,
+              px: 1,
+            }}
+          >
+            <Tabs
+              aria-label="Import and export areas"
+              onChange={(_, value: ImportExportArea) => changeArea(value)}
+              value={area}
+              variant="scrollable"
+              sx={{
+                minHeight: 44,
+                '& .MuiTab-root': {
+                  minHeight: 44,
+                  px: { xs: 1.5, md: 2.25 },
+                  textTransform: 'none',
+                },
+              }}
+            >
+              {importExportAreas.map((tabArea) => (
+                <Tab
+                  key={tabArea}
+                  label={
+                    isDataReleaseArea(tabArea)
+                      ? typeCopy[tabArea].label
+                      : areaCopy[tabArea].label
+                  }
+                  value={tabArea}
+                />
+              ))}
+            </Tabs>
+          </Box>
 
-            <Stack spacing={1.25}>
-              {visible.map((release) => {
-                const checked = selected.has(release.moduleName);
-                return (
-                  <Card
-                    key={`${release.dataType}:${release.moduleName}`}
-                    variant="outlined"
-                  >
-                    <CardContent>
-                      <Stack
-                        direction={{ xs: 'column', sm: 'row' }}
-                        sx={{ alignItems: { sm: 'center' }, gap: 2 }}
-                      >
-                        <Checkbox
-                          checked={checked}
-                          disabled={release.status === 'RUNNING'}
-                          slotProps={{
-                            input: { 'aria-label': `Select ${release.displayName}` },
-                          }}
-                          onChange={() => {
-                            const next = new Set(selected);
-                            if (checked) next.delete(release.moduleName);
-                            else next.add(release.moduleName);
-                            setSelected(next);
-                            operation.reset();
-                          }}
-                        />
-                        <Stack sx={{ flex: 1 }} spacing={0.4}>
-                          <Stack
-                            direction="row"
-                            sx={{ alignItems: 'center', flexWrap: 'wrap', gap: 1 }}
-                          >
-                            <Typography component="h2" variant="h6">
-                              {release.displayName}
-                            </Typography>
-                            <Chip
-                              label={release.status.replaceAll('_', ' ')}
-                              size="small"
-                            />
-                          </Stack>
-                          <Typography color="text.secondary">
-                            {release.description}
-                          </Typography>
-                          <Typography color="text.secondary" variant="body2">
-                            Available {release.version}
-                            {release.installedVersion
-                              ? ` · Installed ${release.installedVersion}`
-                              : ''}
-                          </Typography>
-                        </Stack>
-                      </Stack>
-                    </CardContent>
-                  </Card>
-                );
-              })}
-            </Stack>
-
-            <Divider />
-            <Stack direction={{ xs: 'column', sm: 'row' }} sx={{ gap: 1.5 }}>
-              <Button
-                disabled={operation.isPending || chosen.length === 0}
-                onClick={() => operation.mutate('validate')}
-                variant="outlined"
-              >
-                Validate selected
-              </Button>
-              <Button
-                disabled={operation.isPending || chosen.length === 0}
-                onClick={() => operation.mutate('install')}
-                variant="contained"
-              >
-                {operation.isPending ? 'Working…' : 'Install or update selected'}
-              </Button>
-            </Stack>
-            {operation.isError ? (
-              <Alert severity="error">{operation.error.message}</Alert>
-            ) : null}
-            {operation.isSuccess ? (
-              <Alert severity="success">
-                {operation.data.releases.length} {typeCopy[tab].label.toLowerCase()}{' '}
-                release(s) completed backend validation or installation.
-              </Alert>
-            ) : null}
-          </>
-        )}
-      </Stack>
+          {area === 'exports' ? (
+            <ExportWorkspace />
+          ) : area === 'file-imports' ? (
+            <FileImportWorkspace
+              configuration={configuration}
+              enterpriseCode={props.runtime.enterpriseCode}
+              importConnection={connection}
+              mediaConnection={mediaConnection}
+              schemaConnections={schemaConnections}
+              systemConnection={systemConnection}
+              tenantCode={props.bootstrap.tenantCode}
+            />
+          ) : area === 'history' ? (
+            <ImportExportHistoryPanel
+              errorMessage={history.error?.message}
+              filter={historyFilter}
+              filteredRuns={filteredHistory}
+              isError={history.isError}
+              isLoading={history.isLoading}
+              isSuccess={history.isSuccess}
+              onFilterChange={setHistoryFilter}
+              onSearchChange={setHistorySearch}
+              runs={history.data ?? []}
+              search={historySearch}
+            />
+          ) : isDataReleaseArea(area) ? (
+            <DataReleaseWorkbench
+              catalogueErrorMessage={catalogue.error?.message}
+              catalogueIsError={catalogue.isError}
+              catalogueIsLoading={catalogue.isLoading}
+              catalogueIsSuccess={catalogue.isSuccess}
+              connectionAvailable={Boolean(connection)}
+              executableReleaseCount={executableChosen.length}
+              hasOnlyCurrentSelection={hasOnlyCurrentSelection}
+              operationErrorMessage={operation.error?.message}
+              operationIsError={operation.isError}
+              operationIsPending={operation.isPending}
+              operationIsSuccess={operation.isSuccess}
+              releaseType={releaseType}
+              selectedReleaseCount={chosen.length}
+              selectedReleaseKeys={selected}
+              successMessage={successMessage}
+              summary={releaseSummary}
+              visibleReleases={visible}
+              onInstallSelected={() => {
+                setLastOperationMode('install');
+                operation.mutate('install');
+              }}
+              onToggleRelease={(release) => {
+                const next = new Set(selected);
+                if (selected.has(releaseKey(release))) next.delete(releaseKey(release));
+                else next.add(releaseKey(release));
+                setSelected(next);
+                operation.reset();
+              }}
+              onValidateSelected={() => {
+                setLastOperationMode('validate');
+                operation.mutate('validate');
+              }}
+            />
+          ) : null}
+        </Stack>
+      </Paper>
     </WorkspaceContainer>
   );
 }

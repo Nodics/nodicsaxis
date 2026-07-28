@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react';
+import { render, screen, waitForElementToBeRemoved } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
 
@@ -69,5 +69,42 @@ describe('ModuleHealthTree', () => {
 
     expect(screen.getByText('Core Capabilities')).toBeVisible();
     expect(screen.getByText('Profile and Identity')).toBeVisible();
+  });
+
+  it('expands selected module details inline and collapses them when selection clears', async () => {
+    const { rerender } = render(
+      <ModuleHealthTree
+        modules={modules}
+        onSelect={() => undefined}
+        search=""
+        selectedContent={<div>Runtime instance details</div>}
+        selectedModule="profile"
+        stateColor={() => 'success'}
+      />,
+    );
+
+    expect(screen.getByText('Runtime instance details')).toBeVisible();
+    expect(screen.getByText('Profile and Identity').closest('button')).toHaveAttribute(
+      'aria-expanded',
+      'true',
+    );
+
+    rerender(
+      <ModuleHealthTree
+        modules={modules}
+        onSelect={() => undefined}
+        search=""
+        selectedContent={<div>Runtime instance details</div>}
+        stateColor={() => 'success'}
+      />,
+    );
+
+    expect(screen.getByText('Profile and Identity').closest('button')).toHaveAttribute(
+      'aria-expanded',
+      'false',
+    );
+    await waitForElementToBeRemoved(() =>
+      screen.queryByText('Runtime instance details'),
+    );
   });
 });

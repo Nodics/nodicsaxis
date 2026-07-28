@@ -20,7 +20,6 @@ export function DashboardPageRenderer({ page, actions }: CmsPagePresentationProp
       actions,
     );
   const slots: DashboardTemplateSlots = {
-    header: slot('header'),
     welcome: slot('welcome'),
     summary: slot('summary'),
     quickActions: slot('quickActions'),

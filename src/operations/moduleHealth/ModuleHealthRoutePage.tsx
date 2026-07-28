@@ -148,6 +148,120 @@ export function ModuleHealthRoutePage(props: ModuleHealthRoutePageProps) {
   const refreshable = detail.data?.instances.some(
     (instance) => instance.clientCallable,
   );
+  const selectedContent = detail.isPending ? (
+    <Stack sx={{ alignItems: 'center', py: 4 }}>
+      <CircularProgress aria-label="Loading runtime instances" />
+    </Stack>
+  ) : detail.isError ? (
+    <Alert severity="error">{detail.error.message}</Alert>
+  ) : detail.data ? (
+    <Stack spacing={2}>
+      <Stack
+        direction={{ xs: 'column', sm: 'row' }}
+        spacing={1}
+        sx={{ justifyContent: 'space-between' }}
+      >
+        <Box>
+          <Typography component="h3" variant="h5">
+            {displayName(
+              detail.data.displayName,
+              displayName(detail.data.moduleName, detail.data.moduleName),
+            )}
+          </Typography>
+          <Typography color="text.secondary" variant="body2">
+            {detail.data.availability.activeInstances} registered runtime instances
+          </Typography>
+        </Box>
+        <Button
+          disabled={refresh.isPending || refreshable !== true}
+          onClick={() => refresh.mutate()}
+          variant="contained"
+        >
+          {refresh.isPending ? 'Checking…' : 'Check now'}
+        </Button>
+      </Stack>
+      {refreshable === false ? (
+        <Alert severity="info">
+          This module has no client-callable runtime endpoint, so an on-demand readiness
+          check is not available. Its registration heartbeat remains visible below.
+        </Alert>
+      ) : null}
+      {refresh.isError ? <Alert severity="error">{refresh.error.message}</Alert> : null}
+      {detail.data.instances.length === 0 ? (
+        <Alert severity="warning">No active runtime instances are registered.</Alert>
+      ) : (
+        detail.data.instances.map((instance) => (
+          <Card key={instance.instanceId} variant="outlined">
+            <CardContent>
+              <Stack spacing={1.5}>
+                <Stack
+                  direction={{ xs: 'column', sm: 'row' }}
+                  spacing={1}
+                  sx={{ justifyContent: 'space-between' }}
+                >
+                  <Box>
+                    <Typography sx={{ fontWeight: 700 }}>
+                      {displayName(instance.node, 'Default node')}
+                    </Typography>
+                    <Typography color="text.secondary" variant="body2">
+                      {displayName(instance.environment, 'Unknown environment')}
+                      {' · '}
+                      {displayName(instance.server, 'Unknown server')}
+                    </Typography>
+                  </Box>
+                  <Stack direction="row" spacing={1}>
+                    <Chip
+                      color={stateColor(instance.availability.state)}
+                      label={instance.availability.state}
+                      size="small"
+                    />
+                    <Chip
+                      label={instance.availability.freshness}
+                      size="small"
+                      variant="outlined"
+                    />
+                  </Stack>
+                </Stack>
+                <Divider />
+                <Grid container spacing={1.5}>
+                  <Grid size={{ xs: 12, sm: 6 }}>
+                    <Typography color="text.secondary" variant="caption">
+                      Last heartbeat
+                    </Typography>
+                    <Typography variant="body2">
+                      {formatTime(instance.lastSeenAt)}
+                    </Typography>
+                  </Grid>
+                  <Grid size={{ xs: 12, sm: 6 }}>
+                    <Typography color="text.secondary" variant="caption">
+                      Last readiness observation
+                    </Typography>
+                    <Typography variant="body2">
+                      {formatTime(instance.availability.observedAt)}
+                    </Typography>
+                  </Grid>
+                </Grid>
+                {instance.availability.reasonCode ? (
+                  <Alert
+                    severity={
+                      instance.availability.state === 'UNAVAILABLE'
+                        ? 'error'
+                        : 'warning'
+                    }
+                  >
+                    {displayName(
+                      instance.availability.reasonCode,
+                      instance.availability.reasonCode,
+                    )}
+                  </Alert>
+                ) : null}
+              </Stack>
+            </CardContent>
+          </Card>
+        ))
+      )}
+    </Stack>
+  ) : null;
 
   if (!connection) {
     return (
@@ -199,192 +313,52 @@ export function ModuleHealthRoutePage(props: ModuleHealthRoutePageProps) {
           does not infer expected cluster membership from this observed registry.
         </Alert>
 
-        <Grid container spacing={2}>
-          <Grid size={{ xs: 12, lg: 5 }}>
-            <Card variant="outlined">
-              <CardContent>
-                <Stack spacing={2}>
-                  <Stack
-                    direction={{ xs: 'column', sm: 'row' }}
-                    spacing={1}
-                    sx={{ justifyContent: 'space-between' }}
-                  >
-                    <Typography component="h2" variant="h5">
-                      Registered modules
-                    </Typography>
-                    <Button onClick={() => void modules.refetch()} variant="outlined">
-                      Refresh list
-                    </Button>
-                  </Stack>
-                  <TextField
-                    fullWidth
-                    label="Search modules, servers, or states"
-                    value={search}
-                    onChange={(event) => setSearch(event.target.value)}
-                  />
-                  {modules.isPending ? (
-                    <Stack sx={{ alignItems: 'center', py: 4 }}>
-                      <CircularProgress aria-label="Loading module health" />
-                    </Stack>
-                  ) : modules.isError ? (
-                    <Alert severity="error">{modules.error.message}</Alert>
-                  ) : filteredModules.length === 0 ? (
-                    <Alert severity="info">
-                      No registered modules match this search.
-                    </Alert>
-                  ) : (
-                    <ModuleHealthTree
-                      modules={modules.data ?? []}
-                      onSelect={setSelectedModule}
-                      search={search}
-                      selectedModule={selectedModule}
-                      stateColor={stateColor}
-                    />
-                  )}
+        <Card variant="outlined">
+          <CardContent>
+            <Stack spacing={2}>
+              <Stack
+                direction={{ xs: 'column', sm: 'row' }}
+                spacing={1}
+                sx={{ justifyContent: 'space-between' }}
+              >
+                <Typography component="h2" variant="h5">
+                  Registered modules
+                </Typography>
+                <Button onClick={() => void modules.refetch()} variant="outlined">
+                  Refresh list
+                </Button>
+              </Stack>
+              <TextField
+                fullWidth
+                label="Search modules, servers, or states"
+                value={search}
+                onChange={(event) => setSearch(event.target.value)}
+              />
+              {modules.isPending ? (
+                <Stack sx={{ alignItems: 'center', py: 4 }}>
+                  <CircularProgress aria-label="Loading module health" />
                 </Stack>
-              </CardContent>
-            </Card>
-          </Grid>
-
-          <Grid size={{ xs: 12, lg: 7 }}>
-            <Card variant="outlined">
-              <CardContent>
-                {!selectedModule ? (
-                  <Stack sx={{ alignItems: 'center', py: 8 }} spacing={1}>
-                    <Typography component="h2" variant="h5">
-                      Select a module
-                    </Typography>
-                    <Typography color="text.secondary">
-                      Runtime instance details will appear here.
-                    </Typography>
-                  </Stack>
-                ) : detail.isPending ? (
-                  <Stack sx={{ alignItems: 'center', py: 8 }}>
-                    <CircularProgress aria-label="Loading runtime instances" />
-                  </Stack>
-                ) : detail.isError ? (
-                  <Alert severity="error">{detail.error.message}</Alert>
-                ) : detail.data ? (
-                  <Stack spacing={2}>
-                    <Stack
-                      direction={{ xs: 'column', sm: 'row' }}
-                      spacing={1}
-                      sx={{ justifyContent: 'space-between' }}
-                    >
-                      <Box>
-                        <Typography component="h2" variant="h5">
-                          {displayName(
-                            detail.data.displayName,
-                            displayName(detail.data.moduleName, detail.data.moduleName),
-                          )}
-                        </Typography>
-                        <Typography color="text.secondary" variant="body2">
-                          {detail.data.availability.activeInstances} registered runtime
-                          instances
-                        </Typography>
-                      </Box>
-                      <Button
-                        disabled={refresh.isPending || refreshable !== true}
-                        onClick={() => refresh.mutate()}
-                        variant="contained"
-                      >
-                        {refresh.isPending ? 'Checking…' : 'Check now'}
-                      </Button>
-                    </Stack>
-                    {refreshable === false ? (
-                      <Alert severity="info">
-                        This module has no client-callable runtime endpoint, so an
-                        on-demand readiness check is not available. Its registration
-                        heartbeat remains visible below.
-                      </Alert>
-                    ) : null}
-                    {refresh.isError ? (
-                      <Alert severity="error">{refresh.error.message}</Alert>
-                    ) : null}
-                    {detail.data.instances.length === 0 ? (
-                      <Alert severity="warning">
-                        No active runtime instances are registered.
-                      </Alert>
-                    ) : (
-                      detail.data.instances.map((instance) => (
-                        <Card key={instance.instanceId} variant="outlined">
-                          <CardContent>
-                            <Stack spacing={1.5}>
-                              <Stack
-                                direction={{ xs: 'column', sm: 'row' }}
-                                spacing={1}
-                                sx={{ justifyContent: 'space-between' }}
-                              >
-                                <Box>
-                                  <Typography sx={{ fontWeight: 700 }}>
-                                    {displayName(instance.node, 'Default node')}
-                                  </Typography>
-                                  <Typography color="text.secondary" variant="body2">
-                                    {displayName(
-                                      instance.environment,
-                                      'Unknown environment',
-                                    )}
-                                    {' · '}
-                                    {displayName(instance.server, 'Unknown server')}
-                                  </Typography>
-                                </Box>
-                                <Stack direction="row" spacing={1}>
-                                  <Chip
-                                    color={stateColor(instance.availability.state)}
-                                    label={instance.availability.state}
-                                    size="small"
-                                  />
-                                  <Chip
-                                    label={instance.availability.freshness}
-                                    size="small"
-                                    variant="outlined"
-                                  />
-                                </Stack>
-                              </Stack>
-                              <Divider />
-                              <Grid container spacing={1.5}>
-                                <Grid size={{ xs: 12, sm: 6 }}>
-                                  <Typography color="text.secondary" variant="caption">
-                                    Last heartbeat
-                                  </Typography>
-                                  <Typography variant="body2">
-                                    {formatTime(instance.lastSeenAt)}
-                                  </Typography>
-                                </Grid>
-                                <Grid size={{ xs: 12, sm: 6 }}>
-                                  <Typography color="text.secondary" variant="caption">
-                                    Last readiness observation
-                                  </Typography>
-                                  <Typography variant="body2">
-                                    {formatTime(instance.availability.observedAt)}
-                                  </Typography>
-                                </Grid>
-                              </Grid>
-                              {instance.availability.reasonCode ? (
-                                <Alert
-                                  severity={
-                                    instance.availability.state === 'UNAVAILABLE'
-                                      ? 'error'
-                                      : 'warning'
-                                  }
-                                >
-                                  {displayName(
-                                    instance.availability.reasonCode,
-                                    instance.availability.reasonCode,
-                                  )}
-                                </Alert>
-                              ) : null}
-                            </Stack>
-                          </CardContent>
-                        </Card>
-                      ))
-                    )}
-                  </Stack>
-                ) : null}
-              </CardContent>
-            </Card>
-          </Grid>
-        </Grid>
+              ) : modules.isError ? (
+                <Alert severity="error">{modules.error.message}</Alert>
+              ) : filteredModules.length === 0 ? (
+                <Alert severity="info">No registered modules match this search.</Alert>
+              ) : (
+                <ModuleHealthTree
+                  modules={modules.data ?? []}
+                  onSelect={(moduleName) =>
+                    setSelectedModule((current) =>
+                      current === moduleName ? undefined : moduleName,
+                    )
+                  }
+                  search={search}
+                  selectedContent={selectedContent}
+                  selectedModule={selectedModule}
+                  stateColor={stateColor}
+                />
+              )}
+            </Stack>
+          </CardContent>
+        </Card>
       </Stack>
     </WorkspaceContainer>
   );

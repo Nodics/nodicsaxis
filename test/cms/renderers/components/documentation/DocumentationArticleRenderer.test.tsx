@@ -53,7 +53,7 @@ const article: CmsComponentContract = {
 describe('DocumentationArticleRenderer', () => {
   it('renders bounded declarative documentation and safe internal links', () => {
     render(
-      <ThemeProvider theme={createAxisTheme('light', 'comfortable')}>
+      <ThemeProvider theme={createAxisTheme('light')}>
         <MemoryRouter>
           <DocumentationArticleRenderer component={article} />
         </MemoryRouter>

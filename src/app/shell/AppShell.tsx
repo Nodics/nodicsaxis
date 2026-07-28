@@ -1,15 +1,4 @@
-import {
-  AppBar,
-  Box,
-  Button,
-  Chip,
-  Drawer,
-  Stack,
-  Toolbar,
-  Tooltip,
-  useMediaQuery,
-  useTheme,
-} from '@mui/material';
+import { AppBar, Box, Drawer, Toolbar, useMediaQuery, useTheme } from '@mui/material';
 import type { PropsWithChildren } from 'react';
 import { useEffect, useMemo, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router';
@@ -62,7 +51,7 @@ export function AppShell({
   const desktop = useMediaQuery(theme.breakpoints.up('md'));
   const navigate = useNavigate();
   const location = useLocation();
-  const { density, mode, toggleDensity, toggleMode } = useAxisAppearance();
+  const { mode, toggleMode } = useAxisAppearance();
   const [navigationOpen, setNavigationOpen] = useState(false);
   const [navigationCompact, setNavigationCompact] = useState(false);
   const [notification, setNotification] = useState<string | null>(null);
@@ -138,12 +127,21 @@ export function AppShell({
       ),
     [navigation],
   );
-  const environmentLabel =
-    environments.length === 0
-      ? 'Environment unavailable'
-      : environments.length === 1
-        ? `Environment: ${contextDisplayName(environments[0] ?? '')}`
-        : `${String(environments.length)} environments`;
+  const contextItems = useMemo(() => {
+    const environmentLabel =
+      environments.length === 0
+        ? 'Environment unavailable'
+        : environments.length === 1
+          ? `Environment: ${contextDisplayName(environments[0] ?? '')}`
+          : `Environments: ${String(environments.length)}`;
+    return [
+      environmentLabel,
+      `Tenant: ${contextDisplayName(tenantCode)}`,
+      `Enterprise: ${contextDisplayName(enterpriseCode)}`,
+      ...(site ? [`Site: ${contextDisplayName(site)}`] : []),
+      ...(catalog ? [`Catalog: ${contextDisplayName(catalog)}`] : []),
+    ];
+  }, [catalog, enterpriseCode, environments, site, tenantCode]);
   const desktopRailWidth = navigationCompact
     ? axisTokens.spacing.shellRailCompact
     : axisTokens.spacing.shellRail;
@@ -213,6 +211,7 @@ export function AppShell({
         >
           <TopNavigation
             assistant={assistant}
+            contextItems={contextItems}
             employeeId={employeeId}
             navigationToggleLabel={
               desktop
@@ -221,6 +220,7 @@ export function AppShell({
                   : 'Collapse navigation'
                 : 'Open navigation'
             }
+            colorMode={mode}
             query={query}
             onLock={onLock}
             onLogout={onLogout}
@@ -233,6 +233,7 @@ export function AppShell({
                 setNavigationOpen(true);
               }
             }}
+            onToggleColorMode={toggleMode}
             onQueryChange={setQuery}
           />
         </Toolbar>
@@ -293,69 +294,6 @@ export function AppShell({
           },
         }}
       >
-        <Stack
-          component="section"
-          aria-label="Active context"
-          direction="row"
-          spacing={1}
-          sx={{
-            alignItems: 'center',
-            bgcolor: 'background.paper',
-            borderBottom: '1px solid',
-            borderColor: 'divider',
-            minHeight: axisTokens.spacing.context,
-            overflowX: 'auto',
-            px: { xs: 2, md: 3 },
-          }}
-        >
-          <Chip label={environmentLabel} size="small" variant="outlined" />
-          <Chip
-            label={`Tenant: ${contextDisplayName(tenantCode)}`}
-            size="small"
-            variant="outlined"
-          />
-          <Chip
-            label={`Enterprise: ${contextDisplayName(enterpriseCode)}`}
-            size="small"
-            variant="outlined"
-          />
-          {site ? (
-            <Chip
-              label={`Site: ${contextDisplayName(site)}`}
-              size="small"
-              variant="outlined"
-            />
-          ) : null}
-          {catalog ? (
-            <Chip
-              label={`Catalog: ${contextDisplayName(catalog)}`}
-              size="small"
-              variant="outlined"
-            />
-          ) : null}
-          <Stack direction="row" spacing={0.5} sx={{ ml: 'auto !important' }}>
-            <Tooltip title="Change interface density">
-              <Button
-                aria-label="Change interface density"
-                color="inherit"
-                size="small"
-                onClick={toggleDensity}
-              >
-                {density === 'comfortable' ? 'Comfortable' : 'Compact'}
-              </Button>
-            </Tooltip>
-            <Tooltip title="Change color mode">
-              <Button
-                aria-label="Change color mode"
-                color="inherit"
-                size="small"
-                onClick={toggleMode}
-              >
-                {mode === 'light' ? 'Dark' : 'Light'}
-              </Button>
-            </Tooltip>
-          </Stack>
-        </Stack>
         <Box component="main" id="main-content">
           {children}
         </Box>

@@ -46,7 +46,7 @@ or normal text on white.
 ## Foundations
 
 - Light and dark color modes.
-- Comfortable and compact density.
+- A fixed comfortable workspace density.
 - Responsive typography and spacing.
 - Consistent borders, surfaces, action sizing, and elevation.
 - Visible keyboard focus.
@@ -65,11 +65,12 @@ The shared authenticated shell provides:
    temporary mobile navigation drawer;
 2. synchronized navigation search in the expanded left rail and top bar, an
    optional backend-advertised Axis Assistant shortcut, quick-create
-   placeholder, My Work, notifications, and employee menu;
-3. an active context bar showing the backend-reported environment, tenant,
-   configured enterprise, CMS Site, and CMS Catalog;
+   placeholder, My Work, notifications, context information, color mode, and
+   employee menu;
+3. a top-bar information popup showing the backend-reported environment,
+   tenant, configured enterprise, CMS Site, and CMS Catalog;
 4. employee lock and logout actions;
-5. comfortable/compact density and light/dark controls;
+5. a top-bar light/dark icon toggle;
 6. the main workspace region;
 7. bordered workspace panels;
 8. empty-state, notification, and confirmation-dialog primitives;
@@ -124,6 +125,16 @@ availability also drive the top-bar shortcut. The shortcut is absent when the
 employee has no contribution, enabled for `UP` and `DEGRADED`, and disabled for
 `UNAVAILABLE` or `UNKNOWN`. Axis does not maintain a second Assistant route or
 label authority.
+
+The current environment, tenant, enterprise, Site, and Catalog are available
+from the top-bar information icon. Axis presents them as a light/dark-aware
+context card with aligned label/value rows, clear typography, and the same
+surface rules as other governed shell elements. The context remains
+discoverable on hover and keyboard focus but does not reserve a permanent
+context strip, because operators need the vertical workspace for forms,
+tables, API contracts, documentation, and health views. The information icon's
+accessible name includes the same context values so screen-reader and keyboard
+users do not lose the operating context.
 
 The desktop menu control switches between the full rail and the compact rail.
 The compact rail retains every authorized destination as an icon with an
@@ -199,7 +210,7 @@ safe for an unknown backend mutation.
   contribution. Do not hardcode module routes in Axis.
 - Keep the single local Dashboard route recovery-safe. Every other displayed
   functional destination must come from authenticated bootstrap.
-- Keep the expanded/compact navigation and appearance choices in application
+- Keep the expanded/compact navigation and color-mode choice in application
   memory. Only bounded favourite/recent navigation identifiers use the
   reviewed preference store; do not add tokens, routes, context, records, or
   backend responses to it.
@@ -208,8 +219,8 @@ safe for an unknown backend mutation.
 
 Run `npm run verify`. The foundation tests cover recovery variants, retry and
 correlation presentation, authorized navigation parsing and grouping,
-navigation landmarks, module placeholder routing, context labels, employee
-logout, Assistant shortcut capability gating, density and color controls,
+navigation landmarks, module placeholder routing, context popup labels, employee
+logout, Assistant shortcut capability gating, color controls,
 hierarchy validation, backend-owned groups, perspective metadata, feature
 states, menu search, bounded favourite/recent preferences, dialogs,
 notifications, offline
@@ -225,3 +236,10 @@ expected business groups, menu search, favourite controls, compact
 desktop behavior, and the temporary 390-pixel mobile drawer. Adding Content to
 Favourites stored only `cms:cms`; no route, token, context, or record data was
 persisted.
+
+Axis does not expose a comfortable/compact density switch. The comfortable
+workspace density is the default because enterprise back-office screens need
+readable forms, tables, documentation, and operational cards across desktop,
+tablet, and mobile WebView surfaces. If a future project needs denser screens,
+it must introduce that behavior as a governed design-system change with
+accessibility and responsive acceptance, not as an ad hoc shell preference.

@@ -8,7 +8,7 @@ import {
   Stack,
   Typography,
 } from '@mui/material';
-import { useMemo, useState } from 'react';
+import { useMemo, useState, type ReactNode } from 'react';
 
 import type { AxisModuleAvailability } from '../../bootstrap/publicBootstrap';
 import type { ModuleHealthSummary } from './api/moduleHealthContracts';
@@ -17,6 +17,7 @@ interface ModuleHealthTreeProps {
   readonly modules: readonly ModuleHealthSummary[];
   readonly search: string;
   readonly selectedModule?: string | undefined;
+  readonly selectedContent?: ReactNode;
   readonly onSelect: (moduleName: string) => void;
   readonly stateColor: (
     state: AxisModuleAvailability,
@@ -75,6 +76,7 @@ function TreeNode(props: {
   readonly depth: number;
   readonly needle: string;
   readonly selectedModule?: string | undefined;
+  readonly selectedContent?: ReactNode;
   readonly collapsed: ReadonlySet<string>;
   readonly onToggle: (moduleName: string) => void;
   readonly onSelect: (moduleName: string) => void;
@@ -112,6 +114,9 @@ function TreeNode(props: {
           <Box sx={{ width: 34 }} />
         )}
         <CardActionArea
+          aria-expanded={
+            !isGroup && props.selectedModule === props.node.module.moduleName
+          }
           disabled={isGroup}
           onClick={() => props.onSelect(props.node.module.moduleName)}
           sx={{ borderRadius: 1, px: 1, py: 1.25 }}
@@ -134,6 +139,25 @@ function TreeNode(props: {
           </Stack>
         </CardActionArea>
       </Stack>
+      {!isGroup ? (
+        <Collapse
+          in={props.selectedModule === props.node.module.moduleName}
+          timeout="auto"
+          unmountOnExit
+        >
+          <Box
+            sx={{
+              bgcolor: 'background.default',
+              borderBlock: 1,
+              borderColor: 'divider',
+              ml: 4.75 + props.depth * 2,
+              p: { xs: 2, md: 3 },
+            }}
+          >
+            {props.selectedContent}
+          </Box>
+        </Collapse>
+      ) : null}
       {isGroup ? (
         <Collapse in={expanded} timeout="auto" unmountOnExit>
           {props.node.children.map((child) => (
@@ -176,6 +200,7 @@ export function ModuleHealthTree(props: ModuleHealthTreeProps) {
             })
           }
           selectedModule={props.selectedModule}
+          selectedContent={props.selectedContent}
           stateColor={props.stateColor}
         />
       ))}

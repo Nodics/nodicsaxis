@@ -1,15 +1,26 @@
 {
   "pack": "nodicsaxis",
-  "version": "0.3.3",
+  "version": "0.3.15",
   "generatedAtPolicy": "deterministic-no-timestamp",
   "sources": [
     {
       "evidence": "README.md",
+      "evidenceStatus": "retained-high-level-summary",
+      "evidenceHash": "820cbd64dc190621c698e7a682580745bbcf6b74449ceabd61ba94c9d75874da",
+      "evidenceWordCount": 809,
+      "evidenceHeadings": [
+        "Boundaries",
+        "Prerequisites",
+        "Start locally",
+        "Environment and runtime configuration",
+        "Quality commands",
+        "Current scope"
+      ],
       "canonicalSource": "source/documentation/pages/project-overview.md",
       "destinationRoute": "/docs/nodics-axis",
       "disposition": "migrated",
-      "sourceHash": "9f8924022eb98b7e299ccae766b718ecce40c2843637443d98641d053944e58f",
-      "wordCount": 921,
+      "sourceHash": "ceccd42f61e27d815bf9633f317ed96d75ca2ad1b03c824f00366652e4ad40ab",
+      "wordCount": 914,
       "headings": [
         "Boundaries",
         "Prerequisites",
@@ -22,6 +33,17 @@
     },
     {
       "evidence": "docs/architecture-and-ownership.md",
+      "evidenceStatus": "retired-after-verified-migration",
+      "evidenceHash": "a3fd67472c3bcb76ffc45661e8c56b0f026137fa9aa7f21ff530738c0f1e6326",
+      "evidenceWordCount": 492,
+      "evidenceHeadings": [
+        "Decision",
+        "Deployment model",
+        "Contract authority",
+        "Security boundary",
+        "Documentation ownership",
+        "Verification expectations"
+      ],
       "canonicalSource": "source/documentation/pages/architecture-and-ownership.md",
       "destinationRoute": "/docs/nodics-axis/architecture",
       "disposition": "migrated",
@@ -39,11 +61,23 @@
     },
     {
       "evidence": "docs/frontend-technology-stack.md",
+      "evidenceStatus": "retired-after-verified-migration",
+      "evidenceHash": "c19c0ebf760893b24e25b67c483da9f1a1a05e2a7ad5ed67c785d76a49127137",
+      "evidenceWordCount": 815,
+      "evidenceHeadings": [
+        "Selected foundation",
+        "State ownership",
+        "Styling decision",
+        "Repository shape",
+        "CMS renderer organization",
+        "Dependency decision rule",
+        "Verification"
+      ],
       "canonicalSource": "source/documentation/pages/frontend-technology-stack.md",
       "destinationRoute": "/docs/nodics-axis/technology-stack",
       "disposition": "migrated",
-      "sourceHash": "b715a440e2bbd5540c037fac19ba3838852b3a13238c7e1c0c9a192cf9be7ac7",
-      "wordCount": 921,
+      "sourceHash": "ec9cf4d637cad9c3ad16803a61831e19dcec0730882dd45a716d207ad242b3a8",
+      "wordCount": 925,
       "headings": [
         "Selected foundation",
         "State ownership",
@@ -57,11 +91,24 @@
     },
     {
       "evidence": "docs/design-system-and-shell.md",
+      "evidenceStatus": "retired-after-verified-migration",
+      "evidenceHash": "603d035662239f4085363ba220dd6dfd98349f2cec23dbc31d556cd37be45ba7",
+      "evidenceWordCount": 1490,
+      "evidenceHeadings": [
+        "Implemented scope",
+        "Authentication layout",
+        "Foundations",
+        "Shell structure",
+        "Recovery states",
+        "Accessibility and responsive behavior",
+        "Extension rules",
+        "Verification"
+      ],
       "canonicalSource": "source/documentation/pages/design-system-and-shell.md",
       "destinationRoute": "/docs/nodics-axis/design-system",
       "disposition": "migrated",
-      "sourceHash": "f09663503ea69f70fa934796eed52f36c0e929e68a29415a8125d358bf0f2d46",
-      "wordCount": 1492,
+      "sourceHash": "a6995601b81ef6b2fe4ef2f6b123a1b4bba597a7f3c0976002284f55513a7498",
+      "wordCount": 1653,
       "headings": [
         "Implemented scope",
         "Authentication layout",
@@ -75,6 +122,15 @@
     },
     {
       "evidence": "docs/cms-delivery-and-renderers.md",
+      "evidenceStatus": "retired-after-verified-migration",
+      "evidenceHash": "7f8a68dc997556a64cc4f95c76dc5355ed7b5fbd39f31a515a6cec5de55e4833",
+      "evidenceWordCount": 406,
+      "evidenceHeadings": [
+        "Runtime boundary",
+        "Delivery validation",
+        "Request and cache safety",
+        "Renderer development"
+      ],
       "canonicalSource": "source/documentation/pages/cms-delivery-and-renderers.md",
       "destinationRoute": "/docs/nodics-axis/cms-renderers",
       "disposition": "migrated",
@@ -90,11 +146,21 @@
     },
     {
       "evidence": "docs/documentation-content.md",
+      "evidenceStatus": "retired-after-verified-migration",
+      "evidenceHash": "7d8e3615ef5e8fed8946d5a4977b9e49b1e270855c71345f8d1e9d8c89f7d9b9",
+      "evidenceWordCount": 1096,
+      "evidenceHeadings": [
+        "Employee Journey",
+        "Nodics Axis Content Pack",
+        "Renderer Ownership",
+        "Failure And Recovery",
+        "Contributor Verification"
+      ],
       "canonicalSource": "source/documentation/pages/documentation-content.md",
       "destinationRoute": "/docs/nodics-axis/documentation-content",
       "disposition": "migrated",
-      "sourceHash": "b97ec0c316296af831dbf994711073cb89e87a2ae6df853968f3de480789204b",
-      "wordCount": 1342,
+      "sourceHash": "5707414844e322205ba30221d53b46678fcffbfd3a649e31bb6cba2542a4dcac",
+      "wordCount": 1635,
       "headings": [
         "Employee Journey",
         "Nodics Axis Content Pack",
@@ -106,6 +172,18 @@
     },
     {
       "evidence": "docs/employee-login.md",
+      "evidenceStatus": "retired-after-verified-migration",
+      "evidenceHash": "e2c1153f4abc9673d70b0261c3005ab09736905213da8f3667769cadccc847fa",
+      "evidenceWordCount": 919,
+      "evidenceHeadings": [
+        "Startup journey",
+        "Password recovery",
+        "Idle screen lock",
+        "Logout",
+        "Configuration",
+        "Failure behavior",
+        "Verification"
+      ],
       "canonicalSource": "source/documentation/pages/employee-login.md",
       "destinationRoute": "/docs/nodics-axis/employee-access",
       "disposition": "migrated",
@@ -124,6 +202,23 @@
     },
     {
       "evidence": "docs/assistant-frontend.md",
+      "evidenceStatus": "retired-after-verified-migration",
+      "evidenceHash": "ba96dbeee7a4c6dd02629096fc36703fcadfd02c2153592dd3a5949e87650582",
+      "evidenceWordCount": 1520,
+      "evidenceHeadings": [
+        "Implemented scope",
+        "Authority and request flow",
+        "Source map",
+        "CMS customization",
+        "Typed API coverage",
+        "Presentation lifecycle",
+        "Accessibility and responsive behavior",
+        "Failure and security behavior",
+        "Verification",
+        "Structured interactions",
+        "Evidence and operational transparency",
+        "Known next boundary"
+      ],
       "canonicalSource": "source/documentation/pages/assistant-frontend.md",
       "destinationRoute": "/docs/nodics-axis/assistant",
       "disposition": "migrated",
@@ -147,6 +242,19 @@
     },
     {
       "evidence": "docs/schema-workbench.md",
+      "evidenceStatus": "retired-after-verified-migration",
+      "evidenceHash": "79e6c66bae259efd241550de96fe317dbc291588b31142dd326413aadd016e45",
+      "evidenceWordCount": 1484,
+      "evidenceHeadings": [
+        "Implemented frontend behavior",
+        "Request ownership",
+        "Successful behavior",
+        "Unauthorized or invalid behavior",
+        "Boundary and responsive behavior",
+        "Failure and recovery",
+        "Customization",
+        "Verification"
+      ],
       "canonicalSource": "source/documentation/pages/schema-workbench.md",
       "destinationRoute": "/docs/nodics-axis/schema-workbench",
       "disposition": "migrated",
@@ -165,11 +273,22 @@
     },
     {
       "evidence": "docs/module-health.md",
+      "evidenceStatus": "retired-after-verified-migration",
+      "evidenceHash": "05add75de733674ab95c877429c97fff53789395aafffd8dc36edebf0721b7ec",
+      "evidenceWordCount": 501,
+      "evidenceHeadings": [
+        "Purpose and ownership",
+        "Navigation and access",
+        "Frontend structure",
+        "Operator workflow",
+        "Responsive, accessible, and failure behavior",
+        "Extension rules"
+      ],
       "canonicalSource": "source/documentation/pages/module-health.md",
       "destinationRoute": "/docs/nodics-axis/module-health",
       "disposition": "migrated",
-      "sourceHash": "a518daa7d48b48e8e588acfdbb99b748117d9830c4ff5c084b7160dd56dcd70a",
-      "wordCount": 503,
+      "sourceHash": "b94bb7b70fb2b4a7b2e8cd755b33cd564769bdf45bf2872dfa99520e6965f937",
+      "wordCount": 551,
       "headings": [
         "Purpose and ownership",
         "Navigation and access",
@@ -181,26 +300,49 @@
     },
     {
       "evidence": "docs/imports-and-exports.md",
+      "evidenceStatus": "retired-after-verified-migration",
+      "evidenceHash": "8b217873908536605e3885ae4febc31cd0106051aae8b59ce8be5fa875a91f1b",
+      "evidenceWordCount": 310,
+      "evidenceHeadings": [
+        "Purpose and ownership",
+        "Frontend organization",
+        "Employee workflow",
+        "Security, failure, and extension"
+      ],
       "canonicalSource": "source/documentation/pages/imports-and-exports.md",
       "destinationRoute": "/docs/nodics-axis/imports-exports",
       "disposition": "migrated",
-      "sourceHash": "6a3ab7466569cb8e56246eaf5a1af22e52e8a0713ab6d5c3b5aba63dac275a5d",
-      "wordCount": 422,
+      "sourceHash": "f735998c62b3c94dd8b168d85e364ba1f8d2fa921d487a5a8e3494d42c83041a",
+      "wordCount": 1232,
       "headings": [
         "Purpose and ownership",
         "Frontend organization",
         "Employee workflow",
+        "File import workflow",
         "Security, failure, and extension",
         "Customize and extend safely"
       ]
     },
     {
       "evidence": "docs/feature-delivery-checklist.md",
+      "evidenceStatus": "retired-after-verified-migration",
+      "evidenceHash": "2460649ea7f5dbc043351fdc33b02e5638802a5e68fc17d2a4382d082bf56615",
+      "evidenceWordCount": 708,
+      "evidenceHeadings": [
+        "1. Repository boundary",
+        "2. Reuse and dependency check",
+        "3. Security and privacy",
+        "4. Interaction quality",
+        "5. Contract tests",
+        "6. Documentation placement",
+        "7. Partial-discovery and use-case proof",
+        "8. Completion evidence"
+      ],
       "canonicalSource": "source/documentation/pages/feature-delivery-checklist.md",
       "destinationRoute": "/docs/nodics-axis/feature-delivery",
       "disposition": "migrated",
-      "sourceHash": "d5375ac3b2b89ea80a08dc6b71adaf867f80e783ed63781ac085cbc86078eff1",
-      "wordCount": 794,
+      "sourceHash": "da3160391c340399debae48e13e16e44a9ebe134f4e8510724ee502275658694",
+      "wordCount": 795,
       "headings": [
         "1. Repository boundary",
         "2. Reuse and dependency check",
@@ -215,11 +357,29 @@
     },
     {
       "evidence": "docs/implementation-and-documentation-contract.md",
+      "evidenceStatus": "retired-after-verified-migration",
+      "evidenceHash": "58d06142c99955cd9bd6cb61966fa1025f6f5e3b150c8f58874b9e9e636ea14e",
+      "evidenceWordCount": 966,
+      "evidenceHeadings": [
+        "Local Discovery Chain",
+        "Repository Ownership",
+        "Placement Rules",
+        "Required Feature Documentation",
+        "Canonical Source and Generated Data",
+        "Required Examples",
+        "Successful",
+        "Unauthorized",
+        "Boundary",
+        "Failure And Recovery",
+        "Customization",
+        "Acceptance",
+        "Continue"
+      ],
       "canonicalSource": "source/documentation/pages/implementation-and-documentation-contract.md",
       "destinationRoute": "/docs/nodics-axis/implementation-contract",
       "disposition": "migrated",
-      "sourceHash": "c589fc75aea4d1e56c37d2870daeb7c3cfeff49899ed24ec56cbc288f397f3f9",
-      "wordCount": 966,
+      "sourceHash": "4fc371c3d394f3997d7d38a43a725077343cd52caf882cf85bd4ca66c1dd2517",
+      "wordCount": 1072,
       "headings": [
         "Local Discovery Chain",
         "Repository Ownership",

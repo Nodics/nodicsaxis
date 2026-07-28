@@ -5,7 +5,6 @@ import { WorkspaceContainer } from '../../../app/shell/ShellPrimitives';
 import type { CmsPageContract } from '../../cmsContract';
 
 export interface DashboardTemplateSlots {
-  readonly header: ReactNode;
   readonly welcome: ReactNode;
   readonly summary: ReactNode;
   readonly quickActions: ReactNode;
@@ -29,17 +28,7 @@ export function DashboardTemplateRenderer({
         aria-label={page.name ?? 'Dashboard content'}
         spacing={3}
       >
-        <Stack
-          direction={{ xs: 'column', md: 'row' }}
-          spacing={{ xs: 1.5, md: 3 }}
-          sx={{
-            alignItems: { md: 'flex-end' },
-            justifyContent: 'space-between',
-          }}
-        >
-          <Box>{slots.welcome}</Box>
-          <Box sx={{ flexShrink: 0 }}>{slots.header}</Box>
-        </Stack>
+        <Box>{slots.welcome}</Box>
         <Box
           sx={{
             display: 'grid',

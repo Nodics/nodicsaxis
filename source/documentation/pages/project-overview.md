@@ -5,9 +5,9 @@ customer project deployment.
 
 Canonical user and contributor documentation is authored as granular pages
 under `source/documentation` and deterministically generated into the committed
-CMS import release under `data/core`. The current `docs/` files remain
-migration evidence until coverage, detail-preservation, generated-pack, and
-rendered-content gates approve their retirement.
+CMS import release under `data/core`. The retired legacy `docs/` files remain
+accounted for in the migration register after coverage, detail-preservation,
+generated-pack, and rendered-content gates approved their replacement.
 
 Axis is a client-side web application. It authenticates human users through
 Profile, retrieves an authorized bootstrap contract from Back Office, and then
@@ -25,41 +25,41 @@ calls the authoritative APIs of discovered Nodics modules directly.
   executable frontend code.
 
 See
-[Axis Architecture and Ownership](docs/architecture-and-ownership.md) for the
+[Axis Architecture and Ownership](architecture-and-ownership.md) for the
 per-customer deployment model, repository responsibilities, contract authority,
 security boundary, and verification expectations.
 
-See [Frontend Technology Stack](docs/frontend-technology-stack.md) for the
+See [Frontend Technology Stack](frontend-technology-stack.md) for the
 approved tools, state ownership, styling decision, repository shape, and
 dependency-governance rules.
 
-Use the [Feature Delivery Checklist](docs/feature-delivery-checklist.md) for
+Use the [Feature Delivery Checklist](feature-delivery-checklist.md) for
 repository-boundary analysis, security, contract testing, accessibility,
 documentation placement, and completion evidence for every Axis slice.
 
 Read the
-[Axis Implementation And Documentation Contract](docs/implementation-and-documentation-contract.md)
+[Axis Implementation And Documentation Contract](implementation-and-documentation-contract.md)
 for partial-discovery rules, repository placement, required use cases, and the
 acceptance contract followed by human developers and AI tools.
 
-See [CMS Delivery and Renderer Integration](docs/cms-delivery-and-renderers.md)
+See [CMS Delivery and Renderer Integration](cms-delivery-and-renderers.md)
 for the resolved-page client, trusted renderer boundary, validation rules,
 cache isolation, and login integration.
 
-See [Documentation Content In Axis](docs/documentation-content.md) for dynamic
+See [Documentation Content In Axis](documentation-content.md) for dynamic
 Framework, Swaggers, Nodics Axis, and future project documentation sources;
 per-product CMS catalogs; the import-ready Axis content pack; renderer
 ownership; security boundaries; and failure behavior.
 
-See [Module Health](docs/module-health.md) for backend-driven operational
+See [Module Health](module-health.md) for backend-driven operational
 navigation, the typed registry client, module and node readiness presentation,
 security boundaries, responsive behavior, and extension rules.
 
-See [Imports and Exports](docs/imports-and-exports.md) for immutable init, core,
+See [Imports and Exports](imports-and-exports.md) for immutable init, core,
 and sample release discovery, validation, installation, history, security, and
 the intentionally disabled export surface.
 
-See [Employee Login, Recovery, Screen Lock, and Dashboard](docs/employee-login.md)
+See [Employee Login, Recovery, Screen Lock, and Dashboard](employee-login.md)
 for startup discovery, employee-only authentication, persistent BackOffice
 policy consumption, protected routing, logout, and failure recovery.
 
@@ -152,16 +152,16 @@ npm run verify
 
 The implemented Gold and Charcoal foundations, responsive shell, recovery
 states, accessibility behavior, and extension rules are documented in
-[Axis Design System And Static Shell](docs/design-system-and-shell.md).
+[Axis Design System And Static Shell](design-system-and-shell.md).
 
 The implemented authenticated Assistant CMS route, renderer hierarchy,
 direct-module connection validation, and typed HTTP client are documented in
-[Axis Assistant Frontend](docs/assistant-frontend.md).
+[Axis Assistant Frontend](assistant-frontend.md).
 
 The implemented Schema Workbench discovery, schema browser, bounded record
 list, relationship editor, record detail, Create, Update, and governed Delete
 are documented in
-[Axis Schema Workbench](docs/schema-workbench.md).
+[Axis Schema Workbench](schema-workbench.md).
 
 ## Current scope
 

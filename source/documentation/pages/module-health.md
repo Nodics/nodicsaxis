@@ -61,7 +61,10 @@ refresh that the backend cannot perform.
 3. Expand or collapse module groups.
 4. Search by label, code, canonical path, environment, server, or state.
    Matching descendants retain their ancestor chain.
-5. Select a concrete module.
+5. Select a concrete module. Its detail region expands directly beneath that
+   module so the hierarchy and runtime evidence remain visually connected.
+   Selecting the same module again collapses the detail region; selecting
+   another module moves the single expanded detail region to that module.
 6. Review each registered node's heartbeat, readiness observation, state,
    freshness, and stable reason.
 7. Choose **Check now** for a governed immediate observation.
@@ -71,7 +74,8 @@ does not infer expected cluster membership from previously observed nodes.
 
 ## Responsive, accessible, and failure behavior
 
-- Cards wrap and list/details stack on narrow screens.
+- Summary cards wrap, while the module hierarchy and inline detail region use
+  the full available width on every breakpoint.
 - State always has text in addition to color.
 - Search is visibly labelled; rows are keyboard-operable buttons.
 - Loading uses announced progress and failures use alerts.

@@ -71,7 +71,7 @@ Implement and verify applicable:
   locale-aware dates, numbers, currency, and pluralization where applicable;
 - touch target sizing and non-hover alternatives;
 - reduced motion;
-- comfortable and compact density;
+- the fixed comfortable workspace density;
 - light and dark token compatibility;
 - safe cancellation and stale-response prevention.
 

@@ -28,6 +28,12 @@ const checkOnly = process.argv.includes('--check');
 
 const navigation = JSON.parse(fs.readFileSync(navigationPath, 'utf8'));
 const pages = navigation.pages;
+const previousMigrationRegister = fs.existsSync(migrationRegisterPath)
+  ? JSON.parse(fs.readFileSync(migrationRegisterPath, 'utf8'))
+  : { sources: [] };
+const previousMigrationByEvidence = new Map(
+  previousMigrationRegister.sources.map((source) => [source.evidence, source]),
+);
 const routeByEvidence = new Map(
   pages.map((page) => [page.evidence.replace(/^docs\//, ''), page.route]),
 );
@@ -42,6 +48,17 @@ function slug(value) {
     .replace(/[`*_]/g, '')
     .replace(/[^a-z0-9]+/g, '-')
     .replace(/^-|-$/g, '');
+}
+
+function wordCount(value) {
+  return (value.match(/\b[\p{L}\p{N}][\p{L}\p{N}'’-]*\b/gu) || []).length;
+}
+
+function markdownHeadings(value) {
+  return value.split(/\r?\n/).flatMap((line) => {
+    const match = /^#{2,4}\s+(.+)$/.exec(line.trim());
+    return match?.[1] ? [match[1]] : [];
+  });
 }
 
 function normalizeLinks(value) {
@@ -275,7 +292,7 @@ const sourcePages = pages.map((page) => {
     blocks,
     headings,
     sourceHash: sha256(markdown),
-    wordCount: (markdown.match(/\b[\p{L}\p{N}][\p{L}\p{N}'’-]*\b/gu) || []).length,
+    wordCount: wordCount(markdown),
   };
 });
 
@@ -423,15 +440,42 @@ const migrationRegister = {
   pack: navigation.pack,
   version: navigation.version,
   generatedAtPolicy: 'deterministic-no-timestamp',
-  sources: sourcePages.map((page) => ({
-    evidence: page.evidence,
-    canonicalSource: `source/documentation/${page.source}`,
-    destinationRoute: page.route,
-    disposition: 'migrated',
-    sourceHash: page.sourceHash,
-    wordCount: page.wordCount,
-    headings: page.headings.map((heading) => heading.text),
-  })),
+  sources: sourcePages.map((page) => {
+    const evidencePath = path.join(root, page.evidence);
+    const previousEvidence = previousMigrationByEvidence.get(page.evidence);
+    const evidence = fs.existsSync(evidencePath)
+      ? fs.readFileSync(evidencePath, 'utf8')
+      : undefined;
+    const evidenceHash =
+      previousEvidence?.evidenceHash ?? (evidence && sha256(evidence));
+    const evidenceWordCount =
+      previousEvidence?.evidenceWordCount ?? (evidence && wordCount(evidence));
+    const evidenceHeadings =
+      previousEvidence?.evidenceHeadings ?? (evidence && markdownHeadings(evidence));
+    if (
+      typeof evidenceHash !== 'string' ||
+      typeof evidenceWordCount !== 'number' ||
+      !Array.isArray(evidenceHeadings)
+    ) {
+      throw new Error(`Migration evidence is unavailable: ${page.evidence}`);
+    }
+    return {
+      evidence: page.evidence,
+      evidenceStatus:
+        page.evidence === 'README.md'
+          ? 'retained-high-level-summary'
+          : 'retired-after-verified-migration',
+      evidenceHash,
+      evidenceWordCount,
+      evidenceHeadings,
+      canonicalSource: `source/documentation/${page.source}`,
+      destinationRoute: page.route,
+      disposition: 'migrated',
+      sourceHash: page.sourceHash,
+      wordCount: page.wordCount,
+      headings: page.headings.map((heading) => heading.text),
+    };
+  }),
 };
 
 await writeOrCheck(

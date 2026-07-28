@@ -266,6 +266,7 @@ export function DocumentationRoutePage(props: DocumentationRoutePageProps) {
         accessToken={props.accessToken}
         connection={connection}
         enterpriseCode={props.runtime.enterpriseCode}
+        moduleCatalog={props.bootstrap.moduleCatalog}
         runtime={props.runtime}
         source={source}
       />

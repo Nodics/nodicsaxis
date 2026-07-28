@@ -173,6 +173,16 @@ Do not reduce or remove README/docs evidence until the migration register maps
 every substantive heading to canonical source and detail-preservation checks
 pass.
 
+Every project and module keeps a concise README after detailed documentation
+migrates. That README must identify purpose, ownership, major implemented
+capabilities, supported setup and verification entry points, the safe extension
+boundary, and links to canonical detailed documentation. Do not leave a module
+without a README, and do not rebuild a second detailed documentation authority
+inside it.
+Do not recreate a repository or module `docs/` directory after canonical
+migration. Keep one concise `README.md`; author all detailed permanent Axis
+guidance under `source/documentation` and regenerate `data/core`.
+
 Design Axis for partial discovery. A developer or AI tool may read only this
 file, the nearest feature source, its focused tests, and one linked guide.
 Critical repository ownership, backend authority, renderer placement, security,

@@ -86,6 +86,10 @@ describe('Axis distributed implementation documentation', () => {
     ) as {
       readonly sources: readonly {
         readonly evidence: string;
+        readonly evidenceStatus: string;
+        readonly evidenceHash: string;
+        readonly evidenceWordCount: number;
+        readonly evidenceHeadings: readonly string[];
         readonly canonicalSource: string;
         readonly destinationRoute: string;
         readonly disposition: string;
@@ -93,19 +97,17 @@ describe('Axis distributed implementation documentation', () => {
         readonly headings: readonly string[];
       }[];
     };
-    const expectedEvidence = [
-      'README.md',
-      ...fs
-        .readdirSync(path.join(root, 'docs'))
-        .filter((fileName) => fileName.endsWith('.md'))
-        .sort()
-        .map((fileName) => `docs/${fileName}`),
-    ].sort();
+    const expectedEvidence = navigation.pages.map((page) => page.evidence).sort();
 
     expect(register.sources.map((source) => source.evidence).sort()).toEqual(
       expectedEvidence,
     );
     expect(navigation.pages).toHaveLength(expectedEvidence.length);
+    expect(
+      fs.existsSync(path.join(root, 'docs'))
+        ? fs.readdirSync(path.join(root, 'docs')).filter((name) => name.endsWith('.md'))
+        : [],
+    ).toEqual([]);
 
     const generatedComponents = fs.readFileSync(
       path.join(root, 'data/core/data/documentation/axisDocumentationComponentData.js'),
@@ -119,13 +121,19 @@ describe('Axis distributed implementation documentation', () => {
       expect(migration?.disposition).toBe('migrated');
       expect(migration?.destinationRoute).toBe(page.route);
 
-      const evidence = fs.readFileSync(path.join(root, page.evidence), 'utf8');
       const canonical = fs.readFileSync(
         path.join(root, 'source/documentation', page.source),
         'utf8',
       );
       expect(markdownWordCount(canonical)).toBeGreaterThanOrEqual(
-        markdownWordCount(evidence),
+        migration?.evidenceWordCount ?? Number.POSITIVE_INFINITY,
+      );
+      expect(migration?.evidenceHash).toMatch(/^[a-f0-9]{64}$/);
+      expect(migration?.evidenceHeadings.length).toBeGreaterThan(0);
+      expect(migration?.evidenceStatus).toBe(
+        page.evidence === 'README.md'
+          ? 'retained-high-level-summary'
+          : 'retired-after-verified-migration',
       );
       expect(migration?.wordCount).toBe(markdownWordCount(canonical));
       expect(migration?.headings).toEqual(markdownHeadings(canonical));
@@ -143,23 +151,27 @@ describe('Axis distributed implementation documentation', () => {
       'Never localize by parsing English error text',
       'Backend-driven presentation remains declarative and non-executable',
       'Every implemented Axis functionality must include a dedicated safe',
+      'Every project and module keeps a concise README',
     ]);
-    requireClauses('docs/implementation-and-documentation-contract.md', [
-      '## Local Discovery Chain',
-      '## Repository Ownership',
-      '## Placement Rules',
-      '## Required Feature Documentation',
-      '### Successful',
-      '### Unauthorized',
-      '### Boundary',
-      '### Failure And Recovery',
-      '### Customization',
-      'Customize and extend safely',
-      'Configurable page copy comes from CMS component properties',
-      'Locale, channel, and backend-resolved fallback',
-      '## Acceptance',
-    ]);
-    requireClauses('docs/feature-delivery-checklist.md', [
+    requireClauses(
+      'source/documentation/pages/implementation-and-documentation-contract.md',
+      [
+        '## Local Discovery Chain',
+        '## Repository Ownership',
+        '## Placement Rules',
+        '## Required Feature Documentation',
+        '### Successful',
+        '### Unauthorized',
+        '### Boundary',
+        '### Failure And Recovery',
+        '### Customization',
+        'Customize and extend safely',
+        'Configurable page copy comes from CMS component properties',
+        'Locale, channel, and backend-resolved fallback',
+        '## Acceptance',
+      ],
+    );
+    requireClauses('source/documentation/pages/feature-delivery-checklist.md', [
       '## 7. Partial-discovery and use-case proof',
       'successful, unauthorized/invalid, boundary/responsive',
       'Link Nodics-owned business and backend guidance',

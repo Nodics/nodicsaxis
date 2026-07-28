@@ -57,6 +57,14 @@ export interface AxisNavigationItem {
   readonly badgeProvider?: AxisNavigationBadgeProvider | undefined;
 }
 
+export interface AxisModuleCatalogEntry {
+  readonly moduleName: string;
+  readonly displayName?: string | undefined;
+  readonly parentModule?: string | undefined;
+  readonly canonicalIdentity?: string | undefined;
+  readonly moduleKind?: string | undefined;
+}
+
 export interface AxisModuleConnection {
   readonly moduleName: string;
   readonly instanceId: string;
@@ -68,6 +76,7 @@ export interface AxisModuleConnection {
 export interface AxisAuthenticatedBootstrap {
   readonly axisPolicy: AxisEmployeePolicy;
   readonly navigation: readonly AxisNavigationItem[];
+  readonly moduleCatalog: Readonly<Record<string, AxisModuleCatalogEntry>>;
   readonly environments: readonly string[];
   readonly moduleConnections: Readonly<Record<string, readonly AxisModuleConnection[]>>;
   readonly documentationSources: readonly AxisDocumentationSource[];
@@ -319,10 +328,12 @@ function parseNavigation(
 function parseModuleContext(modulesValue: unknown): {
   readonly environments: readonly string[];
   readonly connections: Readonly<Record<string, readonly AxisModuleConnection[]>>;
+  readonly catalog: Readonly<Record<string, AxisModuleCatalogEntry>>;
 } {
   const modules = record(modulesValue, 'BackOffice authorized modules');
   const environments: string[] = [];
   const connections: Record<string, readonly AxisModuleConnection[]> = {};
+  const catalog: Record<string, AxisModuleCatalogEntry> = {};
   Object.entries(modules).forEach(([moduleName, instances]) => {
     if (!Array.isArray(instances)) {
       throw new Error('BackOffice module instances must be a list');
@@ -330,6 +341,18 @@ function parseModuleContext(modulesValue: unknown): {
     const moduleConnections: AxisModuleConnection[] = [];
     instances.forEach((instance) => {
       const lease = record(instance, 'BackOffice module lease');
+      if (!catalog[moduleName]) {
+        catalog[moduleName] = Object.freeze({
+          moduleName,
+          displayName: optionalText(lease.displayName, `${moduleName} display name`),
+          parentModule: optionalText(lease.parentModule, `${moduleName} parent module`),
+          canonicalIdentity: optionalText(
+            lease.canonicalIdentity,
+            `${moduleName} canonical identity`,
+          ),
+          moduleKind: optionalText(lease.moduleKind, `${moduleName} kind`),
+        });
+      }
       const environment =
         typeof lease.environment === 'string' && lease.environment !== ''
           ? lease.environment
@@ -362,6 +385,7 @@ function parseModuleContext(modulesValue: unknown): {
   return Object.freeze({
     environments: Object.freeze([...new Set(environments)].sort()),
     connections: Object.freeze({ ...connections }),
+    catalog: Object.freeze({ ...catalog }),
   });
 }
 
@@ -556,6 +580,7 @@ export async function loadAuthenticatedBootstrap(
     return Object.freeze({
       axisPolicy: parseEmployeePolicy(data.axisPolicy),
       navigation: parseNavigation(data.catalogue, data.availability),
+      moduleCatalog: moduleContext.catalog,
       environments: moduleContext.environments,
       moduleConnections: moduleContext.connections,
       documentationSources: parseDocumentationSources(data.documentationSources),

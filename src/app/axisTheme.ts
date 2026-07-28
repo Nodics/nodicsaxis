@@ -1,7 +1,5 @@
 import { alpha, createTheme, type PaletteMode } from '@mui/material/styles';
 
-export type AxisDensity = 'comfortable' | 'compact';
-
 const axisFontFamily =
   'Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
 
@@ -67,10 +65,7 @@ export const axisTokens = {
       desktop: 32,
     },
     contentMaxWidth: 1440,
-    cardPadding: {
-      comfortable: 24,
-      compact: 16,
-    },
+    cardPadding: 24,
   },
   radius: {
     small: 6,
@@ -95,8 +90,7 @@ export const axisTokens = {
   },
 } as const;
 
-export function createAxisTheme(mode: PaletteMode, density: AxisDensity) {
-  const compact = density === 'compact';
+export function createAxisTheme(mode: PaletteMode) {
   const surface = axisTokens.color.surface[mode];
   const primaryText = mode === 'light' ? charcoal[900] : '#f7f8f8';
   const secondaryText = mode === 'light' ? charcoal[500] : '#aeb5bc';
@@ -252,12 +246,12 @@ export function createAxisTheme(mode: PaletteMode, density: AxisDensity) {
       MuiButton: {
         defaultProps: {
           disableElevation: true,
-          size: compact ? 'small' : 'medium',
+          size: 'medium',
         },
         styleOverrides: {
           root: {
             borderRadius: axisTokens.radius.small,
-            minHeight: compact ? 36 : 42,
+            minHeight: 42,
             '&.MuiButton-containedPrimary:hover': {
               backgroundColor: gold[600],
             },
@@ -387,7 +381,7 @@ export function createAxisTheme(mode: PaletteMode, density: AxisDensity) {
       },
       MuiChip: {
         defaultProps: {
-          size: compact ? 'small' : 'medium',
+          size: 'medium',
         },
         styleOverrides: {
           root: {
@@ -436,9 +430,9 @@ export function createAxisTheme(mode: PaletteMode, density: AxisDensity) {
       MuiCardContent: {
         styleOverrides: {
           root: {
-            padding: axisTokens.spacing.cardPadding[density],
+            padding: axisTokens.spacing.cardPadding,
             '&:last-child': {
-              paddingBottom: axisTokens.spacing.cardPadding[density],
+              paddingBottom: axisTokens.spacing.cardPadding,
             },
           },
         },
@@ -454,15 +448,15 @@ export function createAxisTheme(mode: PaletteMode, density: AxisDensity) {
       MuiDialogTitle: {
         styleOverrides: {
           root: {
-            padding: compact ? 16 : 24,
-            paddingBottom: compact ? 8 : 12,
+            padding: 24,
+            paddingBottom: 12,
           },
         },
       },
       MuiDialogContent: {
         styleOverrides: {
           root: {
-            padding: compact ? '8px 16px' : '12px 24px',
+            padding: '12px 24px',
           },
         },
       },
@@ -470,8 +464,8 @@ export function createAxisTheme(mode: PaletteMode, density: AxisDensity) {
         styleOverrides: {
           root: {
             gap: 8,
-            padding: compact ? 16 : 24,
-            paddingTop: compact ? 8 : 12,
+            padding: 24,
+            paddingTop: 12,
           },
         },
       },

@@ -26,9 +26,39 @@ describe('openApiClient', () => {
           paths: {
             '/employees': {
               get: {
+                operationId: 'profile_employee_list_get',
                 summary: 'List employees',
                 description: 'Returns authorized employee records.',
                 tags: ['profile'],
+                parameters: [
+                  {
+                    name: 'active',
+                    in: 'query',
+                    required: false,
+                    description: 'Filter by active state.',
+                    schema: { type: 'boolean' },
+                  },
+                ],
+                responses: {
+                  '200': {
+                    description: 'Employees returned.',
+                    content: {
+                      'application/json': {
+                        schema: {
+                          type: 'array',
+                          items: { $ref: '#/components/schemas/Employee' },
+                        },
+                      },
+                    },
+                  },
+                },
+                security: [{ bearerAuth: [] }],
+                'x-nodics': {
+                  moduleName: 'profile',
+                  routerGroup: 'employee',
+                  schemaName: 'employee',
+                  source: 'schema-generated',
+                },
               },
             },
           },
@@ -44,11 +74,35 @@ describe('openApiClient', () => {
       version: '1.0.0',
       operations: [
         {
+          operationId: 'profile_employee_list_get',
           method: 'GET',
           path: '/employees',
           summary: 'List employees',
           description: 'Returns authorized employee records.',
           tags: ['profile'],
+          parameters: [
+            {
+              name: 'active',
+              location: 'query',
+              required: false,
+              description: 'Filter by active state.',
+              schema: { label: 'boolean' },
+            },
+          ],
+          requestBody: undefined,
+          responses: [
+            {
+              statusCode: '200',
+              description: 'Employees returned.',
+              contentTypes: ['application/json'],
+              schema: { label: 'array of Employee' },
+            },
+          ],
+          security: ['bearerAuth'],
+          moduleName: 'profile',
+          routerGroup: 'employee',
+          schemaName: 'employee',
+          source: 'schema-generated',
         },
       ],
     });
