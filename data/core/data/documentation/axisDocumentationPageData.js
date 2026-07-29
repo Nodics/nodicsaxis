@@ -256,6 +256,29 @@ module.exports = {
     active: true,
   },
   record11: {
+    code: 'axisDocsPagemediamanagement',
+    name: 'Media Management Workspace',
+    cmsSite: ['axisDocumentationSite'],
+    typeCode: 'axisDocumentationArticlePageType',
+    template: 'axisDocumentationArticleTemplate',
+    renderer: 'documentation.page.article',
+    cmsComponents: [
+      {
+        target: 'axisDocumentationNavigation',
+        slot: 'navigation',
+        index: 5,
+        active: true,
+      },
+      {
+        target: 'axisDocsComponentmediamanagement',
+        slot: 'article',
+        index: 10,
+        active: true,
+      },
+    ],
+    active: true,
+  },
+  record12: {
     code: 'axisDocsPagefeaturedelivery',
     name: 'Axis Feature Delivery Checklist',
     cmsSite: ['axisDocumentationSite'],
@@ -278,7 +301,7 @@ module.exports = {
     ],
     active: true,
   },
-  record12: {
+  record13: {
     code: 'axisDocsPageimplementationcontract',
     name: 'Axis Implementation and Documentation Contract',
     cmsSite: ['axisDocumentationSite'],

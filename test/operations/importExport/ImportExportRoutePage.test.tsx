@@ -161,7 +161,7 @@ describe('ImportExportRoutePage', () => {
   it('validates current releases without enabling no-op installation', async () => {
     const fetchMock = vi.spyOn(globalThis, 'fetch').mockImplementation((input) => {
       const url = fetchInputUrl(input);
-      if (url.includes('/data-releases/preflight')) {
+      if (url.includes('/core/validate')) {
         return Promise.resolve(
           jsonResponse({
             dataType: 'core',
@@ -170,7 +170,11 @@ describe('ImportExportRoutePage', () => {
           }),
         );
       }
-      return Promise.resolve(jsonResponse([currentRelease]));
+      if (url.endsWith('/core')) return Promise.resolve(jsonResponse([currentRelease]));
+      if (url.endsWith('/init') || url.endsWith('/sample')) {
+        return Promise.resolve(jsonResponse([]));
+      }
+      return Promise.resolve(jsonResponse([]));
     });
     const user = userEvent.setup();
 
@@ -192,7 +196,7 @@ describe('ImportExportRoutePage', () => {
     ).toBeVisible();
     expect(
       fetchMock.mock.calls.some(([input]) =>
-        fetchInputUrl(input).includes('/data-releases/preflight'),
+        fetchInputUrl(input).includes('/core/validate'),
       ),
     ).toBe(true);
     fetchMock.mockRestore();
@@ -208,7 +212,11 @@ describe('ImportExportRoutePage', () => {
           }),
         );
       }
-      return Promise.resolve(jsonResponse([currentRelease]));
+      if (url.endsWith('/core')) return Promise.resolve(jsonResponse([currentRelease]));
+      if (url.endsWith('/init') || url.endsWith('/sample')) {
+        return Promise.resolve(jsonResponse([]));
+      }
+      return Promise.resolve(jsonResponse([]));
     });
     const user = userEvent.setup();
 
@@ -218,9 +226,7 @@ describe('ImportExportRoutePage', () => {
     expect(await screen.findByText('1. Confirm target destination')).toBeVisible();
     expect(screen.getByText('2. Choose target model')).toBeVisible();
     expect(screen.getByRole('combobox', { name: 'Target model' })).toBeDisabled();
-    expect(
-      screen.getByRole('combobox', { name: 'Target enterprise' }),
-    ).toBeVisible();
+    expect(screen.getByRole('combobox', { name: 'Target enterprise' })).toBeVisible();
     expect(screen.getByText('Technical tenant')).toBeVisible();
     expect(screen.getByText('default')).toBeVisible();
     expect(screen.getByRole('button', { name: 'Choose file' })).toHaveAttribute(
@@ -258,13 +264,19 @@ describe('ImportExportRoutePage', () => {
           }),
         );
       }
-      return Promise.resolve(jsonResponse([currentRelease]));
+      if (url.endsWith('/core')) return Promise.resolve(jsonResponse([currentRelease]));
+      if (url.endsWith('/init') || url.endsWith('/sample')) {
+        return Promise.resolve(jsonResponse([]));
+      }
+      return Promise.resolve(jsonResponse([]));
     });
     const user = userEvent.setup();
 
     const rendered = renderPage();
     await user.click(await screen.findByRole('tab', { name: 'File imports' }));
-    expect(await screen.findByRole('combobox', { name: 'Target model' })).toBeDisabled();
+    expect(
+      await screen.findByRole('combobox', { name: 'Target model' }),
+    ).toBeDisabled();
     expect(screen.getByRole('button', { name: 'Choose file' })).toHaveAttribute(
       'aria-disabled',
       'true',
@@ -293,13 +305,19 @@ describe('ImportExportRoutePage', () => {
     await user.click(screen.getByRole('button', { name: 'Upload to media' }));
 
     await waitFor(() =>
-      expect(screen.getByText('Media: defaultTenantCsvData-b0fbbb7114896806')).toBeVisible(),
+      expect(
+        screen.getByText('Media: defaultTenantCsvData-b0fbbb7114896806'),
+      ).toBeVisible(),
     );
     expect(screen.getByRole('button', { name: 'Validate file import' })).toBeEnabled();
 
-    await user.click(screen.getByRole('button', { name: 'Remove selected import file' }));
+    await user.click(
+      screen.getByRole('button', { name: 'Remove selected import file' }),
+    );
 
-    expect(screen.queryByText('Media: defaultTenantCsvData-b0fbbb7114896806')).toBeNull();
+    expect(
+      screen.queryByText('Media: defaultTenantCsvData-b0fbbb7114896806'),
+    ).toBeNull();
     expect(screen.getByText('No file selected')).toBeVisible();
     expect(screen.getByRole('button', { name: 'Validate file import' })).toBeDisabled();
 

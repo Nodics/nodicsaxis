@@ -23,6 +23,11 @@ interface RecoveryContent {
   readonly action: string;
 }
 
+export interface RecoveryDetailContent {
+  readonly message: string;
+  readonly technicalDetail?: string;
+}
+
 const recoveryContent: Record<RecoveryKind, RecoveryContent> = {
   configuration: {
     eyebrow: 'Deployment configuration',
@@ -91,4 +96,47 @@ const recoveryContent: Record<RecoveryKind, RecoveryContent> = {
 
 export function getRecoveryContent(kind: RecoveryKind): RecoveryContent {
   return recoveryContent[kind];
+}
+
+function isNetworkFetchFailure(detail: string): boolean {
+  const normalized = detail.trim().toLowerCase();
+  return (
+    normalized === 'failed to fetch' ||
+    normalized.includes('networkerror') ||
+    normalized.includes('load failed') ||
+    normalized.includes('network request failed')
+  );
+}
+
+function networkRecoveryMessage(kind: RecoveryKind): string {
+  if (kind === 'backoffice') {
+    return 'Axis could not reach the BackOffice registry. The backend may still be starting, or the service may be temporarily unavailable.';
+  }
+  if (kind === 'cms') {
+    return 'Axis could not reach CMS content delivery. The backend may still be starting, or CMS may be temporarily unavailable.';
+  }
+  if (kind === 'profile') {
+    return 'Axis could not reach Profile. Employee authentication may be temporarily unavailable while the backend starts.';
+  }
+  if (kind === 'configuration') {
+    return 'Axis could not load its runtime configuration. Confirm the frontend configuration file is available and retry.';
+  }
+  if (kind === 'offline') {
+    return 'Axis cannot reach the backend from this browser session. Check the network connection and retry.';
+  }
+  return 'Axis could not reach the required backend service. The service may still be starting, or the network may be temporarily unavailable.';
+}
+
+export function getRecoveryDetailContent(
+  kind: RecoveryKind,
+  detail?: string,
+): RecoveryDetailContent | undefined {
+  if (!detail) return undefined;
+  if (isNetworkFetchFailure(detail)) {
+    return {
+      message: networkRecoveryMessage(kind),
+      technicalDetail: detail,
+    };
+  }
+  return { message: detail };
 }

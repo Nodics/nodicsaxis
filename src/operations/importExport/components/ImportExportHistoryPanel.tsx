@@ -12,10 +12,11 @@ import {
   ToggleButton,
   ToggleButtonGroup,
   Typography,
+  alpha,
 } from '@mui/material';
 
 import { ShellIcon } from '../../../app/shell/ShellIcon';
-import type { ImportRunSummary } from '../api/dataReleaseContracts';
+import type { ImportRunFailure, ImportRunSummary } from '../api/dataReleaseContracts';
 import {
   formatRunType,
   formatStatus,
@@ -34,6 +35,78 @@ interface ImportExportHistoryPanelProps {
   readonly runs: readonly ImportRunSummary[];
   readonly search: string;
   readonly errorMessage: string | undefined;
+}
+
+function count(value: number | undefined): string {
+  return value === undefined ? '0' : value.toLocaleString();
+}
+
+function failureTitle(failure: ImportRunFailure, index: number): string {
+  return (
+    failure.recordKey ??
+    failure.fileName ??
+    failure.headerName ??
+    `Failure ${String(index + 1)}`
+  );
+}
+
+function failureContext(failure: ImportRunFailure): string {
+  return [
+    failure.fileName ? `File: ${failure.fileName}` : undefined,
+    failure.schemaName ? `Schema: ${failure.schemaName}` : undefined,
+    failure.operation ? `Operation: ${failure.operation}` : undefined,
+    failure.tenant ? `Tenant: ${failure.tenant}` : undefined,
+  ]
+    .filter((item): item is string => Boolean(item))
+    .join(' · ');
+}
+
+function ImportRunFailureList(props: {
+  readonly failures: readonly ImportRunFailure[];
+}) {
+  if (props.failures.length === 0) return null;
+  return (
+    <Paper
+      elevation={0}
+      sx={(theme) => ({
+        bgcolor: alpha(theme.palette.error.main, 0.06),
+        border: 1,
+        borderColor: alpha(theme.palette.error.main, 0.18),
+        mx: { xs: 1.5, md: 2 },
+        mb: 1.5,
+        p: { xs: 1.25, md: 1.5 },
+      })}
+    >
+      <Stack spacing={1}>
+        <Typography color="error.dark" sx={{ fontWeight: 800 }}>
+          Failed records
+        </Typography>
+        {props.failures.slice(0, 10).map((failure, index) => (
+          <Box key={`${failureTitle(failure, index)}-${String(index)}`}>
+            <Typography sx={{ fontWeight: 700 }}>
+              {failureTitle(failure, index)}
+              {failure.error?.code ? ` · ${failure.error.code}` : ''}
+            </Typography>
+            {failure.error?.message ? (
+              <Typography color="text.secondary" variant="body2">
+                {failure.error.message}
+              </Typography>
+            ) : null}
+            {failureContext(failure) ? (
+              <Typography color="text.secondary" variant="caption">
+                {failureContext(failure)}
+              </Typography>
+            ) : null}
+          </Box>
+        ))}
+        {props.failures.length > 10 ? (
+          <Typography color="text.secondary" variant="caption">
+            Showing first 10 of {props.failures.length.toLocaleString()} failures.
+          </Typography>
+        ) : null}
+      </Stack>
+    </Paper>
+  );
 }
 
 export function ImportExportHistoryPanel(props: ImportExportHistoryPanelProps) {
@@ -155,6 +228,28 @@ export function ImportExportHistoryPanel(props: ImportExportHistoryPanelProps) {
                   <Typography color="text.secondary" variant="body2">
                     {summarizeModules(run.modules)}
                   </Typography>
+                  {run.summary ? (
+                    <Stack direction="row" sx={{ flexWrap: 'wrap', gap: 0.75 }}>
+                      <Chip
+                        label={`${count(run.summary.recordsRead)} read`}
+                        size="small"
+                        variant="outlined"
+                      />
+                      <Chip
+                        label={`${count(run.summary.recordsSucceeded)} succeeded`}
+                        size="small"
+                        variant="outlined"
+                      />
+                      <Chip
+                        color={
+                          (run.summary.recordsFailed ?? 0) > 0 ? 'error' : 'default'
+                        }
+                        label={`${count(run.summary.recordsFailed)} failed`}
+                        size="small"
+                        variant="outlined"
+                      />
+                    </Stack>
+                  ) : null}
                   <Typography
                     color="text.secondary"
                     sx={{ fontFamily: 'monospace', overflowWrap: 'anywhere' }}
@@ -169,6 +264,7 @@ export function ImportExportHistoryPanel(props: ImportExportHistoryPanelProps) {
                   sx={{ alignSelf: { xs: 'flex-start', md: 'center' } }}
                 />
               </Stack>
+              <ImportRunFailureList failures={run.failures ?? []} />
             </Box>
           ))}
         </Paper>

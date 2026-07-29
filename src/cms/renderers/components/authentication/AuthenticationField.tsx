@@ -1,4 +1,15 @@
-import { Box, Stack, TextField, Typography } from '@mui/material';
+import { useState } from 'react';
+
+import {
+  Box,
+  IconButton,
+  InputAdornment,
+  Stack,
+  TextField,
+  Typography,
+} from '@mui/material';
+
+import { ShellIcon } from '../../../../app/shell/ShellIcon';
 
 interface AuthenticationFieldProps {
   readonly autoComplete: string;
@@ -17,6 +28,48 @@ export function AuthenticationField({
   placeholder,
   type = 'text',
 }: AuthenticationFieldProps) {
+  const [passwordVisible, setPasswordVisible] = useState(false);
+  const isPassword = type === 'password';
+  const effectiveType = isPassword && passwordVisible ? 'text' : type;
+  const passwordToggleLabel = passwordVisible
+    ? `Hide ${label.toLowerCase()}`
+    : `Show ${label.toLowerCase()}`;
+  const slotProps = {
+    htmlInput: {
+      'aria-label': label,
+    },
+    ...(isPassword
+      ? {
+          input: {
+            endAdornment: (
+              <InputAdornment position="end">
+                <IconButton
+                  aria-label={passwordToggleLabel}
+                  edge="end"
+                  onClick={() => setPasswordVisible((visible) => !visible)}
+                  onMouseDown={(event) => event.preventDefault()}
+                  size="small"
+                  sx={{
+                    color: 'text.secondary',
+                    '&:hover': {
+                      color: 'text.primary',
+                    },
+                  }}
+                  type="button"
+                >
+                  <ShellIcon
+                    aria-hidden="true"
+                    fontSize="small"
+                    name={passwordVisible ? 'hidden' : 'visible'}
+                  />
+                </IconButton>
+              </InputAdornment>
+            ),
+          },
+        }
+      : {}),
+  };
+
   return (
     <Stack spacing={0.75}>
       <Typography
@@ -37,12 +90,8 @@ export function AuthenticationField({
         name={name}
         placeholder={placeholder}
         required
-        slotProps={{
-          htmlInput: {
-            'aria-label': label,
-          },
-        }}
-        type={type}
+        slotProps={slotProps}
+        type={effectiveType}
         sx={{
           '& .MuiInputBase-root': {
             minHeight: 48,

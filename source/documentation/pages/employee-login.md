@@ -24,6 +24,12 @@ submitted to its login flow.
 A customer login is never used as a fallback. Authentication or authorization
 failure keeps the employee outside the dashboard and displays a safe message.
 
+Password fields on login and lock-screen pages include an accessible show/hide
+control so employees can verify local typing mistakes before submission.
+Revealing a password changes only the current input presentation. Axis still
+sends the value only to Profile, never stores it, and never exposes it through
+BackOffice, CMS, URLs, logs, query cache, or browser storage.
+
 ## Password recovery
 
 The public `/forgot-password` page uses the same responsive authentication

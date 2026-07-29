@@ -73,8 +73,8 @@ export function ImportExportRoutePage(props: ImportExportRoutePageProps) {
   >(undefined);
   const queryClient = useQueryClient();
   const connection = selectModuleConnection(props.bootstrap, 'import');
+  const exportConnection = selectModuleConnection(props.bootstrap, 'export');
   const mediaConnection = selectModuleConnection(props.bootstrap, 'media');
-  const systemConnection = selectModuleConnection(props.bootstrap, 'system');
   const schemaConnections = useMemo(
     () =>
       Object.freeze(
@@ -93,7 +93,7 @@ export function ImportExportRoutePage(props: ImportExportRoutePageProps) {
     [props.accessToken, props.runtime.enterpriseCode, props.runtime.requestTimeoutMs],
   );
   const catalogue = useQuery({
-    queryKey: ['data-releases', props.runtime.enterpriseCode],
+    queryKey: ['import-catalogue', props.runtime.enterpriseCode],
     queryFn: () => {
       if (!connection) throw new Error('Import service is unavailable');
       return loadDataReleases(connection, configuration);
@@ -156,7 +156,7 @@ export function ImportExportRoutePage(props: ImportExportRoutePageProps) {
     onSuccess: async (_data, mode) => {
       if (mode === 'install') setSelected(new Set());
       await queryClient.invalidateQueries({
-        queryKey: ['data-releases', props.runtime.enterpriseCode],
+        queryKey: ['import-catalogue', props.runtime.enterpriseCode],
       });
     },
   });
@@ -255,7 +255,14 @@ export function ImportExportRoutePage(props: ImportExportRoutePageProps) {
           </Box>
 
           {area === 'exports' ? (
-            <ExportWorkspace />
+            <ExportWorkspace
+              configuration={configuration}
+              enterpriseCode={props.runtime.enterpriseCode}
+              exportConnection={exportConnection}
+              mediaConnection={mediaConnection}
+              schemaConnections={schemaConnections}
+              tenantCode={props.bootstrap.tenantCode}
+            />
           ) : area === 'file-imports' ? (
             <FileImportWorkspace
               configuration={configuration}
@@ -263,7 +270,6 @@ export function ImportExportRoutePage(props: ImportExportRoutePageProps) {
               importConnection={connection}
               mediaConnection={mediaConnection}
               schemaConnections={schemaConnections}
-              systemConnection={systemConnection}
               tenantCode={props.bootstrap.tenantCode}
             />
           ) : area === 'history' ? (

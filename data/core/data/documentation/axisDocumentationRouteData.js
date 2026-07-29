@@ -135,6 +135,18 @@ module.exports = {
     active: true,
   },
   record11: {
+    code: 'axisDocsRoutemediamanagement',
+    site: 'axisDocumentationSite',
+    path: '/docs/nodics-axis/media-management',
+    locale: 'en',
+    channel: 'web',
+    page: 'axisDocsPagemediamanagement',
+    routeType: 'PAGE',
+    deliveryState: 'ONLINE',
+    accessMode: 'AUTHENTICATED',
+    active: true,
+  },
+  record12: {
     code: 'axisDocsRoutefeaturedelivery',
     site: 'axisDocumentationSite',
     path: '/docs/nodics-axis/feature-delivery',
@@ -146,7 +158,7 @@ module.exports = {
     accessMode: 'AUTHENTICATED',
     active: true,
   },
-  record12: {
+  record13: {
     code: 'axisDocsRouteimplementationcontract',
     site: 'axisDocumentationSite',
     path: '/docs/nodics-axis/implementation-contract',

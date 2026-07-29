@@ -5,12 +5,21 @@ import type {
   DataReleasePlan,
   DataReleaseStatus,
   DataReleaseType,
-  ImportDefinitionSummary,
+  ImportRunError,
+  ImportRunFailure,
   ImportRunRecordSummary,
+  ImportValidationReport,
+  ImportValidationRow,
   MediaImportOperationResult,
+  MediaUploadContext,
   MediaUploadSummary,
   ImportRunSummary,
   GenericMediaImportRequest,
+  DataExportFileFormat,
+  DataExportRequest,
+  DataExportResult,
+  DataExportResultSummary,
+  DataExportMediaSummary,
 } from './dataReleaseContracts';
 
 export interface DataReleaseClientConfiguration {
@@ -19,7 +28,12 @@ export interface DataReleaseClientConfiguration {
   readonly timeoutMs: number;
 }
 
-const types = new Set<DataReleaseType>(['init', 'core', 'sample']);
+const dataReleaseTypes: readonly DataReleaseType[] = Object.freeze([
+  'init',
+  'core',
+  'sample',
+]);
+const types = new Set<DataReleaseType>(dataReleaseTypes);
 const statuses = new Set<DataReleaseStatus>([
   'NOT_INSTALLED',
   'CURRENT',
@@ -29,6 +43,7 @@ const statuses = new Set<DataReleaseStatus>([
   'RUNNING',
   'FAILED',
 ]);
+const exportFormats = new Set<DataExportFileFormat>(['csv', 'json']);
 
 function record(value: unknown, label: string): Record<string, unknown> {
   if (typeof value !== 'object' || value === null || Array.isArray(value)) {
@@ -51,12 +66,17 @@ function optionalNumber(value: unknown): number | undefined {
   return typeof value === 'number' && Number.isFinite(value) ? value : undefined;
 }
 
-function stringList(value: unknown): readonly string[] {
-  if (!Array.isArray(value)) return Object.freeze([]);
+function boundedArray<T>(
+  value: unknown,
+  parser: (item: unknown) => T | undefined,
+  limit = 100,
+): readonly T[] | undefined {
+  if (!Array.isArray(value)) return undefined;
   return Object.freeze(
     value
-      .filter((item): item is string => typeof item === 'string' && item.trim() !== '')
-      .map((item) => item.trim()),
+      .slice(0, limit)
+      .map(parser)
+      .filter((item): item is T => item !== undefined),
   );
 }
 
@@ -77,6 +97,7 @@ function parseRelease(value: unknown): DataRelease {
     status,
   };
   const optionalValues = {
+    invalidReason: optionalText(source.invalidReason),
     parentModule: optionalText(source.parentModule),
     installedVersion: optionalText(source.installedVersion),
     installedAt: optionalText(source.installedAt),
@@ -100,7 +121,6 @@ function parseImportRunSummary(value: unknown): ImportRunRecordSummary | undefin
     return undefined;
   }
   const source = value as Record<string, unknown>;
-  const summary: ImportRunRecordSummary = {};
   const optionalValues = {
     recordsRead: optionalNumber(source.recordsRead),
     recordsFinalized: optionalNumber(source.recordsFinalized),
@@ -119,6 +139,105 @@ function parseImportRunSummary(value: unknown): ImportRunRecordSummary | undefin
       Object.entries(optionalValues).filter(([, item]) => item !== undefined),
     ),
   );
+}
+
+function parseImportRunError(value: unknown): ImportRunError | undefined {
+  if (typeof value !== 'object' || value === null || Array.isArray(value)) {
+    return undefined;
+  }
+  const source = value as Record<string, unknown>;
+  const optionalValues = {
+    code: optionalText(source.code),
+    message: optionalText(source.message),
+    name: optionalText(source.name),
+  };
+  if (Object.values(optionalValues).every((item) => item === undefined)) {
+    return undefined;
+  }
+  return Object.freeze(
+    Object.fromEntries(
+      Object.entries(optionalValues).filter(([, item]) => item !== undefined),
+    ),
+  );
+}
+
+function parseImportRunFailure(value: unknown): ImportRunFailure | undefined {
+  if (typeof value !== 'object' || value === null || Array.isArray(value)) {
+    return undefined;
+  }
+  const source = value as Record<string, unknown>;
+  const optionalValues = {
+    tenant: optionalText(source.tenant),
+    owningModule: optionalText(source.owningModule),
+    targetModule: optionalText(source.targetModule),
+    headerName: optionalText(source.headerName),
+    fileName: optionalText(source.fileName),
+    recordKey: optionalText(source.recordKey),
+    schemaName: optionalText(source.schemaName),
+    indexName: optionalText(source.indexName),
+    operation: optionalText(source.operation),
+    propertyName: optionalText(source.propertyName),
+    rowNumber: optionalNumber(source.rowNumber),
+    error: parseImportRunError(source.error),
+  };
+  if (Object.values(optionalValues).every((item) => item === undefined)) {
+    return undefined;
+  }
+  return Object.freeze(
+    Object.fromEntries(
+      Object.entries(optionalValues).filter(([, item]) => item !== undefined),
+    ),
+  );
+}
+
+function parseImportValidationRow(value: unknown): ImportValidationRow | undefined {
+  if (typeof value !== 'object' || value === null || Array.isArray(value)) {
+    return undefined;
+  }
+  const source = value as Record<string, unknown>;
+  const status = optionalText(source.status);
+  if (!status) {
+    return undefined;
+  }
+  const optionalValues = {
+    rowNumber: optionalNumber(source.rowNumber),
+    recordKey: optionalText(source.recordKey),
+    severity: optionalText(source.severity),
+    fileName: optionalText(source.fileName),
+    schemaName: optionalText(source.schemaName),
+    indexName: optionalText(source.indexName),
+    operation: optionalText(source.operation),
+    tenant: optionalText(source.tenant),
+    field: optionalText(source.field),
+    message: optionalText(source.message),
+    howToFix: optionalText(source.howToFix),
+    technicalCode: optionalText(source.technicalCode),
+    errorCount: optionalNumber(source.errorCount),
+  };
+  return Object.freeze(
+    Object.assign(
+      { status },
+      Object.fromEntries(
+        Object.entries(optionalValues).filter(([, item]) => item !== undefined),
+      ),
+    ),
+  );
+}
+
+function parseImportValidationReport(
+  value: unknown,
+): ImportValidationReport | undefined {
+  if (typeof value !== 'object' || value === null || Array.isArray(value)) {
+    return undefined;
+  }
+  const source = value as Record<string, unknown>;
+  return Object.freeze({
+    totalRecords: optionalNumber(source.totalRecords) ?? 0,
+    validRecords: optionalNumber(source.validRecords) ?? 0,
+    invalidRecords: optionalNumber(source.invalidRecords) ?? 0,
+    warningRecords: optionalNumber(source.warningRecords) ?? 0,
+    rows: boundedArray(source.rows, parseImportValidationRow, 10000) ?? [],
+  });
 }
 
 function parseImportRun(value: unknown): ImportRunSummary | undefined {
@@ -155,6 +274,8 @@ function parseImportRun(value: unknown): ImportRunSummary | undefined {
     requestedBy: optionalText(source.requestedBy),
     createdAt: optionalText(source.createdAt),
     summary: parseImportRunSummary(source.summary),
+    failures: boundedArray(source.failures, parseImportRunFailure),
+    validationErrors: boundedArray(source.validationErrors, parseImportRunFailure),
   };
   return Object.freeze(
     Object.assign(
@@ -174,17 +295,47 @@ function envelopeData(value: unknown): unknown {
   throw new Error('Import response does not contain data');
 }
 
-async function safeError(response: Response): Promise<string> {
+interface ServiceErrorContext {
+  readonly serviceName: string;
+  readonly unauthorizedMessage: string;
+}
+
+const importServiceErrorContext: ServiceErrorContext = Object.freeze({
+  serviceName: 'Import service',
+  unauthorizedMessage: 'You are not authorized to perform this import operation.',
+});
+
+const mediaServiceErrorContext: ServiceErrorContext = Object.freeze({
+  serviceName: 'Media service',
+  unauthorizedMessage: 'You are not authorized to perform this media operation.',
+});
+
+const exportServiceErrorContext: ServiceErrorContext = Object.freeze({
+  serviceName: 'Export service',
+  unauthorizedMessage: 'You are not authorized to perform this export operation.',
+});
+
+async function safeError(
+  response: Response,
+  context: ServiceErrorContext = importServiceErrorContext,
+): Promise<string> {
   try {
-    const value = record(await response.json(), 'Import error');
+    const value = record(await response.json(), `${context.serviceName} error`);
     const message = optionalText(value.message);
+    const nested = boundedArray(value.errors, parseImportRunError, 3) ?? [];
+    const nestedText = nested
+      .map((item) => [item.code, item.message].filter(Boolean).join(': '))
+      .filter((item) => item.length > 0)
+      .join(' | ');
+    if (message && nestedText && `${message}: ${nestedText}`.length <= 500) {
+      return `${message}: ${nestedText}`;
+    }
     if (message && message.length <= 500) return message;
   } catch {
     // Preserve the bounded HTTP fallback.
   }
-  if (response.status === 403)
-    return 'You are not authorized to perform this import operation.';
-  return `Import service returned HTTP ${String(response.status)}`;
+  if (response.status === 403) return context.unauthorizedMessage;
+  return `${context.serviceName} returned HTTP ${String(response.status)}`;
 }
 
 async function request(
@@ -193,10 +344,11 @@ async function request(
   configuration: DataReleaseClientConfiguration,
   options: RequestInit = {},
   fetchImplementation: typeof fetch = fetch,
+  context: ServiceErrorContext = importServiceErrorContext,
 ): Promise<unknown> {
   const endpoint = new URL(connection.endpoint);
   if (!['http:', 'https:'].includes(endpoint.protocol))
-    throw new Error('Import endpoint is invalid');
+    throw new Error(`${context.serviceName} endpoint is invalid`);
   const controller = new AbortController();
   const timeout = globalThis.setTimeout(
     () => controller.abort(),
@@ -220,11 +372,14 @@ async function request(
         },
       },
     );
-    if (!response.ok) throw new Error(await safeError(response));
+    if (!response.ok) throw new Error(await safeError(response, context));
     return envelopeData(await response.json());
   } catch (error: unknown) {
-    if (controller.signal.aborted) throw new Error('Import request timed out');
-    throw error instanceof Error ? error : new Error('Import request failed');
+    if (controller.signal.aborted)
+      throw new Error(`${context.serviceName} request timed out`);
+    throw error instanceof Error
+      ? error
+      : new Error(`${context.serviceName} request failed`);
   } finally {
     globalThis.clearTimeout(timeout);
   }
@@ -262,7 +417,8 @@ async function multipartRequest(
         },
       },
     );
-    if (!response.ok) throw new Error(await safeError(response));
+    if (!response.ok)
+      throw new Error(await safeError(response, mediaServiceErrorContext));
     return envelopeData(await response.json());
   } catch (error: unknown) {
     if (controller.signal.aborted) throw new Error('Media upload timed out');
@@ -277,15 +433,17 @@ export async function loadDataReleases(
   configuration: DataReleaseClientConfiguration,
   fetchImplementation: typeof fetch = fetch,
 ): Promise<readonly DataRelease[]> {
-  const value = await request(
-    connection,
-    '/data-releases',
-    configuration,
-    {},
-    fetchImplementation,
+  const values = await Promise.all(
+    dataReleaseTypes.map((dataType) =>
+      request(connection, `/${dataType}`, configuration, {}, fetchImplementation),
+    ),
   );
-  if (!Array.isArray(value)) throw new Error('Data release catalogue is invalid');
-  return Object.freeze(value.map(parseRelease));
+  return Object.freeze(
+    values.flatMap((value) => {
+      if (!Array.isArray(value)) throw new Error('Data release catalogue is invalid');
+      return value.map(parseRelease);
+    }),
+  );
 }
 
 export async function preflightDataReleases(
@@ -296,7 +454,7 @@ export async function preflightDataReleases(
 ): Promise<DataReleaseOperationResult> {
   return executeRequest(
     connection,
-    '/data-releases/preflight',
+    `/${plan.dataType}/validate`,
     configuration,
     plan,
     fetchImplementation,
@@ -311,7 +469,7 @@ export async function installDataReleases(
 ): Promise<DataReleaseOperationResult> {
   return executeRequest(
     connection,
-    `/data-releases/${plan.dataType}/imports`,
+    `/${plan.dataType}/install`,
     configuration,
     plan,
     fetchImplementation,
@@ -341,30 +499,6 @@ export async function loadImportHistory(
   );
 }
 
-function parseImportDefinition(value: unknown): ImportDefinitionSummary {
-  const source = record(value, 'Import definition');
-  const definition: ImportDefinitionSummary = {
-    code: text(source.code, 'Import definition code'),
-    description: optionalText(source.description) ?? '',
-    moduleName: text(source.moduleName, 'Import definition module'),
-    dataFilePrefix: text(source.dataFilePrefix, 'Import definition data prefix'),
-    allowedExtensions: stringList(source.allowedExtensions),
-  };
-  const optionalValues = {
-    schemaName: optionalText(source.schemaName),
-    indexName: optionalText(source.indexName),
-    operation: optionalText(source.operation),
-  };
-  return Object.freeze(
-    Object.assign(
-      definition,
-      Object.fromEntries(
-        Object.entries(optionalValues).filter(([, item]) => item !== undefined),
-      ),
-    ),
-  );
-}
-
 function parseMediaUpload(value: unknown): MediaUploadSummary {
   const source = record(value, 'Uploaded media');
   const media: MediaUploadSummary = {
@@ -391,38 +525,71 @@ function parseMediaUpload(value: unknown): MediaUploadSummary {
   );
 }
 
-export async function loadImportDefinitions(
-  connection: AxisModuleConnection,
-  configuration: DataReleaseClientConfiguration,
-  fetchImplementation: typeof fetch = fetch,
-): Promise<readonly ImportDefinitionSummary[]> {
-  const value = await request(
-    connection,
-    '/importdefinition',
-    configuration,
-    {
-      method: 'POST',
-      body: JSON.stringify({
-        query: { active: true, enabled: true },
-        options: { recursive: false },
-        searchOptions: { pageSize: 100, pageNumber: 1 },
-      }),
-    },
-    fetchImplementation,
+function parseExportMedia(value: unknown): DataExportMediaSummary {
+  const source = record(value, 'Export media');
+  const media: DataExportMediaSummary = {
+    mediaCode: optionalText(source.mediaCode) ?? text(source.code, 'Export media code'),
+    name:
+      optionalText(source.name) ??
+      optionalText(source.originalFileName) ??
+      'Generated export file',
+  };
+  const optionalValues = {
+    originalFileName: optionalText(source.originalFileName),
+    extension: optionalText(source.extension),
+    sizeBytes: optionalNumber(source.sizeBytes),
+    checksum: optionalText(source.checksum),
+    status: optionalText(source.status),
+    accessUrl: optionalText(source.accessUrl),
+  };
+  return Object.freeze(
+    Object.assign(
+      media,
+      Object.fromEntries(
+        Object.entries(optionalValues).filter(([, value]) => value !== undefined),
+      ),
+    ),
   );
-  if (!Array.isArray(value)) throw new Error('Import definitions are invalid');
-  return Object.freeze(value.map(parseImportDefinition));
+}
+
+function parseExportSummary(value: unknown): DataExportResultSummary {
+  const source = record(value, 'Export summary');
+  return Object.freeze({
+    requestedRecords: optionalNumber(source.requestedRecords) ?? 0,
+    exportedRecords: optionalNumber(source.exportedRecords) ?? 0,
+    totalAvailableRecords: optionalNumber(source.totalAvailableRecords) ?? 0,
+    truncated: source.truncated === true,
+  });
+}
+
+function parseDataExportResult(value: unknown): DataExportResult {
+  const source = record(value, 'Data export result');
+  const format = text(source.format, 'Data export format') as DataExportFileFormat;
+  if (!exportFormats.has(format)) throw new Error('Data export format is unsupported');
+  return Object.freeze({
+    moduleName: text(source.moduleName, 'Data export module'),
+    schemaName: text(source.schemaName, 'Data export schema'),
+    format,
+    fileName: text(source.fileName, 'Data export file name'),
+    media: parseExportMedia(source.media),
+    summary: parseExportSummary(source.summary),
+  });
 }
 
 export async function uploadImportMedia(
   connection: AxisModuleConnection,
   configuration: DataReleaseClientConfiguration,
   file: File,
+  context: MediaUploadContext,
   fetchImplementation: typeof fetch = fetch,
 ): Promise<MediaUploadSummary> {
   const body = new FormData();
   body.append('folderCode', 'importSources');
   body.append('formatCode', 'importFile');
+  body.append('enterpriseCode', context.enterpriseCode);
+  body.append('tenantCode', context.tenantCode);
+  body.append('moduleName', context.moduleName);
+  body.append('schemaName', context.schemaName);
   body.append('name', file.name);
   body.append('file', file);
   return parseMediaUpload(
@@ -464,6 +631,100 @@ export async function installMediaImport(
   );
 }
 
+export async function generateDataExport(
+  connection: AxisModuleConnection,
+  configuration: DataReleaseClientConfiguration,
+  requestBody: DataExportRequest,
+  fetchImplementation: typeof fetch = fetch,
+): Promise<DataExportResult> {
+  return parseDataExportResult(
+    await request(
+      connection,
+      '/export',
+      configuration,
+      { method: 'POST', body: JSON.stringify(requestBody) },
+      fetchImplementation,
+      exportServiceErrorContext,
+    ),
+  );
+}
+
+export interface DataExportDownload {
+  readonly blob: Blob;
+  readonly fileName: string;
+}
+
+export async function downloadDataExportMedia(
+  connection: AxisModuleConnection,
+  configuration: DataReleaseClientConfiguration,
+  media: DataExportMediaSummary,
+  fetchImplementation: typeof fetch = fetch,
+): Promise<DataExportDownload> {
+  const mediaCode = text(media.mediaCode, 'Export media code');
+  const downloadUrl = mediaDownloadUrl(connection, mediaCode);
+  if (!['http:', 'https:'].includes(downloadUrl.protocol))
+    throw new Error('Media download endpoint is invalid');
+  const controller = new AbortController();
+  const timeout = globalThis.setTimeout(
+    () => controller.abort(),
+    configuration.timeoutMs,
+  );
+  try {
+    const response = await fetchImplementation(downloadUrl, {
+      method: 'GET',
+      cache: 'no-store',
+      credentials: 'omit',
+      redirect: 'error',
+      signal: controller.signal,
+      headers: {
+        Accept: '*/*',
+        Authorization: `Bearer ${configuration.accessToken}`,
+        'x-enterprise-code': configuration.enterpriseCode,
+      },
+    });
+    if (!response.ok)
+      throw new Error(await safeError(response, mediaServiceErrorContext));
+    return Object.freeze({
+      blob: await response.blob(),
+      fileName:
+        contentDispositionFileName(response.headers.get('content-disposition')) ??
+        media.originalFileName ??
+        media.name ??
+        media.mediaCode,
+    });
+  } catch (error: unknown) {
+    if (controller.signal.aborted) throw new Error('Media download timed out');
+    throw error instanceof Error ? error : new Error('Media download failed');
+  } finally {
+    globalThis.clearTimeout(timeout);
+  }
+}
+
+function mediaDownloadUrl(connection: AxisModuleConnection, mediaCode: string): URL {
+  const endpoint = new URL(connection.endpoint);
+  const downloadUrl = new URL(
+    `/nodics/media/v0/download/${encodeURIComponent(mediaCode)}`,
+    endpoint.origin,
+  );
+  if (!['http:', 'https:'].includes(downloadUrl.protocol))
+    throw new Error('Media download endpoint is invalid');
+  return downloadUrl;
+}
+
+function contentDispositionFileName(value: string | null): string | undefined {
+  if (!value) return undefined;
+  const utf8 = /filename\*=UTF-8''([^;]+)/i.exec(value);
+  if (utf8?.[1]) {
+    try {
+      return decodeURIComponent(utf8[1].trim().replace(/^"|"$/g, ''));
+    } catch {
+      return utf8[1].trim().replace(/^"|"$/g, '');
+    }
+  }
+  const ascii = /filename="?([^";]+)"?/i.exec(value);
+  return ascii?.[1]?.trim();
+}
+
 async function executeRequest(
   connection: AxisModuleConnection,
   path: string,
@@ -503,25 +764,25 @@ async function executeMediaImport(
   const value = record(
     await request(
       connection,
-      '/import/media',
+      '/media',
       configuration,
       { method: 'POST', body: JSON.stringify(body) },
       fetchImplementation,
     ),
     'Media import operation',
   );
-  const importDefinition =
-    value.importDefinition === undefined
-      ? undefined
-      : parseImportDefinition(value.importDefinition);
   const mediaSource =
     value.mediaSource === undefined ? undefined : parseMediaUpload(value.mediaSource);
   const result: MediaImportOperationResult = {
     validationOnly: value.validationOnly === true,
   };
   const optionalValues = {
+    validationPassed:
+      typeof value.validationPassed === 'boolean' ? value.validationPassed : undefined,
+    validationErrorCount: optionalNumber(value.validationErrorCount),
+    validationErrors: boundedArray(value.validationErrors, parseImportRunFailure),
+    validationReport: parseImportValidationReport(value.validationReport),
     importRun: parseImportRun(value.importRun),
-    importDefinition,
     mediaSource,
   };
   return Object.freeze(

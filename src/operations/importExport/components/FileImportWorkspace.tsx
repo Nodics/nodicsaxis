@@ -10,9 +10,16 @@ import {
   CircularProgress,
   Divider,
   IconButton,
+  InputAdornment,
   MenuItem,
   Paper,
   Stack,
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TablePagination,
+  TableRow,
   TextField,
   Typography,
   alpha,
@@ -32,6 +39,9 @@ import {
   validateMediaImport,
 } from '../api/dataReleaseClient';
 import type {
+  ImportRunFailure,
+  ImportValidationReport,
+  ImportValidationRow,
   MediaImportOperationResult,
   MediaUploadSummary,
 } from '../api/dataReleaseContracts';
@@ -42,7 +52,6 @@ interface FileImportWorkspaceProps {
   readonly importConnection: AxisModuleConnection | undefined;
   readonly mediaConnection: AxisModuleConnection | undefined;
   readonly schemaConnections: readonly AxisModuleConnection[];
-  readonly systemConnection: AxisModuleConnection | undefined;
   readonly tenantCode: string;
 }
 
@@ -78,11 +87,73 @@ function countText(value: number | undefined): string {
 
 function validationSummaryText(result: MediaImportOperationResult): string {
   const summary = result.importRun?.summary;
+  const validationErrors =
+    result.validationErrorCount ??
+    result.validationErrors?.length ??
+    result.importRun?.validationErrors?.length ??
+    summary?.validationErrors;
   return [
     `${countText(summary?.recordsRead)} record(s) read`,
     `${countText(summary?.recordsFinalized)} finalized for review`,
-    `${countText(summary?.validationErrors)} validation issue(s)`,
+    `${countText(validationErrors)} validation issue(s)`,
   ].join(' · ');
+}
+
+function validationIssues(
+  result: MediaImportOperationResult | undefined,
+): readonly ImportRunFailure[] {
+  return result?.validationErrors ?? result?.importRun?.validationErrors ?? [];
+}
+
+function validationReport(
+  result: MediaImportOperationResult | undefined,
+): ImportValidationReport | undefined {
+  return result?.validationReport;
+}
+
+function hasValidationIssues(result: MediaImportOperationResult | undefined): boolean {
+  return (
+    result?.validationPassed === false ||
+    (result?.validationErrorCount ?? 0) > 0 ||
+    validationIssues(result).length > 0 ||
+    (result?.importRun?.summary?.validationErrors ?? 0) > 0
+  );
+}
+
+function rowStatusLabel(row: ImportValidationRow): string {
+  const status = row.status.toUpperCase();
+  if (status === 'VALID') return 'Valid';
+  if (status === 'INVALID') return 'Needs correction';
+  if (status === 'WARNING') return 'Warning';
+  return titleCase(status);
+}
+
+function rowStatusColor(
+  row: ImportValidationRow,
+): 'success' | 'error' | 'warning' | 'default' {
+  const status = row.status.toUpperCase();
+  if (status === 'VALID') return 'success';
+  if (status === 'INVALID') return 'error';
+  if (status === 'WARNING') return 'warning';
+  return 'default';
+}
+
+function rowSearchText(row: ImportValidationRow): string {
+  return [
+    row.rowNumber?.toString(),
+    row.recordKey,
+    row.status,
+    row.field,
+    row.message,
+    row.howToFix,
+    row.fileName,
+    row.schemaName,
+    row.operation,
+    row.technicalCode,
+  ]
+    .filter(Boolean)
+    .join(' ')
+    .toLowerCase();
 }
 
 function installationSummaryText(result: MediaImportOperationResult): string {
@@ -94,10 +165,47 @@ function installationSummaryText(result: MediaImportOperationResult): string {
   ].join(' · ');
 }
 
+function importFailures(
+  result: MediaImportOperationResult | undefined,
+): readonly ImportRunFailure[] {
+  return result?.importRun?.failures ?? [];
+}
+
+function importFailureMessage(failure: ImportRunFailure): string {
+  return (
+    failure.error?.message ??
+    failure.error?.code ??
+    'Record failed during import processing'
+  );
+}
+
+function importFailureTarget(failure: ImportRunFailure): string {
+  return (
+    [
+      failure.targetModule ?? failure.owningModule,
+      failure.schemaName ?? failure.indexName,
+    ]
+      .filter(Boolean)
+      .map((value) => titleCase(value ?? ''))
+      .join(' / ') || '—'
+  );
+}
+
+function importFailureHowToFix(failure: ImportRunFailure): string {
+  if (failure.propertyName) {
+    return `Review the "${failure.propertyName}" value in the source file and retry the import.`;
+  }
+  return 'Review the backend error, correct the source data, and retry the import.';
+}
+
 export function FileImportWorkspace(props: FileImportWorkspaceProps) {
   const [schemaKey, setSchemaKey] = useState('');
   const [file, setFile] = useState<File | undefined>(undefined);
   const [targetEnterpriseCode, setTargetEnterpriseCode] = useState('');
+  const [validationStatusFilter, setValidationStatusFilter] = useState('ALL');
+  const [validationSearch, setValidationSearch] = useState('');
+  const [validationPage, setValidationPage] = useState(0);
+  const [validationRowsPerPage, setValidationRowsPerPage] = useState(10);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const [uploadedMedia, setUploadedMedia] = useState<MediaUploadSummary | undefined>(
     undefined,
@@ -128,16 +236,13 @@ export function FileImportWorkspace(props: FileImportWorkspaceProps) {
     },
     enabled: props.schemaConnections.length > 0,
   });
-  const schemaOptions = useMemo(
-    () => {
-      const byKey = new Map<string, WorkbenchSchema>();
-      for (const schema of schemas.data ?? []) {
-        byKey.set(`${schema.moduleName}/${schema.schemaName}`, schema);
-      }
-      return Object.freeze([...byKey.values()]);
-    },
-    [schemas.data],
-  );
+  const schemaOptions = useMemo(() => {
+    const byKey = new Map<string, WorkbenchSchema>();
+    for (const schema of schemas.data ?? []) {
+      byKey.set(`${schema.moduleName}/${schema.schemaName}`, schema);
+    }
+    return Object.freeze([...byKey.values()]);
+  }, [schemas.data]);
   const selectedSchema = useMemo(
     () =>
       schemaOptions.find(
@@ -148,9 +253,16 @@ export function FileImportWorkspace(props: FileImportWorkspaceProps) {
   const upload = useMutation({
     mutationFn: async () => {
       if (!props.mediaConnection) throw new Error('Media service is unavailable');
+      if (!hasTargetEnterprise)
+        throw new Error('Select the target enterprise before uploading');
       if (!selectedSchema) throw new Error('Choose a target model before uploading');
       if (!file) throw new Error('Select a file before uploading');
-      return uploadImportMedia(props.mediaConnection, props.configuration, file);
+      return uploadImportMedia(props.mediaConnection, props.configuration, file, {
+        enterpriseCode: targetEnterpriseCode,
+        moduleName: selectedSchema.moduleName,
+        schemaName: selectedSchema.schemaName,
+        tenantCode: props.tenantCode,
+      });
     },
     onSuccess: (media) => {
       setUploadedMedia(media);
@@ -159,32 +271,32 @@ export function FileImportWorkspace(props: FileImportWorkspaceProps) {
   });
   const validate = useMutation({
     mutationFn: async () => {
-      if (!props.systemConnection)
-        throw new Error('System import service is unavailable');
+      if (!props.importConnection) throw new Error('Import service is unavailable');
       if (!hasTargetEnterprise)
         throw new Error('Select the target enterprise before validation');
       if (!uploadedMedia || !selectedSchema)
         throw new Error('Upload a file and select a target model first');
-      return validateMediaImport(props.systemConnection, props.configuration, {
+      return validateMediaImport(props.importConnection, props.configuration, {
         mediaCode: uploadedMedia.mediaCode,
         moduleName: selectedSchema.moduleName,
         schemaName: selectedSchema.schemaName,
         operation: 'saveAll',
       });
     },
-    onSuccess: () => {
-      setValidatedMediaCode(uploadedMedia?.mediaCode);
+    onSuccess: (result) => {
+      setValidatedMediaCode(
+        hasValidationIssues(result) ? undefined : uploadedMedia?.mediaCode,
+      );
     },
   });
   const install = useMutation({
     mutationFn: async () => {
-      if (!props.systemConnection)
-        throw new Error('System import service is unavailable');
+      if (!props.importConnection) throw new Error('Import service is unavailable');
       if (!hasTargetEnterprise)
         throw new Error('Select the target enterprise before importing');
       if (!uploadedMedia || !selectedSchema)
         throw new Error('Upload a file and select a target model first');
-      return installMediaImport(props.systemConnection, props.configuration, {
+      return installMediaImport(props.importConnection, props.configuration, {
         mediaCode: uploadedMedia.mediaCode,
         moduleName: selectedSchema.moduleName,
         schemaName: selectedSchema.schemaName,
@@ -196,27 +308,68 @@ export function FileImportWorkspace(props: FileImportWorkspaceProps) {
     !props.importConnection ? 'Import service' : undefined,
     !props.mediaConnection ? 'Media upload' : undefined,
     props.schemaConnections.length === 0 ? 'Schema discovery' : undefined,
-    !props.systemConnection ? 'System import execution' : undefined,
   ].filter((value): value is string => Boolean(value));
   const operationError =
     upload.error?.message ?? validate.error?.message ?? install.error?.message;
+  const currentValidationReport = useMemo(
+    () => validationReport(validate.data),
+    [validate.data],
+  );
+  const currentImportSummary = install.data?.importRun?.summary;
+  const currentImportFailures = importFailures(install.data);
+  const validationRows = useMemo(
+    () => currentValidationReport?.rows ?? [],
+    [currentValidationReport],
+  );
+  const importedRows = useMemo(
+    () => validationRows.filter((row) => row.status.toUpperCase() === 'VALID'),
+    [validationRows],
+  );
+  const filteredValidationRows = useMemo(() => {
+    const normalizedSearch = validationSearch.trim().toLowerCase();
+    return validationRows.filter((row) => {
+      const statusMatches =
+        validationStatusFilter === 'ALL' ||
+        row.status.toUpperCase() === validationStatusFilter;
+      if (!statusMatches) return false;
+      if (!normalizedSearch) return true;
+      return rowSearchText(row).includes(normalizedSearch);
+    });
+  }, [validationRows, validationSearch, validationStatusFilter]);
+  const pagedValidationRows = filteredValidationRows.slice(
+    validationPage * validationRowsPerPage,
+    validationPage * validationRowsPerPage + validationRowsPerPage,
+  );
+  const pagedImportedRows = importedRows.slice(
+    validationPage * validationRowsPerPage,
+    validationPage * validationRowsPerPage + validationRowsPerPage,
+  );
   const hasTargetEnterprise = targetEnterpriseCode.trim().length > 0;
   const canChooseModel = hasTargetEnterprise;
   const canChooseFile = Boolean(selectedSchema);
   const canValidate = Boolean(hasTargetEnterprise && uploadedMedia && selectedSchema);
-  const canInstall = canValidate && validatedMediaCode === uploadedMedia?.mediaCode;
+  const canInstall =
+    canValidate &&
+    validatedMediaCode === uploadedMedia?.mediaCode &&
+    !hasValidationIssues(validate.data);
   const busy = upload.isPending || validate.isPending || install.isPending;
   const hasFileSelection = Boolean(file || uploadedMedia);
   const clearSelectedFile = () => {
     setFile(undefined);
     setUploadedMedia(undefined);
     setValidatedMediaCode(undefined);
+    resetValidationReportView();
     upload.reset();
     validate.reset();
     install.reset();
     if (fileInputRef.current) {
       fileInputRef.current.value = '';
     }
+  };
+  const resetValidationReportView = () => {
+    setValidationSearch('');
+    setValidationStatusFilter('ALL');
+    setValidationPage(0);
   };
 
   return (
@@ -277,6 +430,10 @@ export function FileImportWorkspace(props: FileImportWorkspaceProps) {
                           validate.reset();
                           install.reset();
                           setValidatedMediaCode(undefined);
+                          resetValidationReportView();
+                          if (fileInputRef.current) {
+                            fileInputRef.current.value = '';
+                          }
                         }}
                       >
                         <MenuItem value={props.enterpriseCode}>
@@ -296,7 +453,9 @@ export function FileImportWorkspace(props: FileImportWorkspaceProps) {
                       >
                         Technical tenant
                       </Typography>
-                      <Typography sx={{ fontWeight: 700 }}>{props.tenantCode}</Typography>
+                      <Typography sx={{ fontWeight: 700 }}>
+                        {props.tenantCode}
+                      </Typography>
                     </Stack>
                   </Stack>
                 </Paper>
@@ -336,7 +495,9 @@ export function FileImportWorkspace(props: FileImportWorkspaceProps) {
                 {hasTargetEnterprise && schemas.isError ? (
                   <Alert severity="error">{schemas.error.message}</Alert>
                 ) : null}
-                {hasTargetEnterprise && schemas.isSuccess && schemaOptions.length === 0 ? (
+                {hasTargetEnterprise &&
+                schemas.isSuccess &&
+                schemaOptions.length === 0 ? (
                   <Alert severity="warning">
                     No importable target models are available for this enterprise.
                   </Alert>
@@ -365,6 +526,10 @@ export function FileImportWorkspace(props: FileImportWorkspaceProps) {
                       validate.reset();
                       install.reset();
                       setValidatedMediaCode(undefined);
+                      resetValidationReportView();
+                      if (fileInputRef.current) {
+                        fileInputRef.current.value = '';
+                      }
                     }}
                     renderInput={(params) => (
                       <TextField
@@ -443,10 +608,7 @@ export function FileImportWorkspace(props: FileImportWorkspaceProps) {
                           label={`Schema: ${selectedSchema.schemaName}`}
                           size="small"
                         />
-                        <Chip
-                          label="Operation: Save or update records"
-                          size="small"
-                        />
+                        <Chip label="Operation: Save or update records" size="small" />
                         <Chip
                           label={`Display: ${titleCase(selectedSchema.displayProperty)}`}
                           size="small"
@@ -492,6 +654,7 @@ export function FileImportWorkspace(props: FileImportWorkspaceProps) {
                         upload.reset();
                         validate.reset();
                         install.reset();
+                        resetValidationReportView();
                       }}
                     />
                   </Button>
@@ -514,7 +677,11 @@ export function FileImportWorkspace(props: FileImportWorkspaceProps) {
                 >
                   <Stack
                     direction="row"
-                    sx={{ alignItems: 'flex-start', gap: 1, justifyContent: 'space-between' }}
+                    sx={{
+                      alignItems: 'flex-start',
+                      gap: 1,
+                      justifyContent: 'space-between',
+                    }}
                   >
                     <Stack spacing={0.5}>
                       <Typography component="p" sx={{ fontWeight: 700 }}>
@@ -524,7 +691,10 @@ export function FileImportWorkspace(props: FileImportWorkspaceProps) {
                       </Typography>
                       <Stack direction="row" sx={{ flexWrap: 'wrap', gap: 0.75 }}>
                         {uploadedMedia ? (
-                          <Chip label={`Media: ${uploadedMedia.mediaCode}`} size="small" />
+                          <Chip
+                            label={`Media: ${uploadedMedia.mediaCode}`}
+                            size="small"
+                          />
                         ) : null}
                         {formatBytes(uploadedMedia?.sizeBytes ?? file?.size) ? (
                           <Chip
@@ -555,7 +725,10 @@ export function FileImportWorkspace(props: FileImportWorkspaceProps) {
                           flex: '0 0 auto',
                         }}
                       >
-                        <Box component="span" sx={{ fontSize: '1.25rem', lineHeight: 1 }}>
+                        <Box
+                          component="span"
+                          sx={{ fontSize: '1.25rem', lineHeight: 1 }}
+                        >
                           ×
                         </Box>
                       </IconButton>
@@ -576,32 +749,458 @@ export function FileImportWorkspace(props: FileImportWorkspaceProps) {
       <Divider />
       <Stack direction={{ xs: 'column', sm: 'row' }} sx={{ gap: 1.5 }}>
         <Button
-          disabled={busy || !canValidate || !props.systemConnection}
+          disabled={busy || !canValidate || !props.importConnection}
           variant="outlined"
-          onClick={() => validate.mutate()}
+          onClick={() => {
+            install.reset();
+            validate.mutate();
+          }}
         >
           {validate.isPending ? 'Validating…' : 'Validate file import'}
         </Button>
         <Button
-          disabled={busy || !canInstall || !props.systemConnection}
+          disabled={busy || !canInstall || !props.importConnection}
           variant="contained"
-          onClick={() => install.mutate()}
+          onClick={() => {
+            setValidationPage(0);
+            install.mutate();
+          }}
         >
           {install.isPending ? 'Importing…' : 'Install imported data'}
         </Button>
       </Stack>
-      {canValidate && !canInstall ? (
+      {canValidate && !validate.isSuccess && !validate.isError && !canInstall ? (
         <Alert severity="info">
           Validate this uploaded file before installation. If you change the file or
           contract, validation must be repeated.
         </Alert>
       ) : null}
       {operationError ? <Alert severity="error">{operationError}</Alert> : null}
-      {validate.isSuccess ? (
-        <Alert severity="success">
-          File import validation completed for {uploadName(uploadedMedia)}.{' '}
-          {validationSummaryText(validate.data)}
-        </Alert>
+      {validate.isSuccess && !install.isSuccess ? (
+        hasValidationIssues(validate.data) ? (
+          <Alert severity="warning">
+            File import validation completed for {uploadName(uploadedMedia)}, but{' '}
+            {(
+              currentValidationReport?.invalidRecords ??
+              validate.data.validationErrorCount ??
+              0
+            ).toLocaleString()}{' '}
+            record(s) need correction before installation. Review the validation report
+            below.
+          </Alert>
+        ) : (
+          <Alert severity="success">
+            File import validation completed for {uploadName(uploadedMedia)}.{' '}
+            {validationSummaryText(validate.data)}
+          </Alert>
+        )
+      ) : null}
+      {currentValidationReport && !install.isSuccess ? (
+        <Paper
+          variant="outlined"
+          sx={{
+            bgcolor: (theme) => alpha(theme.palette.background.paper, 0.84),
+            borderRadius: 2,
+            overflow: 'hidden',
+          }}
+        >
+          <Stack spacing={1.5} sx={{ p: { xs: 1.5, md: 2 } }}>
+            <Stack
+              direction={{ xs: 'column', md: 'row' }}
+              sx={{
+                alignItems: { md: 'center' },
+                justifyContent: 'space-between',
+                gap: 1.5,
+              }}
+            >
+              <Box>
+                <Typography component="h3" sx={{ fontWeight: 800 }}>
+                  Validation report
+                </Typography>
+                <Typography color="text.secondary" variant="body2">
+                  Review record-level results before importing data into Nodics.
+                </Typography>
+              </Box>
+              <Stack
+                direction="row"
+                sx={{
+                  alignItems: 'center',
+                  flexWrap: 'wrap',
+                  gap: 0.75,
+                  justifyContent: { xs: 'flex-start', md: 'flex-end' },
+                }}
+              >
+                <Chip
+                  size="small"
+                  label={`${currentValidationReport.totalRecords.toLocaleString()} total`}
+                />
+                <Chip
+                  color="success"
+                  size="small"
+                  label={`${currentValidationReport.validRecords.toLocaleString()} valid`}
+                />
+                <Chip
+                  color={
+                    currentValidationReport.invalidRecords > 0 ? 'error' : 'default'
+                  }
+                  size="small"
+                  label={`${currentValidationReport.invalidRecords.toLocaleString()} needs correction`}
+                />
+                <Chip
+                  color={
+                    currentValidationReport.warningRecords > 0 ? 'warning' : 'default'
+                  }
+                  size="small"
+                  label={`${currentValidationReport.warningRecords.toLocaleString()} warnings`}
+                />
+              </Stack>
+            </Stack>
+            <Divider />
+            <TextField
+              fullWidth
+              placeholder="Search records, fields, messages, or fix guidance"
+              value={validationSearch}
+              onChange={(event) => {
+                setValidationSearch(event.target.value);
+                setValidationPage(0);
+              }}
+              slotProps={{
+                input: {
+                  startAdornment: (
+                    <InputAdornment position="start">
+                      <Box
+                        component="span"
+                        sx={{ color: 'text.secondary', fontSize: '1.5rem' }}
+                      >
+                        ⌕
+                      </Box>
+                    </InputAdornment>
+                  ),
+                  endAdornment: validationSearch ? (
+                    <InputAdornment position="end">
+                      <IconButton
+                        aria-label="Clear validation search"
+                        edge="end"
+                        onClick={() => {
+                          setValidationSearch('');
+                          setValidationPage(0);
+                        }}
+                      >
+                        ×
+                      </IconButton>
+                    </InputAdornment>
+                  ) : undefined,
+                },
+              }}
+            />
+            <Stack
+              direction="row"
+              sx={{
+                alignItems: 'center',
+                flexWrap: 'wrap',
+                gap: 0.75,
+              }}
+            >
+              <Typography
+                color="text.secondary"
+                variant="caption"
+                sx={{
+                  fontWeight: 800,
+                  letterSpacing: '0.08em',
+                  textTransform: 'uppercase',
+                }}
+              >
+                Show
+              </Typography>
+              {(
+                [
+                  ['ALL', 'All'],
+                  ['VALID', 'Valid'],
+                  ['INVALID', 'Needs correction'],
+                  ['WARNING', 'Warnings'],
+                ] as const
+              ).map(([value, label]) => (
+                <Chip
+                  key={value}
+                  clickable
+                  color={validationStatusFilter === value ? 'primary' : 'default'}
+                  label={label}
+                  size="small"
+                  variant={validationStatusFilter === value ? 'filled' : 'outlined'}
+                  onClick={() => {
+                    setValidationStatusFilter(value);
+                    setValidationPage(0);
+                  }}
+                />
+              ))}
+            </Stack>
+          </Stack>
+          <Box sx={{ overflowX: 'auto' }}>
+            <Table size="small" sx={{ minWidth: 960 }}>
+              <TableHead
+                sx={{ bgcolor: (theme) => alpha(theme.palette.text.primary, 0.04) }}
+              >
+                <TableRow>
+                  <TableCell sx={{ width: '26%' }}>Record</TableCell>
+                  <TableCell sx={{ width: '12%' }}>Status</TableCell>
+                  <TableCell sx={{ width: '12%' }}>Field</TableCell>
+                  <TableCell sx={{ width: '26%' }}>Message</TableCell>
+                  <TableCell sx={{ width: '24%' }}>How to fix</TableCell>
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {pagedValidationRows.map((row, index) => {
+                  const sourceRecordIndex = validationRows.findIndex(
+                    (candidate) => candidate === row,
+                  );
+                  const displayRowNumber =
+                    sourceRecordIndex >= 0
+                      ? sourceRecordIndex + 1
+                      : validationPage * validationRowsPerPage + index + 1;
+                  return (
+                    <TableRow
+                      key={`${row.fileName ?? 'file'}-${row.recordKey ?? index}`}
+                    >
+                      <TableCell sx={{ maxWidth: 280 }}>
+                        <Typography sx={{ fontWeight: 800 }}>
+                          #{displayRowNumber.toString()}
+                        </Typography>
+                        {row.recordKey ? (
+                          <Typography
+                            color="text.secondary"
+                            variant="caption"
+                            sx={{ display: 'block', wordBreak: 'break-all' }}
+                          >
+                            {row.recordKey}
+                          </Typography>
+                        ) : null}
+                      </TableCell>
+                      <TableCell sx={{ whiteSpace: 'nowrap' }}>
+                        <Chip
+                          color={rowStatusColor(row)}
+                          label={rowStatusLabel(row)}
+                          size="small"
+                        />
+                      </TableCell>
+                      <TableCell>{row.field ?? '—'}</TableCell>
+                      <TableCell sx={{ maxWidth: 340 }}>{row.message ?? '—'}</TableCell>
+                      <TableCell sx={{ maxWidth: 340 }}>
+                        {row.howToFix || '—'}
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
+                {pagedValidationRows.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={5}>
+                      <Typography color="text.secondary">
+                        No validation records match the current filters.
+                      </Typography>
+                    </TableCell>
+                  </TableRow>
+                ) : null}
+              </TableBody>
+            </Table>
+          </Box>
+          <TablePagination
+            component="div"
+            count={filteredValidationRows.length}
+            page={validationPage}
+            rowsPerPage={validationRowsPerPage}
+            rowsPerPageOptions={[10, 25, 50, 100]}
+            sx={{ borderTop: 1, borderColor: 'divider' }}
+            onPageChange={(_, page) => setValidationPage(page)}
+            onRowsPerPageChange={(event) => {
+              setValidationRowsPerPage(Number(event.target.value));
+              setValidationPage(0);
+            }}
+          />
+        </Paper>
+      ) : null}
+      {install.isSuccess ? (
+        <Paper
+          variant="outlined"
+          sx={{
+            bgcolor: (theme) => alpha(theme.palette.background.paper, 0.84),
+            borderRadius: 2,
+            overflow: 'hidden',
+          }}
+        >
+          <Stack spacing={1.5} sx={{ p: { xs: 1.5, md: 2 } }}>
+            <Stack
+              direction={{ xs: 'column', md: 'row' }}
+              sx={{
+                alignItems: { md: 'center' },
+                justifyContent: 'space-between',
+                gap: 1.5,
+              }}
+            >
+              <Box>
+                <Typography component="h3" sx={{ fontWeight: 800 }}>
+                  Import report
+                </Typography>
+                <Typography color="text.secondary" variant="body2">
+                  Review backend execution results for the installed file.
+                </Typography>
+              </Box>
+              <Stack
+                direction="row"
+                sx={{
+                  alignItems: 'center',
+                  flexWrap: 'wrap',
+                  gap: 0.75,
+                  justifyContent: { xs: 'flex-start', md: 'flex-end' },
+                }}
+              >
+                <Chip
+                  size="small"
+                  label={`${countText(currentImportSummary?.recordsDispatched)} dispatched`}
+                />
+                <Chip
+                  color="success"
+                  size="small"
+                  label={`${countText(currentImportSummary?.recordsSucceeded)} succeeded`}
+                />
+                <Chip
+                  color={
+                    (currentImportSummary?.recordsFailed ?? 0) > 0 ? 'error' : 'default'
+                  }
+                  size="small"
+                  label={`${countText(currentImportSummary?.recordsFailed)} failed`}
+                />
+                <Chip
+                  size="small"
+                  label={`${countText(currentImportSummary?.totalRecordsHandled)} handled`}
+                />
+              </Stack>
+            </Stack>
+            <Divider />
+            {importedRows.length > 0 ? (
+              <Box sx={{ overflowX: 'auto' }}>
+                <Table size="small" sx={{ minWidth: 960 }}>
+                  <TableHead
+                    sx={{ bgcolor: (theme) => alpha(theme.palette.text.primary, 0.04) }}
+                  >
+                    <TableRow>
+                      <TableCell sx={{ width: '24%' }}>Record</TableCell>
+                      <TableCell sx={{ width: '14%' }}>Status</TableCell>
+                      <TableCell sx={{ width: '22%' }}>Target</TableCell>
+                      <TableCell sx={{ width: '40%' }}>Message</TableCell>
+                    </TableRow>
+                  </TableHead>
+                  <TableBody>
+                    {pagedImportedRows.map((row, index) => {
+                      const sourceRecordIndex = validationRows.findIndex(
+                        (candidate) => candidate === row,
+                      );
+                      const displayRowNumber =
+                        sourceRecordIndex >= 0
+                          ? sourceRecordIndex + 1
+                          : validationPage * validationRowsPerPage + index + 1;
+                      return (
+                        <TableRow
+                          key={`${row.fileName ?? 'file'}-${row.recordKey ?? index}`}
+                        >
+                          <TableCell sx={{ maxWidth: 280 }}>
+                            <Typography sx={{ fontWeight: 800 }}>
+                              #{displayRowNumber.toString()}
+                            </Typography>
+                            {row.recordKey ? (
+                              <Typography
+                                color="text.secondary"
+                                variant="caption"
+                                sx={{ display: 'block', wordBreak: 'break-all' }}
+                              >
+                                {row.recordKey}
+                              </Typography>
+                            ) : null}
+                          </TableCell>
+                          <TableCell sx={{ whiteSpace: 'nowrap' }}>
+                            <Chip color="success" label="Imported" size="small" />
+                          </TableCell>
+                          <TableCell>
+                            {titleCase(
+                              row.schemaName ?? selectedSchema?.schemaName ?? 'record',
+                            )}
+                          </TableCell>
+                          <TableCell>Record was installed successfully.</TableCell>
+                        </TableRow>
+                      );
+                    })}
+                  </TableBody>
+                </Table>
+                <TablePagination
+                  component="div"
+                  count={importedRows.length}
+                  page={validationPage}
+                  rowsPerPage={validationRowsPerPage}
+                  rowsPerPageOptions={[10, 25, 50, 100]}
+                  sx={{ borderTop: 1, borderColor: 'divider' }}
+                  onPageChange={(_, page) => setValidationPage(page)}
+                  onRowsPerPageChange={(event) => {
+                    setValidationRowsPerPage(Number(event.target.value));
+                    setValidationPage(0);
+                  }}
+                />
+              </Box>
+            ) : currentImportFailures.length > 0 ? (
+              <Box sx={{ overflowX: 'auto' }}>
+                <Table size="small" sx={{ minWidth: 960 }}>
+                  <TableHead
+                    sx={{ bgcolor: (theme) => alpha(theme.palette.text.primary, 0.04) }}
+                  >
+                    <TableRow>
+                      <TableCell sx={{ width: '24%' }}>Record</TableCell>
+                      <TableCell sx={{ width: '20%' }}>Target</TableCell>
+                      <TableCell sx={{ width: '32%' }}>Message</TableCell>
+                      <TableCell sx={{ width: '24%' }}>How to fix</TableCell>
+                    </TableRow>
+                  </TableHead>
+                  <TableBody>
+                    {currentImportFailures.slice(0, 100).map((failure, index) => (
+                      <TableRow
+                        key={`${failure.fileName ?? 'file'}-${failure.recordKey ?? index}`}
+                      >
+                        <TableCell sx={{ maxWidth: 280 }}>
+                          <Typography sx={{ fontWeight: 800 }}>
+                            #{(failure.rowNumber ?? index + 1).toString()}
+                          </Typography>
+                          {failure.recordKey ? (
+                            <Typography
+                              color="text.secondary"
+                              variant="caption"
+                              sx={{ display: 'block', wordBreak: 'break-all' }}
+                            >
+                              {failure.recordKey}
+                            </Typography>
+                          ) : null}
+                        </TableCell>
+                        <TableCell>{importFailureTarget(failure)}</TableCell>
+                        <TableCell sx={{ maxWidth: 360 }}>
+                          {importFailureMessage(failure)}
+                        </TableCell>
+                        <TableCell sx={{ maxWidth: 340 }}>
+                          {importFailureHowToFix(failure)}
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+                {currentImportFailures.length > 100 ? (
+                  <Typography color="text.secondary" variant="caption" sx={{ p: 1.5 }}>
+                    Showing first 100 failed records. Use import history for the
+                    complete backend run record.
+                  </Typography>
+                ) : null}
+              </Box>
+            ) : (
+              <Alert severity="success">
+                All dispatched records completed successfully. The backend did not
+                return row-level execution details for this run.
+              </Alert>
+            )}
+          </Stack>
+        </Paper>
       ) : null}
       {install.isSuccess ? (
         <Alert severity="success">

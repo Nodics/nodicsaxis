@@ -89,7 +89,10 @@ export function releaseDisabledReason(release: DataRelease): string | undefined 
   if (release.status === 'RUNNING') return 'Import is already running';
   if (release.status === 'CURRENT') return 'Already current';
   if (release.status === 'INVALID_RELEASE')
-    return 'Installed state is invalid; refresh or repair the release before installing';
+    return (
+      release.invalidReason ??
+      'Release manifest is invalid; repair it before installing'
+    );
   if (release.status === 'DOWNGRADE_AVAILABLE')
     return 'Downgrade is not allowed from Axis';
   return undefined;
@@ -114,6 +117,22 @@ export function historySearchText(run: ImportRunSummary): string {
     run.requestedBy,
     run.createdAt,
     ...run.modules,
+    ...(run.failures ?? []).flatMap((failure) => [
+      failure.fileName,
+      failure.recordKey,
+      failure.schemaName,
+      failure.operation,
+      failure.error?.code,
+      failure.error?.message,
+    ]),
+    ...(run.validationErrors ?? []).flatMap((failure) => [
+      failure.fileName,
+      failure.recordKey,
+      failure.schemaName,
+      failure.operation,
+      failure.error?.code,
+      failure.error?.message,
+    ]),
   ]
     .filter((value): value is string => Boolean(value))
     .join(' ')

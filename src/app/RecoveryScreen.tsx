@@ -10,7 +10,11 @@ import {
 } from '@mui/material';
 
 import { AxisMark } from './shell/AxisMark';
-import { getRecoveryContent, type RecoveryState } from './recoveryState';
+import {
+  getRecoveryContent,
+  getRecoveryDetailContent,
+  type RecoveryState,
+} from './recoveryState';
 
 interface RecoveryScreenProps {
   readonly state: RecoveryState;
@@ -19,6 +23,7 @@ interface RecoveryScreenProps {
 
 export function RecoveryScreen({ state, onRetry }: RecoveryScreenProps) {
   const content = getRecoveryContent(state.kind);
+  const detail = getRecoveryDetailContent(state.kind, state.detail);
 
   return (
     <Box
@@ -44,9 +49,16 @@ export function RecoveryScreen({ state, onRetry }: RecoveryScreenProps) {
               </Typography>
               <Typography color="text.secondary">{content.description}</Typography>
             </Stack>
-            {state.detail ? (
+            {detail ? (
               <Alert severity={state.kind === 'unauthorized' ? 'warning' : 'error'}>
-                {state.detail}
+                <Stack spacing={0.75}>
+                  <Typography component="span">{detail.message}</Typography>
+                  {detail.technicalDetail ? (
+                    <Typography color="text.secondary" component="span" variant="body2">
+                      Technical detail: {detail.technicalDetail}
+                    </Typography>
+                  ) : null}
+                </Stack>
               </Alert>
             ) : null}
             {state.correlationId ? (

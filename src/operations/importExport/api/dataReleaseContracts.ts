@@ -18,6 +18,7 @@ export interface DataRelease {
   readonly version: string;
   readonly description: string;
   readonly checksum: string;
+  readonly invalidReason?: string;
   readonly installedVersion?: string;
   readonly installedAt?: string;
   readonly lastAttemptAt?: string;
@@ -46,6 +47,8 @@ export interface ImportRunSummary {
   readonly requestedBy?: string;
   readonly createdAt?: string;
   readonly summary?: ImportRunRecordSummary;
+  readonly failures?: readonly ImportRunFailure[];
+  readonly validationErrors?: readonly ImportRunFailure[];
 }
 
 export interface ImportRunRecordSummary {
@@ -59,15 +62,50 @@ export interface ImportRunRecordSummary {
   readonly totalRecordsHandled?: number;
 }
 
-export interface ImportDefinitionSummary {
-  readonly code: string;
-  readonly description: string;
-  readonly moduleName: string;
+export interface ImportRunError {
+  readonly code?: string;
+  readonly message?: string;
+  readonly name?: string;
+}
+
+export interface ImportRunFailure {
+  readonly tenant?: string;
+  readonly owningModule?: string;
+  readonly targetModule?: string;
+  readonly headerName?: string;
+  readonly fileName?: string;
+  readonly recordKey?: string;
   readonly schemaName?: string;
   readonly indexName?: string;
   readonly operation?: string;
-  readonly dataFilePrefix: string;
-  readonly allowedExtensions: readonly string[];
+  readonly propertyName?: string;
+  readonly rowNumber?: number;
+  readonly error?: ImportRunError;
+}
+
+export interface ImportValidationRow {
+  readonly rowNumber?: number;
+  readonly recordKey?: string;
+  readonly status: string;
+  readonly severity?: string;
+  readonly fileName?: string;
+  readonly schemaName?: string;
+  readonly indexName?: string;
+  readonly operation?: string;
+  readonly tenant?: string;
+  readonly field?: string;
+  readonly message?: string;
+  readonly howToFix?: string;
+  readonly technicalCode?: string;
+  readonly errorCount?: number;
+}
+
+export interface ImportValidationReport {
+  readonly totalRecords: number;
+  readonly validRecords: number;
+  readonly invalidRecords: number;
+  readonly warningRecords: number;
+  readonly rows: readonly ImportValidationRow[];
 }
 
 export interface MediaUploadSummary {
@@ -80,11 +118,21 @@ export interface MediaUploadSummary {
   readonly status?: string;
 }
 
+export interface MediaUploadContext {
+  readonly enterpriseCode: string;
+  readonly moduleName: string;
+  readonly schemaName: string;
+  readonly tenantCode: string;
+}
+
 export interface MediaImportOperationResult {
   readonly validationOnly: boolean;
+  readonly validationPassed?: boolean;
+  readonly validationErrorCount?: number;
+  readonly validationErrors?: readonly ImportRunFailure[];
+  readonly validationReport?: ImportValidationReport;
   readonly importRun?: ImportRunSummary;
   readonly mediaSource?: MediaUploadSummary;
-  readonly importDefinition?: ImportDefinitionSummary;
 }
 
 export interface GenericMediaImportRequest {
@@ -92,4 +140,49 @@ export interface GenericMediaImportRequest {
   readonly moduleName: string;
   readonly schemaName: string;
   readonly operation: 'saveAll';
+}
+
+export type DataExportFileFormat = 'csv' | 'json';
+
+export interface DataExportRequest {
+  readonly enterpriseCode: string;
+  readonly moduleName: string;
+  readonly schemaName: string;
+  readonly format: DataExportFileFormat;
+  readonly query: {
+    readonly search: string;
+    readonly pageNumber: number;
+    readonly pageSize: number;
+    readonly sort: {
+      readonly field: string;
+      readonly direction: 'ASC' | 'DESC';
+    };
+  };
+}
+
+export interface DataExportMediaSummary {
+  readonly mediaCode: string;
+  readonly name: string;
+  readonly originalFileName?: string;
+  readonly extension?: string;
+  readonly sizeBytes?: number;
+  readonly checksum?: string;
+  readonly status?: string;
+  readonly accessUrl?: string;
+}
+
+export interface DataExportResultSummary {
+  readonly requestedRecords: number;
+  readonly exportedRecords: number;
+  readonly totalAvailableRecords: number;
+  readonly truncated: boolean;
+}
+
+export interface DataExportResult {
+  readonly moduleName: string;
+  readonly schemaName: string;
+  readonly format: DataExportFileFormat;
+  readonly fileName: string;
+  readonly media: DataExportMediaSummary;
+  readonly summary: DataExportResultSummary;
 }

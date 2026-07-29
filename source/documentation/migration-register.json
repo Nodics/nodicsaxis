@@ -187,8 +187,8 @@
       "canonicalSource": "source/documentation/pages/employee-login.md",
       "destinationRoute": "/docs/nodics-axis/employee-access",
       "disposition": "migrated",
-      "sourceHash": "d57cdeb689eb8f0bfe0b3c768888fabdbbf687e80139375c3e355416c7fc0aa4",
-      "wordCount": 1019,
+      "sourceHash": "66fe7b8b4a1d494575851de67d521be1d62b746202d60226599b7ea35057f77f",
+      "wordCount": 1075,
       "headings": [
         "Startup journey",
         "Password recovery",
@@ -312,15 +312,47 @@
       "canonicalSource": "source/documentation/pages/imports-and-exports.md",
       "destinationRoute": "/docs/nodics-axis/imports-exports",
       "disposition": "migrated",
-      "sourceHash": "f735998c62b3c94dd8b168d85e364ba1f8d2fa921d487a5a8e3494d42c83041a",
-      "wordCount": 1232,
+      "sourceHash": "357c7bc6c116588cf884909497d1397fb6c947ab02601caebcf43995abf9f014",
+      "wordCount": 1603,
       "headings": [
         "Purpose and ownership",
         "Frontend organization",
         "Employee workflow",
         "File import workflow",
         "Security, failure, and extension",
+        "Export workflow",
         "Customize and extend safely"
+      ]
+    },
+    {
+      "evidence": "source/documentation/pages/media-management.md",
+      "evidenceStatus": "retired-after-verified-migration",
+      "evidenceHash": "d71a8a16fcbd819d15b79b9b91d366999e5020194df7b1c5745eb72a4bdd90f2",
+      "evidenceWordCount": 2795,
+      "evidenceHeadings": [
+        "Purpose",
+        "Navigation",
+        "Implemented Axis behavior",
+        "Backend ownership",
+        "Customize and extend safely",
+        "Customizing storage policy safely",
+        "Customizing upload behavior safely",
+        "Verification"
+      ],
+      "canonicalSource": "source/documentation/pages/media-management.md",
+      "destinationRoute": "/docs/nodics-axis/media-management",
+      "disposition": "migrated",
+      "sourceHash": "d71a8a16fcbd819d15b79b9b91d366999e5020194df7b1c5745eb72a4bdd90f2",
+      "wordCount": 2795,
+      "headings": [
+        "Purpose",
+        "Navigation",
+        "Implemented Axis behavior",
+        "Backend ownership",
+        "Customize and extend safely",
+        "Customizing storage policy safely",
+        "Customizing upload behavior safely",
+        "Verification"
       ]
     },
     {

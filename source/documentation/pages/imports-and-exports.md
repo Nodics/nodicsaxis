@@ -58,16 +58,9 @@ first uploaded through the `media` module, which stores the file according to
 backend storage policy and returns a media code. Axis then sends only the media
 code and selected backend model to the secured `system` import route.
 
-The screen has four deliberate states:
+The screen has five deliberate states:
 
-1. **Choose target model.** Axis loads authorized Workbench schema metadata from
-   the connected backend modules and presents business-friendly model names such
-   as Tenant, Address, Product, Price, Stock Balance, or CMS Page. The selected
-   model still carries its authoritative module name and schema name, but Axis
-   does not make `importDefinition` the first decision. Import templates are a
-   later optional convenience for reusable mappings; the generic flow starts
-   from the target schema.
-2. **Confirm target destination.** Axis shows the target enterprise as the
+1. **Confirm target destination.** Axis shows the target enterprise as the
    business destination and shows the tenant only as technical traceability. The
    connected environment remains global read-only context; Axis is connected to
    one backend environment and does not offer environment switching inside file
@@ -75,14 +68,25 @@ The screen has four deliberate states:
    Nodics from enterprise configuration, while the selected data type is only
    the model being imported. Business users should not independently choose a
    tenant in the normal import flow. Axis presents enterprise as a selector even
-   when only one authorized enterprise is available, so the interaction is ready
-   for future multi-enterprise deployments. When multiple enterprises are
+   when only one authorized enterprise is available, so the interaction is
+   ready for future multi-enterprise deployments. When multiple enterprises are
    available, the selector should be populated from backend-authorized
    destinations and the tenant must remain read-only and derived from the
    selected enterprise.
+2. **Choose target model.** Axis loads authorized Workbench schema metadata from
+   the connected backend modules and presents business-friendly model names such
+   as Tenant, Address, Product, Price, Stock Balance, or CMS Page. The selected
+   model still carries its authoritative module name and schema name, but Axis
+   does not make `importDefinition` the first decision. Import templates are a
+   later optional convenience for reusable mappings; the generic flow starts
+   from the target schema.
 3. **Upload governed file.** The chosen browser file is submitted as
-   `multipart/form-data` to nMedia. Axis never sets the multipart boundary by
-   hand; the browser owns that header.
+   `multipart/form-data` to nMedia after enterprise and target model are
+   selected. Axis sends the selected enterprise, technical tenant, module name,
+   and schema name as upload context so the backend storage strategy can place
+   the file correctly. Axis never sets the multipart boundary by hand; the
+   browser owns that header. Axis must never infer the schema from the file
+   name.
 4. **Validate file import.** Axis calls the media-backed import route with
    validation enabled. nImport asks nMedia for the stored file, stages a
    temporary import workspace, generates a run-local header from the selected
@@ -131,8 +135,45 @@ Existing installations may enter this workspace with the historical
 fine-grained permission data. Nodics still enforces a separate type-specific
 permission for each execution.
 
-Export remains unavailable because backend export providers are fail-closed.
-Axis must not enable a placeholder or simulate export.
+## Export workflow
+
+Use **Exports** when an employee needs a governed file generated from records
+owned by a Nodics schema. Axis follows the same business-first sequence as file
+import:
+
+1. **Confirm target destination.** The employee chooses the target enterprise.
+   Axis shows the derived tenant as technical traceability because tenant is
+   database isolation, not a normal business choice. Axis stays connected to
+   one backend environment and does not switch environments inside the export
+   screen.
+2. **Choose export model.** Axis loads authorized schemas from the Schema
+   Workbench and groups them by owning module. The employee searches by model
+   name or module name and chooses the schema that owns the data. Axis keeps
+   the module name and schema name only as backend contract values.
+3. **Build query and preview.** Axis calls the owning module's Workbench search
+   route to preview records. The preview is deliberately bounded and read-only.
+   It helps the employee verify the query before generating a file, but it is
+   not the export authority.
+4. **Generate export file.** The employee chooses CSV or JSON. Axis calls the
+   secured nExport route. The backend uses nExport to re-run the governed
+   query, applies export access policy, renders the file, and asks nMedia to
+   store the output as an `exportFiles` media record.
+5. **Download or use the media.** Axis shows the generated file name, record
+   counts, media code, and download action when the backend returns an access
+   URL. Private, signed, or public delivery is always controlled by nMedia
+   policy; Axis never exposes raw filesystem paths.
+
+This first export implementation supports single-schema CSV and JSON exports.
+Multi-schema or aggregated exports, scheduled exports, additional formats, and
+external destinations should be added behind nExport provider contracts later.
+Those extensions must still generate media records for produced files so
+history, storage policy, access policy, and cleanup remain backend-owned.
+
+To customize export safely, change the owning backend schema/search behavior,
+export access policy, nExport rendering/provider services, or nMedia storage
+configuration. Axis may improve the query builder and result presentation, but
+it must not query databases directly, render authoritative business files from
+browser-only data, or decide media storage paths.
 
 Extend presentation inside this feature and reuse shell and API patterns. Never
 add an Axis filesystem picker or importer. Run `npm run verify` and validate

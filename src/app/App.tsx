@@ -20,6 +20,7 @@ import { WorkbenchRoutePage } from '../workbench/WorkbenchRoutePage';
 import { DocumentationRoutePage } from '../documentation/DocumentationRoutePage';
 import { ModuleHealthRoutePage } from '../operations/moduleHealth/ModuleHealthRoutePage';
 import { ImportExportRoutePage } from '../operations/importExport/ImportExportRoutePage';
+import { MediaManagementRoutePage } from '../operations/mediaManagement/MediaManagementRoutePage';
 import { useIdleScreenLock } from '../auth/useIdleScreenLock';
 import {
   clearScreenLock,
@@ -165,6 +166,9 @@ export function App() {
   );
   const importExportNavigation = authenticatedBootstrap?.navigation.find(
     (item) => item.id === 'imports-exports' && item.moduleName === 'backoffice',
+  );
+  const mediaManagementNavigation = authenticatedBootstrap?.navigation.find(
+    (item) => item.id === 'media-management' && item.moduleName === 'media',
   );
   const page = (
     path: string,
@@ -499,11 +503,41 @@ export function App() {
           )
         }
       />
+      <Route
+        path="/media-management/*"
+        element={
+          session && !locked && authenticatedBootstrap && mediaManagementNavigation ? (
+            authenticatedShell(
+              ['UP', 'DEGRADED'].includes(mediaManagementNavigation.availability) ? (
+                <MediaManagementRoutePage
+                  accessToken={session.accessToken}
+                  bootstrap={authenticatedBootstrap}
+                  runtime={runtime}
+                />
+              ) : (
+                <ModuleWorkspacePlaceholder item={mediaManagementNavigation} />
+              ),
+            )
+          ) : (
+            <Navigate
+              replace
+              to={
+                session && !locked
+                  ? composition.defaultAuthenticatedPage
+                  : session
+                    ? '/lock-screen'
+                    : composition.defaultPublicPage
+              }
+            />
+          )
+        }
+      />
       {session && !locked && authenticatedBootstrap
         ? authenticatedBootstrap.navigation
             .filter(
               (item) =>
                 !item.route.startsWith('/docs') &&
+                !item.route.startsWith('/media-management') &&
                 ![
                   '/assistant',
                   '/schema-workbench',
