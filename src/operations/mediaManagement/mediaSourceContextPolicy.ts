@@ -324,6 +324,13 @@ export function schemaForSourceType(
   );
 }
 
+export function targetRequiredForSourceType(
+  sourceType: string,
+  contexts?: readonly MediaSourceContext[],
+): boolean {
+  return backendContextForSourceType(contexts, sourceType)?.targetRequired === true;
+}
+
 export function sourceTypeStorageRouteLabel(
   sourceType: string,
   contexts?: readonly MediaSourceContext[],

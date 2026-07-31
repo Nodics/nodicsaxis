@@ -33,6 +33,7 @@ import {
   selectPreferredUploadPolicy,
   sourceTypeStorageRouteLabel,
   sourceTypeUploadPurpose,
+  targetRequiredForSourceType,
 } from '../mediaSourceContextPolicy';
 
 type ModuleConnection = ReturnType<typeof selectModuleConnection>;
@@ -436,6 +437,22 @@ export function MediaUploadWizard(props: MediaUploadWizardProps) {
     selectedSourceType,
     props.sourceContexts,
   );
+  const selectedModuleName = moduleForSourceType(
+    selectedSourceType,
+    props.sourceContexts,
+  );
+  const selectedSchemaName = schemaForSourceType(
+    selectedSourceType,
+    props.sourceContexts,
+  );
+  const selectedTargetRequired = targetRequiredForSourceType(
+    selectedSourceType,
+    props.sourceContexts,
+  );
+  const selectedTargetIssue =
+    selectedTargetRequired && (!selectedModuleName || !selectedSchemaName)
+      ? 'This source type requires a backend target module and schema before Axis can accept a file.'
+      : undefined;
   const selectedFilePolicyIssue = filePolicyIssue(
     selectedPolicy,
     selectedFile,
@@ -459,8 +476,7 @@ export function MediaUploadWizard(props: MediaUploadWizardProps) {
         selectedSourceType,
       );
       if (policyIssue) throw new Error(policyIssue);
-      const moduleName = moduleForSourceType(selectedSourceType, props.sourceContexts);
-      const schemaName = schemaForSourceType(selectedSourceType, props.sourceContexts);
+      if (selectedTargetIssue) throw new Error(selectedTargetIssue);
       return uploadMedia(props.connection, props.configuration, {
         file: selectedFile,
         folderCode: selectedPolicy.folderCode,
@@ -471,8 +487,8 @@ export function MediaUploadWizard(props: MediaUploadWizardProps) {
         ),
         name: selectedFile.name,
         description: `Uploaded from Nodics Axis Media Management as ${selectedSourceType}`,
-        ...(moduleName ? { moduleName } : {}),
-        ...(schemaName ? { schemaName } : {}),
+        ...(selectedModuleName ? { moduleName: selectedModuleName } : {}),
+        ...(selectedSchemaName ? { schemaName: selectedSchemaName } : {}),
       });
     },
     onSuccess: (media) => {
@@ -485,6 +501,7 @@ export function MediaUploadWizard(props: MediaUploadWizardProps) {
     selectedPolicy &&
     selectedFile &&
     !selectedFilePolicyIssue &&
+    !selectedTargetIssue &&
     !upload.isPending,
   );
 
@@ -617,8 +634,31 @@ export function MediaUploadWizard(props: MediaUploadWizardProps) {
                             label={`Max size: ${maxUploadSizeLabel(selectedPolicy, props.formatBytes)}`}
                             size="small"
                           />
+                          {selectedModuleName ? (
+                            <Chip
+                              label={`Target module: ${selectedModuleName}`}
+                              size="small"
+                            />
+                          ) : null}
+                          {selectedSchemaName ? (
+                            <Chip
+                              label={`Target schema: ${selectedSchemaName}`}
+                              size="small"
+                            />
+                          ) : null}
                         </Stack>
                       </Box>
+
+                      {selectedTargetRequired && !selectedTargetIssue ? (
+                        <Alert severity="info">
+                          Backend context requires a target, and nMedia published{' '}
+                          {selectedModuleName}/{selectedSchemaName} for this upload.
+                        </Alert>
+                      ) : null}
+
+                      {selectedTargetIssue ? (
+                        <Alert severity="warning">{selectedTargetIssue}</Alert>
+                      ) : null}
 
                       <Stack
                         direction={{ xs: 'column', sm: 'row' }}
@@ -627,7 +667,7 @@ export function MediaUploadWizard(props: MediaUploadWizardProps) {
                       >
                         <Button
                           component="label"
-                          disabled={upload.isPending}
+                          disabled={Boolean(selectedTargetIssue) || upload.isPending}
                           variant="outlined"
                         >
                           Choose media

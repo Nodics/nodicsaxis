@@ -126,10 +126,13 @@ Media Management operations. The wizard keeps the interaction layered:
 1. select a backend-published source type;
 2. show the resolved nMedia folder, format, route template, extension policy,
    MIME policy, and max-size policy;
-3. keep file selection disabled until a valid source type and policy are known;
-4. let the employee choose a local file;
-5. show a browser-only review; and
-6. submit the file to nMedia and call the parent refresh callback after a media
+3. show the backend-published target module and schema when a source type
+   requires target context;
+4. keep file selection disabled until a valid source type, policy, and required
+   target context are known;
+5. let the employee choose a local file;
+6. show a browser-only review; and
+7. submit the file to nMedia and call the parent refresh callback after a media
    code is returned.
 
 The browser-only review is intentionally advisory. Axis may show local metadata
@@ -394,6 +397,8 @@ When customizing the wizard, keep tests focused on the boundary:
 - generated export contexts remain excluded from manual upload unless nMedia
   explicitly publishes a different contract;
 - file selection is blocked until backend policy is known;
+- source types marked `targetRequired` by nMedia are blocked until the backend
+  publishes the target module and schema Axis should send with upload;
 - unsupported extensions, MIME types, and oversized files are rejected locally
   only as early UX warnings;
 - successful upload calls nMedia with the backend-derived folder, format,

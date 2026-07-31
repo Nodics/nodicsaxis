@@ -13,6 +13,7 @@ import {
   schemaForSourceType,
   selectPreferredUploadPolicy,
   sourceTypeStorageRouteLabel,
+  targetRequiredForSourceType,
 } from '../../../src/operations/mediaManagement/mediaSourceContextPolicy';
 import type { MediaSourceContext } from '../../../src/operations/mediaManagement/api/mediaStoragePolicyClient';
 
@@ -156,6 +157,8 @@ describe('mediaSourceContextPolicy', () => {
     ).toBe('original');
     expect(moduleForSourceType('Content media', backendContexts)).toBe('cms');
     expect(schemaForSourceType('Content media', backendContexts)).toBe('cmsComponent');
+    expect(targetRequiredForSourceType('Data imports', backendContexts)).toBe(true);
+    expect(targetRequiredForSourceType('Content media', backendContexts)).toBe(false);
     expect(sourceTypeStorageRouteLabel('Content media', backendContexts)).toBe(
       'media/content/{mediaCode}.{extension}',
     );

@@ -68,6 +68,11 @@ function context(
   sourceType: string,
   folderCode: string,
   manualUploadEnabled: boolean,
+  options?: {
+    readonly moduleName?: string;
+    readonly schemaName?: string;
+    readonly targetRequired?: boolean;
+  },
 ): MediaSourceContext {
   const folderPolicy = policy(folderCode);
   return Object.freeze({
@@ -90,18 +95,20 @@ function context(
     ),
     defaultFormatCode: sourceType === 'Data imports' ? 'importFile' : 'original',
     defaultModuleName:
-      sourceType === 'Content media'
+      options?.moduleName ??
+      (sourceType === 'Content media'
         ? 'cms'
         : sourceType === 'Data imports'
           ? 'import'
-          : undefined,
+          : undefined),
     defaultSchemaName:
-      sourceType === 'Content media'
+      options?.schemaName ??
+      (sourceType === 'Content media'
         ? 'cmsComponent'
         : sourceType === 'Data imports'
           ? 'mediaImport'
-          : undefined,
-    targetRequired: false,
+          : undefined),
+    targetRequired: options?.targetRequired ?? sourceType === 'Data imports',
     manualUploadEnabled,
     storageRouteTemplate: `media/${folderCode}/{mediaCode}.{extension}`,
   });
@@ -115,6 +122,7 @@ const sourceContexts: readonly MediaSourceContext[] = Object.freeze([
 
 function renderWizard(props?: {
   readonly onUploaded?: (media: MediaUploadResult) => void;
+  readonly sourceContexts?: readonly MediaSourceContext[];
 }) {
   const queryClient = new QueryClient({
     defaultOptions: {
@@ -132,7 +140,7 @@ function renderWizard(props?: {
         loading={false}
         onUploaded={props?.onUploaded ?? vi.fn()}
         policies={[policy('importSources'), policy('cmsAssets'), policy('exportFiles')]}
-        sourceContexts={sourceContexts}
+        sourceContexts={props?.sourceContexts ?? sourceContexts}
       />
     </QueryClientProvider>,
   );
@@ -221,6 +229,48 @@ describe('MediaUploadWizard', () => {
     expect(
       await screen.findByText(/Media uploaded as media_content_001/i),
     ).toBeVisible();
+  });
+
+  it('shows backend-resolved target context when a source type requires it', async () => {
+    renderWizard();
+
+    await selectSourceTypeAndUpload(
+      'Data imports',
+      new File(['code,name\np1,Product 1'], 'products.csv', { type: 'text/csv' }),
+    );
+
+    expect(screen.getByText('Target module: import')).toBeVisible();
+    expect(screen.getByText('Target schema: mediaImport')).toBeVisible();
+    expect(
+      screen.getByText(
+        /Backend context requires a target, and nMedia published import\/mediaImport/i,
+      ),
+    ).toBeVisible();
+  });
+
+  it('blocks file selection when a required target is not published by backend context', async () => {
+    const user = userEvent.setup();
+    const missingTargetContexts: readonly MediaSourceContext[] = Object.freeze([
+      context('dataImports', 'Data imports', 'importSources', true, {
+        moduleName: '',
+        schemaName: '',
+        targetRequired: true,
+      }),
+    ]);
+    renderWizard({ sourceContexts: missingTargetContexts });
+
+    await user.click(screen.getByRole('combobox', { name: 'Source type' }));
+    await user.click(await screen.findByRole('option', { name: 'Data imports' }));
+
+    expect(
+      await screen.findByText(
+        'This source type requires a backend target module and schema before Axis can accept a file.',
+      ),
+    ).toBeVisible();
+    expect(screen.getByRole('button', { name: 'Choose media' })).toHaveAttribute(
+      'aria-disabled',
+      'true',
+    );
   });
 
   it('summarizes image dimensions before upload without treating the preview as validation', async () => {
