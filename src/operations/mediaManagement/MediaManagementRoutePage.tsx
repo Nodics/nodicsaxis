@@ -78,7 +78,10 @@ interface MediaManagementRoutePageProps {
 
 interface MediaRecordColumn {
   readonly label: string;
-  readonly render: (record: WorkbenchRecord) => ReactNode;
+  readonly render: (
+    record: WorkbenchRecord,
+    contexts?: readonly MediaSourceContext[],
+  ) => ReactNode;
 }
 
 interface MediaRecordDetail {
@@ -108,7 +111,10 @@ interface MediaRecordFacetFilter {
   readonly label: string;
   readonly optionLabel?: (value: string) => string;
   readonly staticOptions?: readonly string[];
-  readonly value: (record: WorkbenchRecord) => string;
+  readonly value: (
+    record: WorkbenchRecord,
+    contexts?: readonly MediaSourceContext[],
+  ) => string;
 }
 
 const sectionSummaries: Readonly<Record<string, string>> = Object.freeze({
@@ -1632,7 +1638,8 @@ const recordWorkspaceConfigurations: Readonly<
       },
       {
         label: 'Source type',
-        render: (record) => mediaSourceType(textValue(record, 'folderCode')),
+        render: (record, contexts) =>
+          mediaSourceType(textValue(record, 'folderCode'), contexts),
       },
       {
         label: 'Format',
@@ -1928,7 +1935,8 @@ const recordWorkspaceFacetFilters: Readonly<
       key: 'sourceType',
       label: 'Source type',
       staticOptions: governedMediaSourceTypes,
-      value: (record) => mediaSourceType(textValue(record, 'folderCode')),
+      value: (record, contexts) =>
+        mediaSourceType(textValue(record, 'folderCode'), contexts),
     },
   ],
   'media-folders': [
@@ -1936,7 +1944,7 @@ const recordWorkspaceFacetFilters: Readonly<
       allLabel: 'All source types',
       key: 'sourceType',
       label: 'Source type',
-      value: (record) => mediaSourceType(textValue(record, 'code')),
+      value: (record, contexts) => mediaSourceType(textValue(record, 'code'), contexts),
     },
     {
       allLabel: 'All visibility rules',
@@ -2095,7 +2103,8 @@ export function MediaManagementRoutePage(props: MediaManagementRoutePageProps) {
   );
   const mediaContexts = useQuery({
     enabled: Boolean(
-      (currentItem?.id === 'storage-delivery' || currentItem?.id === 'media') &&
+      (currentItem?.id === 'storage-delivery' ||
+        currentFacetFilters.some((filter) => filter.key === 'sourceType')) &&
       connection,
     ),
     queryKey: [
@@ -2170,7 +2179,7 @@ export function MediaManagementRoutePage(props: MediaManagementRoutePageProps) {
     .map((filter) => {
       const dynamicOptions = uniqueSorted(
         loadedRecords
-          .map((record) => filter.value(record))
+          .map((record) => filter.value(record, mediaContexts.data))
           .filter((value) => value && value !== '—'),
       );
       const backendSourceOptions =
@@ -2705,7 +2714,7 @@ export function MediaManagementRoutePage(props: MediaManagementRoutePageProps) {
                                   {recordWorkspaceConfiguration.columns.map(
                                     (column) => (
                                       <TableCell key={column.label}>
-                                        {column.render(record)}
+                                        {column.render(record, mediaContexts.data)}
                                       </TableCell>
                                     ),
                                   )}

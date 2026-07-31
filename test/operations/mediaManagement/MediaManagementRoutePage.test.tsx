@@ -190,7 +190,7 @@ describe('MediaManagementRoutePage', () => {
                   code: 'home-banner',
                   name: 'Home banner',
                   originalFileName: 'home-banner.png',
-                  folderCode: 'cmsAssets',
+                  folderCode: 'brandAssets',
                   formatCode: 'desktop',
                   providerCode: 'local',
                   access: 'PUBLIC',
@@ -231,14 +231,19 @@ describe('MediaManagementRoutePage', () => {
                 {
                   code: 'contentMedia',
                   sourceType: 'Content media',
-                  aliases: ['contentMedia', 'cmsAssets', 'contentAssets'],
+                  aliases: [
+                    'contentMedia',
+                    'cmsAssets',
+                    'contentAssets',
+                    'brandAssets',
+                  ],
                   label: 'Content media',
                   description: 'Backend content media context',
-                  folderCodes: ['cmsAssets'],
-                  defaultFolderCode: 'cmsAssets',
+                  folderCodes: ['brandAssets'],
+                  defaultFolderCode: 'brandAssets',
                   allowedFolders: [
                     {
-                      folderCode: 'cmsAssets',
+                      folderCode: 'brandAssets',
                       storagePrefix: 'media/content',
                       access: 'PUBLIC',
                       retentionDays: 0,
