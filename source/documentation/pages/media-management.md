@@ -170,24 +170,26 @@ validation, default visibility, retention, and provider-relative routing. It
 also repeats the boundary: provider secrets, raw paths, and alternate
 browser-side upload rules must not be added to Axis.
 
-Folder policy editing is intentionally gated by the generated schema contract.
-If the discovered `mediaFolder` schema does not advertise `GENERATED_CRUD`
-update permission for the employee session, Axis shows the policy as read-only
-and directs administrators back to backend-approved media configuration or the
-Schema Workbench. When update is advertised, Axis exposes a small policy action
-panel for visibility, maximum upload size, and retention days. The panel submits
-only those fields through the generated `mediaFolder` schema mutation; it does
-not edit storage prefixes, resolved paths, provider secrets, provider
+Folder policy editing is intentionally nMedia-owned. If the discovered
+`mediaFolder` schema does not advertise update permission for the employee
+session, Axis shows the policy as read-only and directs administrators back to
+backend-approved media configuration. When update is advertised, Axis exposes a
+small policy action panel for visibility, maximum upload size, and retention
+days. The panel submits only those fields through the nMedia folder policy
+operation, so future upload validation uses the same backend authority. Axis
+does not edit storage prefixes, resolved paths, provider secrets, provider
 configuration, or browser-side policy rules. nMedia remains responsible for
 validation, routing, provider behavior, tenant policy, and persistence.
 
-For full generated CRUD, Media Management links to Schema Workbench instead of
-duplicating the generic record form. The handoff URL is
+Media Management may link to Schema Workbench for generic `mediaFolder` record
+inspection, search, audit, or seed-data workflows instead of duplicating the
+generic record form. The handoff URL is
 `/schema-workbench?module=media&schema=mediaFolder`; when the backend advertises
 create permission, Axis may also link to
-`/schema-workbench?module=media&schema=mediaFolder&mode=create`. Schema
-Workbench still uses the discovered nMedia schema and the employee's authorized
-operations, so the handoff does not create a second media-folder authority.
+`/schema-workbench?module=media&schema=mediaFolder&mode=create`. Those links do
+not replace the nMedia policy operation for live upload-policy changes unless a
+deployment explicitly synchronizes generated records into effective
+configuration through nMedia-owned governance.
 
 The **Media Formats** section is also operational. Axis discovers the
 `mediaFormat` schema from nMedia and shows reusable presentation or processing

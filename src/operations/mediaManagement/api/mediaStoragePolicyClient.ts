@@ -57,6 +57,13 @@ export interface MediaUploadInput {
   readonly description?: string;
 }
 
+export interface MediaFolderPolicyUpdateInput {
+  readonly folderCode: string;
+  readonly access: string;
+  readonly maximumFileSizeBytes?: number | undefined;
+  readonly retentionDays?: number | undefined;
+}
+
 export interface MediaUploadResult {
   readonly code: string;
   readonly name: string | undefined;
@@ -354,6 +361,61 @@ export async function loadMediaSourceContexts(
     throw error instanceof Error
       ? error
       : new Error('Media source context request failed');
+  } finally {
+    globalThis.clearTimeout(timeout);
+  }
+}
+
+export async function updateMediaFolderPolicy(
+  connection: AxisModuleConnection,
+  configuration: MediaStoragePolicyClientConfiguration,
+  input: MediaFolderPolicyUpdateInput,
+  fetchImplementation: typeof fetch = fetch,
+): Promise<MediaSourceContextFolderPolicy> {
+  const endpoint = new URL(connection.endpoint);
+  if (!['http:', 'https:'].includes(endpoint.protocol)) {
+    throw new Error('Media endpoint is invalid');
+  }
+  if (!input.folderCode.trim()) {
+    throw new Error('Media folder is required before policy update');
+  }
+  const controller = new AbortController();
+  const timeout = globalThis.setTimeout(
+    () => controller.abort(),
+    configuration.timeoutMs,
+  );
+  try {
+    const response = await fetchImplementation(
+      new URL(
+        `${endpoint.toString().replace(/\/$/, '')}/v0/folders/policy/${encodeURIComponent(input.folderCode)}`,
+      ),
+      {
+        method: 'PATCH',
+        body: JSON.stringify({
+          access: input.access,
+          maximumFileSizeBytes: input.maximumFileSizeBytes,
+          retentionDays: input.retentionDays,
+        }),
+        cache: 'no-store',
+        credentials: 'omit',
+        redirect: 'error',
+        signal: controller.signal,
+        headers: {
+          Accept: 'application/json',
+          Authorization: `Bearer ${configuration.accessToken}`,
+          'Content-Type': 'application/json',
+          'x-enterprise-code': configuration.enterpriseCode,
+        },
+      },
+    );
+    if (!response.ok) throw new Error(await safeError(response));
+    return parseContextFolderPolicy(envelopeData(await response.json()));
+  } catch (error: unknown) {
+    if (controller.signal.aborted)
+      throw new Error('Media folder policy update timed out');
+    throw error instanceof Error
+      ? error
+      : new Error('Media folder policy update failed');
   } finally {
     globalThis.clearTimeout(timeout);
   }

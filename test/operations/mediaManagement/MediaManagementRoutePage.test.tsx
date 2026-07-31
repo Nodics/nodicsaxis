@@ -469,7 +469,9 @@ describe('MediaManagementRoutePage', () => {
       screen.getByText(/nMedia uses this folder policy for upload validation/i),
     ).toBeVisible();
     expect(
-      screen.getByText(/Editing is unavailable until nMedia exposes generated update/i),
+      screen.getByText(
+        /Editing is unavailable until nMedia exposes mediaFolder update/i,
+      ),
     ).toBeVisible();
     expect(screen.getByRole('button', { name: 'Save folder policy' })).toBeDisabled();
     expect(
@@ -484,7 +486,7 @@ describe('MediaManagementRoutePage', () => {
     expect(screen.queryByText('must-not-render')).not.toBeInTheDocument();
   });
 
-  it('updates media folder policy only through generated schema mutations', async () => {
+  it('updates effective media folder policy through nMedia policy operations', async () => {
     const user = userEvent.setup();
     const editableMediaFolderSchema: WorkbenchSchema = {
       ...mediaFolderSchema,
@@ -528,21 +530,23 @@ describe('MediaManagementRoutePage', () => {
           );
         }
         if (
-          url.pathname === '/nodics/media/v0/mediaFolder' &&
+          url.pathname === '/nodics/media/v0/folders/policy/cmsAssets' &&
           init?.method === 'PATCH'
         ) {
           return Promise.resolve(
             json({
-              models: [
-                {
-                  code: 'cmsAssets',
-                  name: 'CMS assets',
-                  storagePrefix: 'media/content',
-                  access: 'SIGNED',
-                  maximumFileSizeBytes: 1024,
-                  retentionDays: 30,
-                },
-              ],
+              folderCode: 'cmsAssets',
+              name: 'CMS assets',
+              storagePrefix: 'media/content',
+              access: 'SIGNED',
+              retentionDays: 30,
+              status: 'ACTIVE',
+              uploadPolicy: {
+                allowedExtensions: ['png', 'webp'],
+                allowedMimeTypes: ['image/png', 'image/webp'],
+                maximumFileSizeBytes: 1024,
+                checksumAlgorithm: 'sha256',
+              },
             }),
           );
         }
@@ -556,7 +560,7 @@ describe('MediaManagementRoutePage', () => {
 
     expect((await screen.findAllByText('CMS assets')).length).toBeGreaterThan(0);
     expect(
-      screen.getByText(/Axis submits folder policy changes through the generated/i),
+      screen.getByText(/Axis submits folder policy changes through the nMedia/i),
     ).toBeVisible();
     expect(
       screen.getByRole('link', { name: 'Create folder in Schema Workbench' }),
@@ -581,7 +585,8 @@ describe('MediaManagementRoutePage', () => {
         fetchMock.mock.calls.some(([input, init]) => {
           const url = fetchInputUrl(input);
           return (
-            url.pathname === '/nodics/media/v0/mediaFolder' && init?.method === 'PATCH'
+            url.pathname === '/nodics/media/v0/folders/policy/cmsAssets' &&
+            init?.method === 'PATCH'
           );
         }),
       ).toBe(true);
@@ -589,17 +594,14 @@ describe('MediaManagementRoutePage', () => {
     const updateRequest = fetchMock.mock.calls.find(([input, init]) => {
       const url = fetchInputUrl(input);
       return (
-        url.pathname === '/nodics/media/v0/mediaFolder' && init?.method === 'PATCH'
+        url.pathname === '/nodics/media/v0/folders/policy/cmsAssets' &&
+        init?.method === 'PATCH'
       );
     });
     expect(JSON.parse(fetchBodyText(updateRequest?.[1]))).toEqual({
-      model: {
-        access: 'SIGNED',
-        maximumFileSizeBytes: 1024,
-        retentionDays: 30,
-      },
-      options: { recursive: false, returnModified: true },
-      query: { code: 'cmsAssets' },
+      access: 'SIGNED',
+      maximumFileSizeBytes: 1024,
+      retentionDays: 30,
     });
     expect(fetchMock).not.toHaveBeenCalledWith(
       expect.objectContaining({
@@ -607,6 +609,12 @@ describe('MediaManagementRoutePage', () => {
       }),
       expect.anything(),
     );
+    expect(
+      fetchMock.mock.calls.some(([input]) => {
+        const url = fetchInputUrl(input);
+        return url.pathname === '/nodics/media/v0/mediaFolder';
+      }),
+    ).toBe(false);
     expect(screen.queryByText('/do/not/show/cms-assets')).not.toBeInTheDocument();
     expect(screen.queryByText('must-not-render')).not.toBeInTheDocument();
   });

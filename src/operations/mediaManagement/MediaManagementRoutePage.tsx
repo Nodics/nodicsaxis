@@ -49,6 +49,7 @@ import type {
 import {
   loadMediaSourceContexts,
   loadMediaFolderUploadPolicies,
+  updateMediaFolderPolicy,
   type MediaFolderUploadPolicy,
   type MediaSourceContext,
   type MediaUploadResult,
@@ -480,14 +481,15 @@ function MediaFolderPolicyActionsPanel(props: {
   }, [props.record]);
 
   const mutation = useMutation({
-    mutationFn: (model: Readonly<Record<string, unknown>>) =>
-      updateWorkbenchRecord(
-        props.connection!,
-        props.folderSchema,
-        props.record,
-        model,
-        props.configuration,
-      ),
+    mutationFn: (model: {
+      readonly access: string;
+      readonly maximumFileSizeBytes?: number | undefined;
+      readonly retentionDays?: number | undefined;
+    }) =>
+      updateMediaFolderPolicy(props.connection!, props.configuration, {
+        folderCode: textValue(props.record, 'code'),
+        ...model,
+      }),
     onSuccess: () => props.onChanged(),
   });
   const canUpdate =
@@ -505,7 +507,11 @@ function MediaFolderPolicyActionsPanel(props: {
     maximumFileSizeBytes.trim().length > 0 && parsedMaximumFileSizeBytes === undefined;
   const retentionInvalid =
     retentionDays.trim().length > 0 && parsedRetentionDays === undefined;
-  const model: Readonly<Record<string, unknown>> = {
+  const model: {
+    readonly access: string;
+    readonly maximumFileSizeBytes?: number | undefined;
+    readonly retentionDays?: number | undefined;
+  } = {
     access,
     maximumFileSizeBytes: parsedMaximumFileSizeBytes,
     retentionDays: parsedRetentionDays,
@@ -529,14 +535,13 @@ function MediaFolderPolicyActionsPanel(props: {
       </Typography>
       {!canUpdate ? (
         <Alert severity="info">
-          Editing is unavailable until nMedia exposes generated update permission for
-          the mediaFolder schema in this employee session. Use the Schema Workbench or
-          backend configuration approved for this deployment.
+          Editing is unavailable until nMedia exposes mediaFolder update permission for
+          this employee session. Use backend configuration approved for this deployment.
         </Alert>
       ) : (
         <Alert severity="info">
-          Axis submits folder policy changes through the generated mediaFolder schema
-          mutation contract. nMedia remains responsible for validation, storage routing,
+          Axis submits folder policy changes through the nMedia folder policy operation.
+          nMedia remains responsible for validation, upload policy, storage routing,
           provider configuration, and tenant policy.
         </Alert>
       )}
@@ -622,7 +627,9 @@ function MediaFolderPolicyActionsPanel(props: {
         </Alert>
       ) : null}
       {mutation.data ? (
-        <Alert severity="success">Folder policy was submitted to nMedia.</Alert>
+        <Alert severity="success">
+          Folder policy was submitted to nMedia and will affect future upload policy.
+        </Alert>
       ) : null}
     </Stack>
   );
