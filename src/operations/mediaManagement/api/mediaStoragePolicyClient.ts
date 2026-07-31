@@ -64,6 +64,11 @@ export interface MediaFolderPolicyUpdateInput {
   readonly retentionDays?: number | undefined;
 }
 
+export interface MediaSetEntryOperationInput {
+  readonly mediaSetCode: string;
+  readonly entryCode: string;
+}
+
 export interface MediaUploadResult {
   readonly code: string;
   readonly name: string | undefined;
@@ -419,6 +424,104 @@ export async function updateMediaFolderPolicy(
   } finally {
     globalThis.clearTimeout(timeout);
   }
+}
+
+async function mutateMediaSetEntry(
+  connection: AxisModuleConnection,
+  configuration: MediaStoragePolicyClientConfiguration,
+  path: string,
+  method: 'DELETE' | 'POST',
+  body: unknown | undefined,
+  failureMessage: string,
+  fetchImplementation: typeof fetch,
+): Promise<Record<string, unknown>> {
+  const endpoint = new URL(connection.endpoint);
+  if (!['http:', 'https:'].includes(endpoint.protocol)) {
+    throw new Error('Media endpoint is invalid');
+  }
+  const controller = new AbortController();
+  const timeout = globalThis.setTimeout(
+    () => controller.abort(),
+    configuration.timeoutMs,
+  );
+  try {
+    const response = await fetchImplementation(
+      new URL(`${endpoint.toString().replace(/\/$/, '')}${path}`),
+      {
+        method,
+        ...(body === undefined ? {} : { body: JSON.stringify(body) }),
+        cache: 'no-store',
+        credentials: 'omit',
+        redirect: 'error',
+        signal: controller.signal,
+        headers: {
+          Accept: 'application/json',
+          Authorization: `Bearer ${configuration.accessToken}`,
+          ...(body === undefined ? {} : { 'Content-Type': 'application/json' }),
+          'x-enterprise-code': configuration.enterpriseCode,
+        },
+      },
+    );
+    if (!response.ok) throw new Error(await safeError(response));
+    return record(envelopeData(await response.json()), 'Media set entry response');
+  } catch (error: unknown) {
+    if (controller.signal.aborted) throw new Error(`${failureMessage} timed out`);
+    throw error instanceof Error ? error : new Error(failureMessage);
+  } finally {
+    globalThis.clearTimeout(timeout);
+  }
+}
+
+export async function removeMediaSetEntry(
+  connection: AxisModuleConnection,
+  configuration: MediaStoragePolicyClientConfiguration,
+  input: MediaSetEntryOperationInput,
+  fetchImplementation: typeof fetch = fetch,
+): Promise<Record<string, unknown>> {
+  return mutateMediaSetEntry(
+    connection,
+    configuration,
+    `/v0/sets/${encodeURIComponent(input.mediaSetCode)}/entries/${encodeURIComponent(input.entryCode)}`,
+    'DELETE',
+    undefined,
+    'Media set entry removal failed',
+    fetchImplementation,
+  );
+}
+
+export async function reorderMediaSetEntries(
+  connection: AxisModuleConnection,
+  configuration: MediaStoragePolicyClientConfiguration,
+  mediaSetCode: string,
+  entryCodes: readonly string[],
+  fetchImplementation: typeof fetch = fetch,
+): Promise<Record<string, unknown>> {
+  return mutateMediaSetEntry(
+    connection,
+    configuration,
+    `/v0/sets/${encodeURIComponent(mediaSetCode)}/entries/reorder`,
+    'POST',
+    { entryCodes },
+    'Media set entry reorder failed',
+    fetchImplementation,
+  );
+}
+
+export async function setPrimaryMediaSetEntry(
+  connection: AxisModuleConnection,
+  configuration: MediaStoragePolicyClientConfiguration,
+  input: MediaSetEntryOperationInput,
+  fetchImplementation: typeof fetch = fetch,
+): Promise<Record<string, unknown>> {
+  return mutateMediaSetEntry(
+    connection,
+    configuration,
+    `/v0/sets/${encodeURIComponent(input.mediaSetCode)}/entries/${encodeURIComponent(input.entryCode)}/primary`,
+    'POST',
+    undefined,
+    'Media set primary update failed',
+    fetchImplementation,
+  );
 }
 
 export async function uploadMedia(

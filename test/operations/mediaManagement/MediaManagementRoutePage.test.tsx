@@ -84,6 +84,20 @@ const bootstrap: AxisAuthenticatedBootstrap = {
       253,
       'media-management',
     ),
+    navigationItem(
+      'media-formats',
+      'Media formats',
+      '/media-management/formats',
+      254,
+      'media-management',
+    ),
+    navigationItem(
+      'media-sets',
+      'Media sets',
+      '/media-management/sets',
+      255,
+      'media-management',
+    ),
   ],
   environments: ['startioLocal'],
   moduleCatalog: {},
@@ -153,6 +167,89 @@ const mediaFolderSchema: WorkbenchSchema = {
     ],
   },
   operations: ['search', 'read'],
+};
+
+const mediaFormatSchema: WorkbenchSchema = {
+  ...mediaSchema,
+  schemaName: 'mediaFormat',
+  label: 'Media format',
+  displayProperties: ['code', 'name'],
+  queryCapabilities: {
+    ...mediaSchema.queryCapabilities,
+    searchableFields: [
+      'code',
+      'name',
+      'description',
+      'purpose',
+      'formatFamily',
+      'status',
+    ],
+    filterFields: [
+      {
+        field: 'formatFamily',
+        label: 'Format family',
+        type: 'string',
+        operators: ['EQUALS', 'IN'],
+      },
+      {
+        field: 'purpose',
+        label: 'Purpose',
+        type: 'string',
+        operators: ['EQUALS', 'IN'],
+      },
+      { field: 'status', label: 'Status', type: 'string', operators: ['EQUALS', 'IN'] },
+    ],
+    groupOperators: ['AND', 'OR'],
+  },
+  operations: ['search', 'read'],
+};
+
+const mediaSetSchema: WorkbenchSchema = {
+  ...mediaSchema,
+  schemaName: 'mediaSet',
+  label: 'Media set',
+  displayProperties: ['code', 'name'],
+  queryCapabilities: {
+    ...mediaSchema.queryCapabilities,
+    searchableFields: ['code', 'name', 'description', 'mediaType', 'businessPurpose'],
+    filterFields: [
+      {
+        field: 'mediaType',
+        label: 'Media type',
+        type: 'string',
+        operators: ['EQUALS', 'IN'],
+      },
+      {
+        field: 'businessPurpose',
+        label: 'Business purpose',
+        type: 'string',
+        operators: ['EQUALS', 'IN'],
+      },
+      { field: 'status', label: 'Status', type: 'string', operators: ['EQUALS', 'IN'] },
+    ],
+    groupOperators: ['AND', 'OR'],
+  },
+  operations: ['search', 'read'],
+};
+
+const mediaSetEntrySchema: WorkbenchSchema = {
+  ...mediaSchema,
+  schemaName: 'mediaSetEntry',
+  label: 'Media set entry',
+  displayProperties: ['code', 'mediaCode'],
+  queryCapabilities: {
+    ...mediaSchema.queryCapabilities,
+    searchableFields: ['code', 'mediaSetCode', 'mediaCode', 'formatCode'],
+    filterFields: [
+      {
+        field: 'mediaSetCode',
+        label: 'Media set',
+        type: 'string',
+        operators: ['EQUALS', 'IN'],
+      },
+    ],
+  },
+  operations: ['search', 'read', 'create', 'update'],
 };
 
 function json(result: unknown): Response {
@@ -617,5 +714,239 @@ describe('MediaManagementRoutePage', () => {
     ).toBe(false);
     expect(screen.queryByText('/do/not/show/cms-assets')).not.toBeInTheDocument();
     expect(screen.queryByText('must-not-render')).not.toBeInTheDocument();
+  });
+
+  it('shows media format context usage from backend-owned source contexts', async () => {
+    vi.spyOn(globalThis, 'fetch').mockImplementation((input) => {
+      const url = fetchInputUrl(input);
+      if (url.pathname === '/nodics/media/v0/schema/workbench') {
+        return Promise.resolve(
+          json({
+            moduleName: 'media',
+            schemas: [mediaFormatSchema],
+          }),
+        );
+      }
+      if (url.pathname === '/nodics/media/v0/schema/workbench/mediaFormat/records') {
+        return Promise.resolve(
+          json({
+            records: [
+              {
+                code: 'desktop',
+                name: 'Desktop',
+                description: 'Desktop presentation media',
+                purpose: 'content',
+                formatFamily: 'RESPONSIVE',
+                status: 'ACTIVE',
+                width: 1440,
+                height: 600,
+              },
+            ],
+            totalCount: 1,
+            pageNumber: 1,
+            pageSize: 10,
+            sort: { field: 'code', direction: 'ASC' },
+          }),
+        );
+      }
+      if (url.pathname === '/nodics/media/v0/contexts') {
+        return Promise.resolve(
+          json({
+            contexts: [
+              {
+                code: 'contentMedia',
+                sourceType: 'Content media',
+                aliases: ['cmsAssets'],
+                label: 'Content media',
+                description: 'Content assets',
+                folderCodes: ['cmsAssets'],
+                defaultFolderCode: 'cmsAssets',
+                allowedFolders: [],
+                allowedFormatCodes: ['original', 'desktop', 'mobile'],
+                defaultFormatCode: 'desktop',
+                targetRequired: false,
+                manualUploadEnabled: true,
+              },
+            ],
+          }),
+        );
+      }
+      return Promise.resolve(json({}));
+    });
+
+    renderPage('/media-management/formats');
+
+    expect((await screen.findAllByText('Desktop')).length).toBeGreaterThan(0);
+    expect(screen.getByText('Format usage')).toBeVisible();
+    expect(screen.getByText('Content media')).toBeVisible();
+    expect(screen.getByText('default + allowed')).toBeVisible();
+    expect(screen.getByText('Folders: cmsAssets')).toBeVisible();
+  });
+
+  it('manages media set entries through nMedia operations without Product or CMS mutation', async () => {
+    const user = userEvent.setup();
+    const fetchMock = vi
+      .spyOn(globalThis, 'fetch')
+      .mockImplementation((input, init) => {
+        const url = fetchInputUrl(input);
+        if (url.pathname === '/nodics/media/v0/schema/workbench') {
+          return Promise.resolve(
+            json({
+              moduleName: 'media',
+              schemas: [mediaSetSchema, mediaSetEntrySchema],
+            }),
+          );
+        }
+        if (url.pathname === '/nodics/media/v0/schema/workbench/mediaSet/records') {
+          return Promise.resolve(
+            json({
+              records: [
+                {
+                  code: 'homeHeroSet',
+                  name: 'Home hero set',
+                  mediaType: 'IMAGE',
+                  businessPurpose: 'cms-hero',
+                  status: 'ACTIVE',
+                },
+              ],
+              totalCount: 1,
+              pageNumber: 1,
+              pageSize: 10,
+              sort: { field: 'code', direction: 'ASC' },
+            }),
+          );
+        }
+        if (
+          url.pathname === '/nodics/media/v0/schema/workbench/mediaSetEntry/records'
+        ) {
+          return Promise.resolve(
+            json({
+              records: [
+                {
+                  code: 'homeHeroMobile',
+                  mediaSetCode: 'homeHeroSet',
+                  mediaCode: 'home-hero-mobile',
+                  formatCode: 'mobile',
+                  variantRole: 'hero',
+                  localeCode: 'en',
+                  channelCode: 'web',
+                  deviceCode: 'mobile',
+                  breakpointCode: 'sm',
+                  fallbackEntryCode: 'homeHeroDesktop',
+                  position: 1,
+                  primary: true,
+                  status: 'ACTIVE',
+                },
+                {
+                  code: 'homeHeroDesktop',
+                  mediaSetCode: 'homeHeroSet',
+                  mediaCode: 'home-hero-desktop',
+                  formatCode: 'desktop',
+                  variantRole: 'hero',
+                  localeCode: 'en',
+                  channelCode: 'web',
+                  deviceCode: 'desktop',
+                  breakpointCode: 'lg',
+                  position: 2,
+                  primary: false,
+                  status: 'ACTIVE',
+                },
+              ],
+              totalCount: 2,
+              pageNumber: 1,
+              pageSize: 10,
+              sort: { field: 'code', direction: 'ASC' },
+            }),
+          );
+        }
+        if (
+          url.pathname ===
+            '/nodics/media/v0/sets/homeHeroSet/entries/homeHeroDesktop/primary' &&
+          init?.method === 'POST'
+        ) {
+          return Promise.resolve(
+            json({
+              code: 'homeHeroDesktop',
+              mediaSetCode: 'homeHeroSet',
+              primary: true,
+            }),
+          );
+        }
+        if (
+          url.pathname === '/nodics/media/v0/sets/homeHeroSet/entries/reorder' &&
+          init?.method === 'POST'
+        ) {
+          return Promise.resolve(json({ mediaSetCode: 'homeHeroSet', entries: [] }));
+        }
+        if (
+          url.pathname ===
+            '/nodics/media/v0/sets/homeHeroSet/entries/homeHeroDesktop' &&
+          init?.method === 'DELETE'
+        ) {
+          return Promise.resolve(
+            json({ mediaSetCode: 'homeHeroSet', code: 'homeHeroDesktop' }),
+          );
+        }
+        return Promise.resolve(json({}));
+      });
+
+    renderPage('/media-management/sets');
+
+    expect((await screen.findAllByText('Home hero set')).length).toBeGreaterThan(0);
+    expect(screen.getByText('Set variants')).toBeVisible();
+    expect(screen.getByText(/nMedia owns variant membership/i)).toBeVisible();
+    await waitFor(() => {
+      expect(
+        fetchMock.mock.calls.some(([input]) => {
+          const url = fetchInputUrl(input);
+          return (
+            url.pathname === '/nodics/media/v0/schema/workbench/mediaSetEntry/records'
+          );
+        }),
+      ).toBe(true);
+    });
+    expect(await screen.findByText('home-hero-desktop')).toBeVisible();
+    expect(await screen.findByText('mobile / sm')).toBeVisible();
+    expect(await screen.findByText('desktop / lg')).toBeVisible();
+    expect(
+      screen.getByRole('link', { name: 'Add entry in Schema Workbench' }),
+    ).toHaveAttribute(
+      'href',
+      '/schema-workbench?module=media&schema=mediaSetEntry&mode=create',
+    );
+
+    await user.click(screen.getAllByRole('button', { name: 'Set primary' })[1]!);
+    await waitFor(() => {
+      expect(
+        fetchMock.mock.calls.some(([input, init]) => {
+          const url = fetchInputUrl(input);
+          return (
+            url.pathname ===
+              '/nodics/media/v0/sets/homeHeroSet/entries/homeHeroDesktop/primary' &&
+            init?.method === 'POST'
+          );
+        }),
+      ).toBe(true);
+    });
+    await user.click(screen.getAllByRole('button', { name: 'Up' })[1]!);
+    await waitFor(() => {
+      const reorderRequest = fetchMock.mock.calls.find(([input, init]) => {
+        const url = fetchInputUrl(input);
+        return (
+          url.pathname === '/nodics/media/v0/sets/homeHeroSet/entries/reorder' &&
+          init?.method === 'POST'
+        );
+      });
+      expect(reorderRequest).toBeTruthy();
+      expect(JSON.parse(fetchBodyText(reorderRequest?.[1]))).toEqual({
+        entryCodes: ['homeHeroDesktop', 'homeHeroMobile'],
+      });
+    });
+    expect(
+      fetchMock.mock.calls.some(([input]) => {
+        const url = fetchInputUrl(input);
+        return url.pathname.includes('/product') || url.pathname.includes('/cms');
+      }),
+    ).toBe(false);
   });
 });

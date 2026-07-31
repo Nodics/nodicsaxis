@@ -194,10 +194,18 @@ configuration through nMedia-owned governance.
 The **Media Formats** section is also operational. Axis discovers the
 `mediaFormat` schema from nMedia and shows reusable presentation or processing
 formats such as original, thumbnail, desktop, mobile, zoom, or import file. The
-screen presents format code, name, purpose, description, width, height, and a
-combined dimensions view. Formats help backend and frontend teams use consistent
-business vocabulary for media variants without making Axis transform images or
-own storefront rendering behavior.
+screen presents format code, name, purpose, family, lifecycle status,
+description, width, height, and a combined dimensions view. Formats help backend
+and frontend teams use consistent business vocabulary for media variants without
+making Axis transform images or own storefront rendering behavior.
+
+Format detail also asks nMedia for `/contexts` and shows where the selected
+format is advertised. This answers questions such as "which folders/source
+types can use desktop?" without hardcoding source-type behavior in Axis. A
+format can be default, allowed, both, or unused by the current backend context
+configuration. The live upload authority remains nMedia format policy; Schema
+Workbench records are useful for inspection and audit, not a second browser
+policy authority.
 
 The **Media Sets** section now lists and searches logical media groups from the
 `mediaSet` schema. A media set represents one logical asset group, such as a
@@ -208,11 +216,20 @@ purpose, and lifecycle status.
 When an employee selects a media set, Axis also loads the set composition from
 the nMedia-owned `mediaSetEntry` schema. The detail panel shows each linked
 variant with its media code, optional format code, variant role, locale,
-dimensions, position, and lifecycle status. This keeps the business view clear:
-the set describes the logical group, each entry describes a specific variant,
+channel, device, breakpoint, fallback entry, dimensions, position, primary
+flag, and lifecycle status. This keeps the business view clear: the set
+describes the logical group, each entry describes a specific reusable variant,
 and each variant still points to an owned media record. Axis does not duplicate
 variant ownership or infer image behavior; it asks nMedia for the set entries
 using a backend filter on the selected set code.
+
+Set-entry actions call nMedia-owned endpoints under
+`/sets/{mediaSetCode}/entries`. Axis can reorder entries, mark one entry as
+primary, remove an entry from the set, and hand off full create/edit record
+workflows to Schema Workbench. These actions intentionally do not update
+Product, CMS, import, export, or partner business records. Those modules decide
+where a media set is used; nMedia manages the reusable media grouping and
+variant metadata.
 
 The **Media Usage** section now searches the nMedia `mediaReference` schema. A
 media reference answers the business question, "where is this file or media set

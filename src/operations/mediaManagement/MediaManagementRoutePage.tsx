@@ -49,6 +49,9 @@ import type {
 import {
   loadMediaSourceContexts,
   loadMediaFolderUploadPolicies,
+  removeMediaSetEntry,
+  reorderMediaSetEntries,
+  setPrimaryMediaSetEntry,
   updateMediaFolderPolicy,
   type MediaFolderUploadPolicy,
   type MediaSourceContext,
@@ -644,10 +647,99 @@ function formatDimensions(record: WorkbenchRecord): string {
   return `${height} px high`;
 }
 
+function formatContextUsage(context: MediaSourceContext, formatCode: string): string {
+  const usage: string[] = [];
+  if (context.defaultFormatCode === formatCode) usage.push('default');
+  if (context.allowedFormatCodes.includes(formatCode)) usage.push('allowed');
+  return usage.length ? usage.join(' + ') : 'referenced';
+}
+
+function MediaFormatUsagePanel(props: {
+  readonly contexts: readonly MediaSourceContext[] | undefined;
+  readonly error: unknown;
+  readonly loading: boolean;
+  readonly record: WorkbenchRecord;
+}) {
+  const formatCode = textValue(props.record, 'code');
+  const usageContexts = useMemo(
+    () =>
+      (props.contexts ?? []).filter(
+        (context) =>
+          context.defaultFormatCode === formatCode ||
+          context.allowedFormatCodes.includes(formatCode),
+      ),
+    [formatCode, props.contexts],
+  );
+
+  return (
+    <Stack spacing={1.5}>
+      <Divider />
+      <Typography component="h4" variant="h6">
+        Format usage
+      </Typography>
+      {props.loading ? (
+        <Stack direction="row" spacing={1.5} sx={{ alignItems: 'center' }}>
+          <CircularProgress size={20} />
+          <Typography color="text.secondary" variant="body2">
+            Loading source contexts for {formatCode}…
+          </Typography>
+        </Stack>
+      ) : props.error ? (
+        <Alert severity="warning">
+          {props.error instanceof Error
+            ? props.error.message
+            : 'Media source contexts are unavailable.'}
+        </Alert>
+      ) : usageContexts.length === 0 ? (
+        <Alert severity="info">
+          No backend source context currently advertises {formatCode}. The format can
+          still be enabled by customer configuration when a context opts into it.
+        </Alert>
+      ) : (
+        <Stack spacing={1}>
+          {usageContexts.map((context) => (
+            <Box
+              key={context.code}
+              sx={{
+                border: 1,
+                borderColor: 'divider',
+                borderRadius: 2,
+                p: 1.5,
+              }}
+            >
+              <Stack spacing={0.75}>
+                <Stack
+                  direction="row"
+                  spacing={1}
+                  sx={{ alignItems: 'center', flexWrap: 'wrap' }}
+                >
+                  <Typography sx={{ fontWeight: 700 }}>{context.label}</Typography>
+                  <Chip label={formatContextUsage(context, formatCode)} size="small" />
+                </Stack>
+                <Typography color="text.secondary" variant="body2">
+                  Folders: {folderList(context.folderCodes)}
+                </Typography>
+                {context.description ? (
+                  <Typography color="text.secondary" variant="body2">
+                    {context.description}
+                  </Typography>
+                ) : null}
+              </Stack>
+            </Box>
+          ))}
+        </Stack>
+      )}
+    </Stack>
+  );
+}
+
 function MediaSetEntriesPanel(props: {
+  readonly configuration: WorkbenchClientConfiguration;
+  readonly connection: ReturnType<typeof selectModuleConnection>;
   readonly entries: readonly WorkbenchRecord[];
   readonly error: unknown;
   readonly loading: boolean;
+  readonly onChanged: () => void;
   readonly schemaAvailable: boolean;
   readonly setCode: string;
 }) {
@@ -666,6 +758,50 @@ function MediaSetEntriesPanel(props: {
       }),
     [props.entries],
   );
+  const reorderMutation = useMutation({
+    mutationFn: (entryCodes: readonly string[]) =>
+      reorderMediaSetEntries(
+        props.connection!,
+        props.configuration,
+        props.setCode,
+        entryCodes,
+      ),
+    onSuccess: () => props.onChanged(),
+  });
+  const primaryMutation = useMutation({
+    mutationFn: (entryCode: string) =>
+      setPrimaryMediaSetEntry(props.connection!, props.configuration, {
+        mediaSetCode: props.setCode,
+        entryCode,
+      }),
+    onSuccess: () => props.onChanged(),
+  });
+  const removeMutation = useMutation({
+    mutationFn: (entryCode: string) =>
+      removeMediaSetEntry(props.connection!, props.configuration, {
+        mediaSetCode: props.setCode,
+        entryCode,
+      }),
+    onSuccess: () => props.onChanged(),
+  });
+  const canOperate =
+    Boolean(props.connection) && props.schemaAvailable && props.setCode !== '—';
+  const busy =
+    reorderMutation.isPending || primaryMutation.isPending || removeMutation.isPending;
+  const operationError =
+    reorderMutation.error ?? primaryMutation.error ?? removeMutation.error;
+  const moveEntry = (entryCode: string, direction: -1 | 1) => {
+    const index = sortedEntries.findIndex(
+      (entry) => textValue(entry, 'code') === entryCode,
+    );
+    const nextIndex = index + direction;
+    if (index < 0 || nextIndex < 0 || nextIndex >= sortedEntries.length) return;
+    const entryCodes = sortedEntries.map((entry) => textValue(entry, 'code'));
+    const [entry] = entryCodes.splice(index, 1);
+    if (!entry || entry === '—') return;
+    entryCodes.splice(nextIndex, 0, entry);
+    reorderMutation.mutate(entryCodes);
+  };
 
   return (
     <Stack spacing={1.5}>
@@ -685,6 +821,10 @@ function MediaSetEntriesPanel(props: {
         </Box>
         <Chip label={`${sortedEntries.length} entries`} size="small" />
       </Stack>
+      <Alert severity="info">
+        nMedia owns variant membership, ordering, primary selection, and fallback
+        metadata. Product and CMS modules decide where a media set is used.
+      </Alert>
 
       {!props.schemaAvailable ? (
         <Alert severity="warning">
@@ -725,12 +865,16 @@ function MediaSetEntriesPanel(props: {
                 <TableCell>Format</TableCell>
                 <TableCell>Role</TableCell>
                 <TableCell>Locale</TableCell>
+                <TableCell>Channel</TableCell>
+                <TableCell>Device</TableCell>
+                <TableCell>Fallback</TableCell>
                 <TableCell>Dimensions</TableCell>
                 <TableCell>Status</TableCell>
+                <TableCell>Actions</TableCell>
               </TableRow>
             </TableHead>
             <TableBody>
-              {sortedEntries.map((entry) => {
+              {sortedEntries.map((entry, index) => {
                 const code = textValue(entry, 'code');
                 return (
                   <TableRow key={code}>
@@ -741,17 +885,65 @@ function MediaSetEntriesPanel(props: {
                     <TableCell>{textValue(entry, 'formatCode')}</TableCell>
                     <TableCell>{textValue(entry, 'variantRole')}</TableCell>
                     <TableCell>{textValue(entry, 'localeCode')}</TableCell>
+                    <TableCell>{textValue(entry, 'channelCode')}</TableCell>
+                    <TableCell>
+                      {textValue(entry, 'deviceCode')}
+                      {textValue(entry, 'breakpointCode') !== '—'
+                        ? ` / ${textValue(entry, 'breakpointCode')}`
+                        : ''}
+                    </TableCell>
+                    <TableCell>{textValue(entry, 'fallbackEntryCode')}</TableCell>
                     <TableCell>{formatDimensions(entry)}</TableCell>
                     <TableCell>
-                      <Chip
-                        color={
-                          textValue(entry, 'status') === 'ACTIVE'
-                            ? 'success'
-                            : 'default'
-                        }
-                        label={textValue(entry, 'status')}
-                        size="small"
-                      />
+                      <Stack direction="row" spacing={0.5} sx={{ flexWrap: 'wrap' }}>
+                        <Chip
+                          color={
+                            textValue(entry, 'status') === 'ACTIVE'
+                              ? 'success'
+                              : 'default'
+                          }
+                          label={textValue(entry, 'status')}
+                          size="small"
+                        />
+                        {entry.primary === true ? (
+                          <Chip color="primary" label="Primary" size="small" />
+                        ) : null}
+                      </Stack>
+                    </TableCell>
+                    <TableCell>
+                      <Stack direction="row" spacing={0.5} sx={{ flexWrap: 'wrap' }}>
+                        <Button
+                          disabled={!canOperate || busy || index === 0}
+                          size="small"
+                          onClick={() => moveEntry(code, -1)}
+                        >
+                          Up
+                        </Button>
+                        <Button
+                          disabled={
+                            !canOperate || busy || index === sortedEntries.length - 1
+                          }
+                          size="small"
+                          onClick={() => moveEntry(code, 1)}
+                        >
+                          Down
+                        </Button>
+                        <Button
+                          disabled={!canOperate || busy || entry.primary === true}
+                          size="small"
+                          onClick={() => primaryMutation.mutate(code)}
+                        >
+                          Set primary
+                        </Button>
+                        <Button
+                          color="warning"
+                          disabled={!canOperate || busy}
+                          size="small"
+                          onClick={() => removeMutation.mutate(code)}
+                        >
+                          Remove
+                        </Button>
+                      </Stack>
                     </TableCell>
                   </TableRow>
                 );
@@ -760,6 +952,29 @@ function MediaSetEntriesPanel(props: {
           </Table>
         </Box>
       )}
+      <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1}>
+        <Button
+          component={RouterLink}
+          to="/schema-workbench?module=media&schema=mediaSetEntry&mode=create"
+          variant="outlined"
+        >
+          Add entry in Schema Workbench
+        </Button>
+        <Button
+          component={RouterLink}
+          to="/schema-workbench?module=media&schema=mediaSetEntry"
+          variant="text"
+        >
+          Open all set entries
+        </Button>
+      </Stack>
+      {operationError ? (
+        <Alert severity="error">
+          {operationError instanceof Error
+            ? operationError.message
+            : 'Media set entry operation failed.'}
+        </Alert>
+      ) : null}
     </Stack>
   );
 }
@@ -1367,7 +1582,16 @@ const recordWorkspaceConfigurations: Readonly<
     detailEmptyMessage: 'Select a media format to review governed format policy.',
     hiddenPathNotice:
       'Formats describe how media may be presented or processed. They do not store files and do not replace frontend rendering rules.',
-    searchKeys: ['code', 'name', 'description', 'purpose', 'width', 'height'],
+    searchKeys: [
+      'code',
+      'name',
+      'description',
+      'purpose',
+      'formatFamily',
+      'status',
+      'width',
+      'height',
+    ],
     summary: folderSummary,
     columns: [
       {
@@ -1382,15 +1606,36 @@ const recordWorkspaceConfigurations: Readonly<
         ),
       },
       { label: 'Purpose', render: (record) => textValue(record, 'purpose') },
+      {
+        label: 'Family',
+        render: (record) => (
+          <Chip label={humanize(textValue(record, 'formatFamily'))} size="small" />
+        ),
+      },
       { label: 'Dimensions', render: formatDimensions },
-      { label: 'Description', render: (record) => textValue(record, 'description') },
+      {
+        label: 'Status',
+        render: (record) => (
+          <Chip
+            color={textValue(record, 'status') === 'ACTIVE' ? 'success' : 'default'}
+            label={textValue(record, 'status')}
+            size="small"
+          />
+        ),
+      },
     ],
     details: [
       { label: 'Code', key: 'code' },
       { label: 'Name', key: 'name' },
       { label: 'Purpose', key: 'purpose' },
+      {
+        label: 'Family',
+        key: 'formatFamily',
+        render: (record) => humanize(textValue(record, 'formatFamily')),
+      },
+      { label: 'Status', key: 'status' },
       { label: 'Description', key: 'description' },
-      { label: 'Dimensions', key: 'width', render: formatDimensions },
+      { label: 'Dimensions', key: 'dimensions', render: formatDimensions },
       { label: 'Width', key: 'width' },
       { label: 'Height', key: 'height' },
     ],
@@ -1572,6 +1817,13 @@ const recordWorkspaceFacetFilters: Readonly<
   ],
   'media-formats': [
     {
+      allLabel: 'All families',
+      key: 'formatFamily',
+      label: 'Family',
+      optionLabel: humanize,
+      value: (record) => textValue(record, 'formatFamily'),
+    },
+    {
       allLabel: 'All purposes',
       key: 'purpose',
       label: 'Purpose',
@@ -1583,6 +1835,13 @@ const recordWorkspaceFacetFilters: Readonly<
       key: 'dimensions',
       label: 'Dimensions',
       value: formatDimensions,
+    },
+    {
+      allLabel: 'All statuses',
+      key: 'status',
+      label: 'Status',
+      optionLabel: humanize,
+      value: (record) => textValue(record, 'status'),
     },
   ],
   'media-sets': [
@@ -1713,6 +1972,7 @@ export function MediaManagementRoutePage(props: MediaManagementRoutePageProps) {
   const mediaContexts = useQuery({
     enabled: Boolean(
       (currentItem?.id === 'storage-delivery' ||
+        currentItem?.id === 'media-formats' ||
         currentFacetFilters.some((filter) => filter.key === 'sourceType')) &&
       connection,
     ),
@@ -2427,6 +2687,14 @@ export function MediaManagementRoutePage(props: MediaManagementRoutePageProps) {
                                 }}
                               />
                             ) : null}
+                            {currentItem.id === 'media-formats' ? (
+                              <MediaFormatUsagePanel
+                                contexts={mediaContexts.data}
+                                error={mediaContexts.error}
+                                loading={mediaContexts.isLoading}
+                                record={selectedRecord}
+                              />
+                            ) : null}
                             {recordWorkspaceConfiguration.details.map((detail) => (
                               <Box key={detail.key}>
                                 <Typography
@@ -2454,9 +2722,14 @@ export function MediaManagementRoutePage(props: MediaManagementRoutePageProps) {
                             ) : null}
                             {currentItem.id === 'media-sets' ? (
                               <MediaSetEntriesPanel
+                                configuration={configuration}
+                                connection={connection}
                                 entries={mediaSetEntries.data?.records ?? []}
                                 error={mediaSetEntries.error}
                                 loading={mediaSetEntries.isLoading}
+                                onChanged={() => {
+                                  void mediaSetEntries.refetch();
+                                }}
                                 schemaAvailable={Boolean(mediaSetEntrySchema)}
                                 setCode={selectedMediaSetCode}
                               />
