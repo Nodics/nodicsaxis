@@ -90,6 +90,10 @@ export const CMS_RENDERER_MANIFEST = Object.freeze({
     kind: 'component',
     contractVersions: Object.freeze([1]),
   },
+  'axis.component.schema-query-builder': {
+    kind: 'component',
+    contractVersions: Object.freeze([1]),
+  },
   'documentation.component.article': {
     kind: 'component',
     contractVersions: Object.freeze([1, 2]),

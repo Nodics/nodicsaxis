@@ -150,10 +150,16 @@ import:
    Workbench and groups them by owning module. The employee searches by model
    name or module name and chooses the schema that owns the data. Axis keeps
    the module name and schema name only as backend contract values.
-3. **Build query and preview.** Axis calls the owning module's Workbench search
-   route to preview records. The preview is deliberately bounded and read-only.
-   It helps the employee verify the query before generating a file, but it is
-   not the export authority.
+3. **Build query and preview.** Axis uses the shared Schema Query Builder used
+   by Schema Workbench record browsing and every other schema-backed data
+   retrieval screen. The employee can combine
+   simple search text with governed conditions, nested `AND`/`OR` groups,
+   allowed operators, sort order, and preview size. Allowed fields, operators,
+   group operators, sortable fields, default sort, and maximum preview size come
+   from the backend schema Workbench capability contract; Axis does not invent
+   unsupported operators or send free-form database queries. The preview remains
+   bounded and read-only so the employee can verify the query before generating
+   a file, but it is not the export authority.
 4. **Generate export file.** The employee chooses CSV or JSON. Axis calls the
    secured nExport route. The backend uses nExport to re-run the governed
    query, applies export access policy, renders the file, and asks nMedia to
@@ -169,11 +175,19 @@ external destinations should be added behind nExport provider contracts later.
 Those extensions must still generate media records for produced files so
 history, storage policy, access policy, and cleanup remain backend-owned.
 
+The Schema Query Builder is not an export component. Export, Schema Workbench,
+future media-reference lookups, and any future schema record browser should
+reuse the same builder whenever they retrieve records from a Nodics schema.
+The builder consumes backend-advertised searchable fields, filter fields,
+operators, grouping rules, sort fields, default sort, and page-size limits. It
+does not decide database syntax, bypass ownership, or add browser-only operators.
+
 To customize export safely, change the owning backend schema/search behavior,
-export access policy, nExport rendering/provider services, or nMedia storage
-configuration. Axis may improve the query builder and result presentation, but
-it must not query databases directly, render authoritative business files from
-browser-only data, or decide media storage paths.
+export access policy, nExport rendering/provider services, nMedia storage
+configuration, or the shared Axis Schema Query Builder presentation. Axis may
+improve the query builder and result presentation, but it must not query
+databases directly, render authoritative business files from browser-only data,
+or decide media storage paths.
 
 Extend presentation inside this feature and reuse shell and API patterns. Never
 add an Axis filesystem picker or importer. Run `npm run verify` and validate

@@ -52,6 +52,14 @@ When both repositories change, analyze and test each boundary separately.
   component renderers consume typed labels, headings, placeholders, help text,
   empty-state text, action captions, and fragments rather than defining
   business-facing copy in JSX.
+- Reusable interaction behavior is implemented once and composed everywhere.
+  Query builders, media selectors, relationship selectors, record browsers,
+  and similar repeated controls must be modeled as reusable CMS component
+  contracts and Axis-owned shared renderers or primitives. Do not fork a
+  page-local implementation when a generic component already exists. Schema
+  data querying uses the `axis.component.schema-query-builder` renderer key,
+  so Schema Workbench, Imports and Exports, and future schema-backed pages
+  share one governed query-building experience.
 - Error ownership remains layered: the owning backend module supplies stable
   domain codes and safe messages, CMS supplies configurable presentation copy,
   and Axis supplies only generic browser or transport fallbacks needed when

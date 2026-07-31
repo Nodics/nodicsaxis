@@ -1,3 +1,5 @@
+import type { WorkbenchFilterGroup } from '../../../workbench/api/workbenchContracts';
+
 export type DataReleaseType = 'init' | 'core' | 'sample';
 
 export type DataReleaseStatus =
@@ -151,6 +153,7 @@ export interface DataExportRequest {
   readonly format: DataExportFileFormat;
   readonly query: {
     readonly search: string;
+    readonly filters?: WorkbenchFilterGroup | undefined;
     readonly pageNumber: number;
     readonly pageSize: number;
     readonly sort: {

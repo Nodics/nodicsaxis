@@ -21,7 +21,7 @@ import {
   Typography,
   alpha,
 } from '@mui/material';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 
 import type { AxisModuleConnection } from '../../../bootstrap/publicBootstrap';
 import {
@@ -30,10 +30,13 @@ import {
   type WorkbenchClientConfiguration,
 } from '../../../workbench/api/workbenchClient';
 import type {
+  WorkbenchFilterGroup,
   WorkbenchRecord,
   WorkbenchRecordPage,
+  WorkbenchRecordQuery,
   WorkbenchSchema,
 } from '../../../workbench/api/workbenchContracts';
+import { SchemaQueryBuilder } from '../../../schema/query/SchemaQueryBuilder';
 import {
   downloadDataExportMedia,
   generateDataExport,
@@ -109,37 +112,65 @@ function formatBytes(value: number | undefined): string | undefined {
 }
 
 export function ExportWorkspace(props: ExportWorkspaceProps) {
-  const [targetEnterpriseCode, setTargetEnterpriseCode] = useState('');
+  const [targetEnterpriseCode, setTargetEnterpriseCode] = useState(
+    props.enterpriseCode.trim(),
+  );
   const [schemaSelection, setSchemaSelection] = useState('');
   const [search, setSearch] = useState('');
+  const [filters, setFilters] = useState<WorkbenchFilterGroup | undefined>(
+    undefined,
+  );
+  const [sort, setSort] = useState<WorkbenchRecordQuery['sort'] | undefined>(
+    undefined,
+  );
   const [format, setFormat] = useState<DataExportFileFormat>('csv');
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(10);
   const [previewResult, setPreviewResult] = useState<WorkbenchRecordPage | undefined>(
     undefined,
   );
+  const workspaceEnterpriseCode = props.enterpriseCode.trim();
+  const selectedEnterpriseCode = targetEnterpriseCode.trim();
+  const selectedClientConfiguration = useMemo<DataReleaseClientConfiguration>(
+    () => ({
+      ...props.configuration,
+      enterpriseCode:
+        selectedEnterpriseCode || props.configuration.enterpriseCode.trim(),
+    }),
+    [props.configuration, selectedEnterpriseCode],
+  );
 
   const workbenchConfiguration = useMemo<WorkbenchClientConfiguration>(
     () => ({
-      accessToken: props.configuration.accessToken,
-      enterpriseCode: props.configuration.enterpriseCode,
-      timeoutMs: props.configuration.timeoutMs,
+      accessToken: selectedClientConfiguration.accessToken,
+      enterpriseCode: selectedClientConfiguration.enterpriseCode,
+      timeoutMs: selectedClientConfiguration.timeoutMs,
     }),
     [
-      props.configuration.accessToken,
-      props.configuration.enterpriseCode,
-      props.configuration.timeoutMs,
+      selectedClientConfiguration.accessToken,
+      selectedClientConfiguration.enterpriseCode,
+      selectedClientConfiguration.timeoutMs,
     ],
   );
+
+  useEffect(() => {
+    setTargetEnterpriseCode(workspaceEnterpriseCode);
+    setSchemaSelection('');
+    setSearch('');
+    setFilters(undefined);
+    setSort(undefined);
+    setPreviewResult(undefined);
+  }, [workspaceEnterpriseCode]);
+  const hasEnterprise = selectedEnterpriseCode.length > 0;
   const schemas = useQuery({
-    queryKey: ['data-export-schemas', props.configuration.enterpriseCode],
+    queryKey: ['data-export-schemas', selectedClientConfiguration.enterpriseCode],
     queryFn: () => {
       if (props.schemaConnections.length === 0) {
         throw new Error('Schema discovery is unavailable');
       }
       return loadWorkbenchSchemas(props.schemaConnections, workbenchConfiguration);
     },
-    enabled: props.schemaConnections.length > 0,
+    enabled: props.schemaConnections.length > 0 && hasEnterprise,
   });
   const schemaOptions = useMemo(() => {
     const byKey = new Map<string, WorkbenchSchema>();
@@ -152,6 +183,7 @@ export function ExportWorkspace(props: ExportWorkspaceProps) {
     () => schemaOptions.find((schema) => schemaKey(schema) === schemaSelection),
     [schemaOptions, schemaSelection],
   );
+  const selectedSort = sort ?? selectedSchema?.queryCapabilities.defaultSort;
   const selectedConnection = useMemo(
     () =>
       selectedSchema
@@ -162,7 +194,6 @@ export function ExportWorkspace(props: ExportWorkspaceProps) {
     [props.schemaConnections, selectedSchema],
   );
   const columns = useMemo(() => previewColumns(selectedSchema), [selectedSchema]);
-  const hasEnterprise = targetEnterpriseCode.trim().length > 0;
   const canChooseSchema = hasEnterprise;
   const canPreview = Boolean(hasEnterprise && selectedSchema && selectedConnection);
   const canGenerate = Boolean(canPreview && props.exportConnection);
@@ -178,9 +209,10 @@ export function ExportWorkspace(props: ExportWorkspaceProps) {
         workbenchConfiguration,
         {
           search,
+          filters,
           pageNumber: page + 1,
           pageSize: rowsPerPage,
-          sort: selectedSchema.queryCapabilities.defaultSort,
+          sort: selectedSort ?? selectedSchema.queryCapabilities.defaultSort,
         },
       );
     },
@@ -192,16 +224,17 @@ export function ExportWorkspace(props: ExportWorkspaceProps) {
       if (!hasEnterprise)
         throw new Error('Select the target enterprise before exporting');
       if (!selectedSchema) throw new Error('Choose an export model before exporting');
-      return generateDataExport(props.exportConnection, props.configuration, {
-        enterpriseCode: targetEnterpriseCode,
+      return generateDataExport(props.exportConnection, selectedClientConfiguration, {
+        enterpriseCode: selectedEnterpriseCode,
         moduleName: selectedSchema.moduleName,
         schemaName: selectedSchema.schemaName,
         format,
         query: {
           search,
+          filters,
           pageNumber: 1,
           pageSize: selectedSchema.queryCapabilities.maximumPageSize,
-          sort: selectedSchema.queryCapabilities.defaultSort,
+          sort: selectedSort ?? selectedSchema.queryCapabilities.defaultSort,
         },
       });
     },
@@ -213,7 +246,7 @@ export function ExportWorkspace(props: ExportWorkspaceProps) {
       if (!generate.data) throw new Error('Generate an export file before downloading');
       const file = await downloadDataExportMedia(
         props.mediaConnection,
-        props.configuration,
+        selectedClientConfiguration,
         generate.data.media,
       );
       const objectUrl = URL.createObjectURL(file.blob);
@@ -283,17 +316,21 @@ export function ExportWorkspace(props: ExportWorkspaceProps) {
                     fullWidth
                     label="Target enterprise"
                     select
+                    disabled={!workspaceEnterpriseCode}
                     value={targetEnterpriseCode}
                     onChange={(event) => {
                       setTargetEnterpriseCode(event.target.value);
                       setSchemaSelection('');
+                      setSearch('');
+                      setFilters(undefined);
+                      setSort(undefined);
                       setPreviewResult(undefined);
                       preview.reset();
                       generate.reset();
                     }}
                   >
-                    <MenuItem value={props.enterpriseCode}>
-                      {titleCase(props.enterpriseCode)}
+                    <MenuItem value={workspaceEnterpriseCode}>
+                      {titleCase(workspaceEnterpriseCode)}
                     </MenuItem>
                   </TextField>
                   <Stack direction="row" spacing={1} sx={{ alignItems: 'baseline' }}>
@@ -355,6 +392,9 @@ export function ExportWorkspace(props: ExportWorkspaceProps) {
                   value={selectedSchema ?? null}
                   onChange={(_event, schema) => {
                     setSchemaSelection(schema ? schemaKey(schema) : '');
+                    setSearch('');
+                    setFilters(undefined);
+                    setSort(schema?.queryCapabilities.defaultSort);
                     setPreviewResult(undefined);
                     preview.reset();
                     generate.reset();
@@ -428,10 +468,12 @@ export function ExportWorkspace(props: ExportWorkspaceProps) {
                         size="small"
                       />
                       <Chip label="Operation: Search and export" size="small" />
-                      <Chip
-                        label={`Sort: ${titleCase(selectedSchema.queryCapabilities.defaultSort.field)}`}
-                        size="small"
-                      />
+                      {selectedSort ? (
+                        <Chip
+                          label={`Sort: ${titleCase(selectedSort.field)} ${selectedSort.direction}`}
+                          size="small"
+                        />
+                      ) : null}
                     </Stack>
                   </Stack>
                 </Paper>
@@ -494,6 +536,51 @@ export function ExportWorkspace(props: ExportWorkspaceProps) {
                   {preview.isPending ? 'Previewing…' : 'Preview records'}
                 </Button>
               </Stack>
+              {selectedSchema ? (
+                <SchemaQueryBuilder
+                  capabilities={selectedSchema.queryCapabilities}
+                  copy={{
+                    addConditionLabel: 'Add condition',
+                    addGroupLabel: 'Add group',
+                    applyFiltersLabel: 'Apply conditions',
+                    ascendingLabel: 'Ascending',
+                    clearFiltersLabel: 'Clear conditions',
+                    descendingLabel: 'Descending',
+                    fieldLabel: 'Field',
+                    filterBuilderLabel: 'Advanced conditions',
+                    matchLabel: 'Match',
+                    noFiltersSummaryLabel:
+                      'No advanced conditions are applied. Text search and sort can still be used.',
+                    operatorLabel: 'Operator',
+                    removeLabel: 'Remove',
+                    requestPreviewLabel: 'Query summary',
+                    sortBuilderLabel: 'Sort results',
+                    sortDirectionLabel: 'Direction',
+                    sortFieldLabel: 'Sort field',
+                    valueLabel: 'Value',
+                  }}
+                  sort={selectedSort}
+                  value={filters}
+                  onChange={(next) => {
+                    setFilters(next);
+                    setPage(0);
+                    setPreviewResult(undefined);
+                    preview.reset();
+                    generate.reset();
+                  }}
+                  onSortChange={(next) => {
+                    setSort(next);
+                    setPage(0);
+                    setPreviewResult(undefined);
+                    preview.reset();
+                    generate.reset();
+                  }}
+                />
+              ) : hasEnterprise ? (
+                <Alert severity="info">
+                  Choose an export model to build governed conditions and sort order.
+                </Alert>
+              ) : null}
             </Stack>
           </CardContent>
         </Card>

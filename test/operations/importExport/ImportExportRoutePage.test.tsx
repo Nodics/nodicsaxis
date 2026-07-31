@@ -1,7 +1,7 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { AxisThemeProvider } from '../../../src/app/AxisThemeProvider';
 import type { AxisAuthenticatedBootstrap } from '../../../src/bootstrap/publicBootstrap';
@@ -158,6 +158,48 @@ const addressSchema = {
 };
 
 describe('ImportExportRoutePage', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+    window.history.replaceState({}, '', '/');
+  });
+
+  it('opens the requested import-export area from URL state and preserves tab changes', async () => {
+    vi.spyOn(globalThis, 'fetch').mockImplementation((input) => {
+      const url = fetchInputUrl(input);
+      if (url.includes('/schema/workbench')) {
+        return Promise.resolve(
+          jsonResponse({
+            schemas: [tenantSchema],
+          }),
+        );
+      }
+      if (url.endsWith('/core')) return Promise.resolve(jsonResponse([currentRelease]));
+      if (url.endsWith('/init') || url.endsWith('/sample')) {
+        return Promise.resolve(jsonResponse([]));
+      }
+      return Promise.resolve(jsonResponse([]));
+    });
+    window.history.replaceState({}, '', '/operations/import-export?area=exports');
+    const user = userEvent.setup();
+
+    renderPage();
+
+    expect(await screen.findByText('2. Choose export model')).toBeVisible();
+    expect(screen.getByRole('tab', { name: 'Exports' })).toHaveAttribute(
+      'aria-selected',
+      'true',
+    );
+
+    await user.click(screen.getByRole('tab', { name: 'File imports' }));
+
+    expect(window.location.search).toBe('?area=file-imports');
+    expect(await screen.findByText('2. Choose target model')).toBeVisible();
+
+    await user.click(screen.getByRole('tab', { name: 'Initialization data' }));
+
+    expect(window.location.search).toBe('');
+  });
+
   it('validates current releases without enabling no-op installation', async () => {
     const fetchMock = vi.spyOn(globalThis, 'fetch').mockImplementation((input) => {
       const url = fetchInputUrl(input);
@@ -225,7 +267,7 @@ describe('ImportExportRoutePage', () => {
 
     expect(await screen.findByText('1. Confirm target destination')).toBeVisible();
     expect(screen.getByText('2. Choose target model')).toBeVisible();
-    expect(screen.getByRole('combobox', { name: 'Target model' })).toBeDisabled();
+    expect(screen.getByRole('combobox', { name: 'Target model' })).toBeEnabled();
     expect(screen.getByRole('combobox', { name: 'Target enterprise' })).toBeVisible();
     expect(screen.getByText('Technical tenant')).toBeVisible();
     expect(screen.getByText('default')).toBeVisible();
@@ -234,13 +276,6 @@ describe('ImportExportRoutePage', () => {
       'true',
     );
     expect(screen.getByRole('button', { name: 'Validate file import' })).toBeDisabled();
-
-    await user.click(screen.getByRole('combobox', { name: 'Target enterprise' }));
-    await user.click(await screen.findByRole('option', { name: 'Default' }));
-
-    expect(screen.getByRole('combobox', { name: 'Target model' })).toBeEnabled();
-
-    vi.restoreAllMocks();
   });
 
   it('enables file validation only after explicit target model selection', async () => {
@@ -276,15 +311,11 @@ describe('ImportExportRoutePage', () => {
     await user.click(await screen.findByRole('tab', { name: 'File imports' }));
     expect(
       await screen.findByRole('combobox', { name: 'Target model' }),
-    ).toBeDisabled();
+    ).toBeEnabled();
     expect(screen.getByRole('button', { name: 'Choose file' })).toHaveAttribute(
       'aria-disabled',
       'true',
     );
-
-    await user.click(screen.getByRole('combobox', { name: 'Target enterprise' }));
-    await user.click(await screen.findByRole('option', { name: 'Default' }));
-    expect(screen.getByRole('combobox', { name: 'Target model' })).toBeEnabled();
 
     await user.click(screen.getByRole('combobox', { name: 'Target model' }));
     await user.click(await screen.findByText('Tenant records'));

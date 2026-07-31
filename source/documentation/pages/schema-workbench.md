@@ -24,7 +24,10 @@ The authenticated `/schema-workbench` route:
   delegates to existing generated CRUD services;
 - searches the full authorized result set across descriptor-advertised safe
   text fields rather than filtering only the current browser page;
-- sorts only by descriptor-advertised scalar fields;
+- uses the shared Axis Schema Query Builder for browsing, export preview, and
+  any future schema-backed data retrieval screen so employees learn one
+  consistent query experience;
+- sorts only by descriptor-advertised scalar fields and default sort metadata;
 - builds typed filters only from descriptor-advertised fields and operators;
 - supports bounded nested `AND`/`OR` groups with an inert JSON request preview;
 - keeps filter edits as a local draft until the employee applies them;
@@ -182,6 +185,12 @@ not generic Workbench coordination.
 - Change module availability through Nodics runtime topology and BackOffice
   registration.
 - Extend Axis with one typed renderer per new CMS component contract.
+- Reuse shared interaction components when the same behavior appears on more
+  than one page. The Schema Query Builder is a generic workbench capability,
+  not a private Schema Workbench widget. If another page needs schema search,
+  filtering, sorting, grouping, or preview behavior, compose the shared query
+  builder and feed it backend-advertised capabilities instead of creating a
+  local query form.
 
 Do not add hardcoded module endpoints, backend rules, translated business
 copy, or alternate schema definitions to Axis.

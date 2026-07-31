@@ -58,6 +58,11 @@ export const COMPONENT_RENDERER_REGISTRY = Object.freeze({
       default: module.SchemaWorkbenchRenderer,
     })),
   ),
+  'axis.component.schema-query-builder': lazy(() =>
+    import('../components/query/SchemaQueryBuilderRenderer').then((module) => ({
+      default: module.SchemaQueryBuilderRenderer,
+    })),
+  ),
   'documentation.component.article': lazy(() =>
     import('../components/documentation/DocumentationArticleRenderer').then(
       (module) => ({

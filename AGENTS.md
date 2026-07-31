@@ -61,6 +61,19 @@ Capabilities are stable; implementations may evolve.
   that consumes it. A page-specific directory is allowed only when the
   renderer contract is intentionally exclusive to that page. Never duplicate
   a shared renderer to simplify local page imports.
+- Treat reusable interaction patterns as product-level components, not
+  page-local widgets. If a capability such as schema query building, record
+  filtering, media selection, or relationship picking can appear in more than
+  one Axis page, model it as a reusable content-catalog component contract and
+  expose it through one Axis-owned renderer or shared primitive. Page renderers
+  and feature workspaces may compose that shared implementation, but must not
+  fork behavior, operators, copy ownership, or backend query semantics.
+- Keep backend authority out of reusable renderers. A generic Axis component
+  may render backend-advertised fields, operators, limits, labels, help text,
+  and safe defaults, but it must not invent schema definitions, database
+  syntax, authorization decisions, file paths, or module endpoints. Promote a
+  repeated page-local implementation to a shared component/renderer before
+  adding another copy.
 - Validate deployment configuration before authentication.
 - Never store passwords, access tokens, or refresh tokens in localStorage,
   sessionStorage, IndexedDB, URLs, telemetry, or logs.

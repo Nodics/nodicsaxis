@@ -199,9 +199,20 @@ function importFailureHowToFix(failure: ImportRunFailure): string {
 }
 
 export function FileImportWorkspace(props: FileImportWorkspaceProps) {
+  return (
+    <FileImportWorkspaceContent
+      key={props.enterpriseCode.trim()}
+      {...props}
+    />
+  );
+}
+
+function FileImportWorkspaceContent(props: FileImportWorkspaceProps) {
   const [schemaKey, setSchemaKey] = useState('');
   const [file, setFile] = useState<File | undefined>(undefined);
-  const [targetEnterpriseCode, setTargetEnterpriseCode] = useState('');
+  const [targetEnterpriseCode, setTargetEnterpriseCode] = useState(
+    props.enterpriseCode.trim(),
+  );
   const [validationStatusFilter, setValidationStatusFilter] = useState('ALL');
   const [validationSearch, setValidationSearch] = useState('');
   const [validationPage, setValidationPage] = useState(0);
@@ -213,28 +224,39 @@ export function FileImportWorkspace(props: FileImportWorkspaceProps) {
   const [validatedMediaCode, setValidatedMediaCode] = useState<string | undefined>(
     undefined,
   );
+  const workspaceEnterpriseCode = props.enterpriseCode.trim();
+  const selectedEnterpriseCode = targetEnterpriseCode.trim();
+  const selectedClientConfiguration = useMemo<DataReleaseClientConfiguration>(
+    () => ({
+      ...props.configuration,
+      enterpriseCode:
+        selectedEnterpriseCode || props.configuration.enterpriseCode.trim(),
+    }),
+    [props.configuration, selectedEnterpriseCode],
+  );
   const workbenchConfiguration = useMemo<WorkbenchClientConfiguration>(
     () => ({
-      accessToken: props.configuration.accessToken,
-      enterpriseCode: props.configuration.enterpriseCode,
-      timeoutMs: props.configuration.timeoutMs,
+      accessToken: selectedClientConfiguration.accessToken,
+      enterpriseCode: selectedClientConfiguration.enterpriseCode,
+      timeoutMs: selectedClientConfiguration.timeoutMs,
     }),
     [
-      props.configuration.accessToken,
-      props.configuration.enterpriseCode,
-      props.configuration.timeoutMs,
+      selectedClientConfiguration.accessToken,
+      selectedClientConfiguration.enterpriseCode,
+      selectedClientConfiguration.timeoutMs,
     ],
   );
 
+  const hasTargetEnterprise = selectedEnterpriseCode.length > 0;
   const schemas = useQuery({
-    queryKey: ['file-import-schemas', props.configuration.enterpriseCode],
+    queryKey: ['file-import-schemas', selectedClientConfiguration.enterpriseCode],
     queryFn: () => {
       if (props.schemaConnections.length === 0) {
         throw new Error('Schema discovery is unavailable');
       }
       return loadWorkbenchSchemas(props.schemaConnections, workbenchConfiguration);
     },
-    enabled: props.schemaConnections.length > 0,
+    enabled: props.schemaConnections.length > 0 && hasTargetEnterprise,
   });
   const schemaOptions = useMemo(() => {
     const byKey = new Map<string, WorkbenchSchema>();
@@ -257,8 +279,8 @@ export function FileImportWorkspace(props: FileImportWorkspaceProps) {
         throw new Error('Select the target enterprise before uploading');
       if (!selectedSchema) throw new Error('Choose a target model before uploading');
       if (!file) throw new Error('Select a file before uploading');
-      return uploadImportMedia(props.mediaConnection, props.configuration, file, {
-        enterpriseCode: targetEnterpriseCode,
+      return uploadImportMedia(props.mediaConnection, selectedClientConfiguration, file, {
+        enterpriseCode: selectedEnterpriseCode,
         moduleName: selectedSchema.moduleName,
         schemaName: selectedSchema.schemaName,
         tenantCode: props.tenantCode,
@@ -276,7 +298,7 @@ export function FileImportWorkspace(props: FileImportWorkspaceProps) {
         throw new Error('Select the target enterprise before validation');
       if (!uploadedMedia || !selectedSchema)
         throw new Error('Upload a file and select a target model first');
-      return validateMediaImport(props.importConnection, props.configuration, {
+      return validateMediaImport(props.importConnection, selectedClientConfiguration, {
         mediaCode: uploadedMedia.mediaCode,
         moduleName: selectedSchema.moduleName,
         schemaName: selectedSchema.schemaName,
@@ -296,7 +318,7 @@ export function FileImportWorkspace(props: FileImportWorkspaceProps) {
         throw new Error('Select the target enterprise before importing');
       if (!uploadedMedia || !selectedSchema)
         throw new Error('Upload a file and select a target model first');
-      return installMediaImport(props.importConnection, props.configuration, {
+      return installMediaImport(props.importConnection, selectedClientConfiguration, {
         mediaCode: uploadedMedia.mediaCode,
         moduleName: selectedSchema.moduleName,
         schemaName: selectedSchema.schemaName,
@@ -344,7 +366,6 @@ export function FileImportWorkspace(props: FileImportWorkspaceProps) {
     validationPage * validationRowsPerPage,
     validationPage * validationRowsPerPage + validationRowsPerPage,
   );
-  const hasTargetEnterprise = targetEnterpriseCode.trim().length > 0;
   const canChooseModel = hasTargetEnterprise;
   const canChooseFile = Boolean(selectedSchema);
   const canValidate = Boolean(hasTargetEnterprise && uploadedMedia && selectedSchema);
@@ -420,6 +441,7 @@ export function FileImportWorkspace(props: FileImportWorkspaceProps) {
                         fullWidth
                         label="Target enterprise"
                         select
+                        disabled={!workspaceEnterpriseCode}
                         value={targetEnterpriseCode}
                         onChange={(event) => {
                           setTargetEnterpriseCode(event.target.value);
@@ -436,8 +458,8 @@ export function FileImportWorkspace(props: FileImportWorkspaceProps) {
                           }
                         }}
                       >
-                        <MenuItem value={props.enterpriseCode}>
-                          {titleCase(props.enterpriseCode)}
+                        <MenuItem value={workspaceEnterpriseCode}>
+                          {titleCase(workspaceEnterpriseCode)}
                         </MenuItem>
                       </TextField>
                     </Box>

@@ -68,6 +68,16 @@ Axis source. Keep the renderer declarative: component properties may influence
 content and presentation, but must not introduce API destinations, executable
 scripts, authorization rules, or backend business decisions.
 
+When a component can be reused across pages, promote it to a shared component
+contract instead of creating a second page-local renderer. Schema Query
+Builder is the reference pattern: the content catalog can place or configure a
+query-builder component, and Axis can render it through a shared renderer or
+shared primitive, but the owning backend module still supplies searchable
+fields, allowed operators, sort rules, limits, and execution contracts. This
+same reuse rule applies to future media pickers, relationship selectors,
+record browsers, workflow selectors, and any other repeated business-control
+surface.
+
 Run the focused checks while changing this boundary:
 
 ```bash

@@ -22,7 +22,7 @@ import {
   Typography,
 } from '@mui/material';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { type ReactNode, useMemo, useState } from 'react';
+import { type ReactNode, useEffect, useMemo, useState } from 'react';
 import { Link as RouterLink, useLocation } from 'react-router';
 
 import { WorkspaceContainer } from '../../app/shell/ShellPrimitives';
@@ -84,6 +84,15 @@ interface MediaRecordWorkspaceConfiguration {
   readonly summary: (record: WorkbenchRecord) => string;
 }
 
+interface MediaRecordFacetFilter {
+  readonly allLabel: string;
+  readonly key: string;
+  readonly label: string;
+  readonly optionLabel?: (value: string) => string;
+  readonly staticOptions?: readonly string[];
+  readonly value: (record: WorkbenchRecord) => string;
+}
+
 const sectionSummaries: Readonly<Record<string, string>> = Object.freeze({
   'media-management':
     'Governed entry point for media files, folders, formats, usage, and storage delivery policy.',
@@ -119,125 +128,6 @@ const presentMediaUploadError = function (error: unknown): string {
 
   return message;
 };
-
-const sectionDetails: Readonly<
-  Record<
-    string,
-    {
-      readonly model: string;
-      readonly purpose: string;
-      readonly availableNow: readonly string[];
-      readonly nextSlices: readonly string[];
-    }
-  >
-> = Object.freeze({
-  'media-management': {
-    model: 'Media capability contract',
-    purpose:
-      'Provides one governed operations entry point for media files, folders, formats, logical sets, usage, storage policy, and delivery.',
-    availableNow: [
-      'Shows the backend-published Media Management capability discovered by BackOffice.',
-      'Keeps Axis routing and labels driven from media metadata.',
-      'Separates media operations from import/export so business users can find assets independently.',
-    ],
-    nextSlices: [
-      'Add secured media record search and detail view.',
-      'Add folder and format management screens through generated media CRUD APIs.',
-      'Add reference and usage views for product, CMS, import, and business documents.',
-    ],
-  },
-  media: {
-    model: 'media.media',
-    purpose:
-      'Represents each uploaded, generated, or externally registered file as a governed media item with storage, checksum, visibility, and lifecycle metadata.',
-    availableNow: [
-      'Upload flows already create media records before import processing.',
-      'Delivery uses media code rather than exposing filesystem or provider paths.',
-      'The route is ready for a searchable media record grid.',
-    ],
-    nextSlices: [
-      'List and search media records by code, filename, source type, visibility, and status.',
-      'Open media detail with preview/download policy from media delivery APIs.',
-      'Retire or reclassify media through authorized backend operations.',
-    ],
-  },
-  'media-folders': {
-    model: 'media.mediaFolder',
-    purpose:
-      'Defines purpose-based storage policy such as import sources, data exports, CMS assets, product assets, and utility documents.',
-    availableNow: [
-      'The media service resolves folder configuration before storing uploaded bytes.',
-      'Folders keep local/cloud/NAS storage behavior backend-owned.',
-      'The route is ready for folder policy review.',
-    ],
-    nextSlices: [
-      'List configured folders with delivery visibility, allowed extensions, MIME policy, and retention.',
-      'Add governed create/update forms for folder policy where the employee has permission.',
-      'Show which uploads or references are using each folder.',
-    ],
-  },
-  'media-sets': {
-    model: 'media.mediaSet and media.mediaSetEntry',
-    purpose:
-      'Groups one logical asset with variants, for example thumbnail, mobile, desktop, zoom, or original files.',
-    availableNow: [
-      'The media service has neutral set and set-entry models for product galleries and CMS image groups.',
-      'Business modules store media set codes instead of duplicating binary ownership.',
-      'The route is ready for a set composition view.',
-    ],
-    nextSlices: [
-      'Search media sets by purpose, type, and lifecycle status.',
-      'Display set entries with variant role, format, locale, dimensions, and order.',
-      'Support safe add/remove/reorder operations through authorized backend APIs.',
-    ],
-  },
-  'media-formats': {
-    model: 'media.mediaFormat',
-    purpose:
-      'Defines reusable media presentation or processing formats such as original, thumbnail, desktop, mobile, zoom, or import file.',
-    availableNow: [
-      'Formats are modeled independently from products and CMS components.',
-      'Media sets can associate entries to a format without hardcoding frontend behavior.',
-      'The route is ready for format governance.',
-    ],
-    nextSlices: [
-      'List formats with dimensions and business purpose.',
-      'Add governed format management for administrators.',
-      'Connect formats to CMS and product media rendering guidance.',
-    ],
-  },
-  'media-usage': {
-    model: 'media.mediaReference',
-    purpose:
-      'Shows which business objects reference a media item or media set without making the media service own product, CMS, or import data.',
-    availableNow: [
-      'The media service provides a neutral reference model and internal reference validation contract.',
-      'Caller modules keep business ownership and pass only media codes or media set codes.',
-      'The route can search usage references through the media schema workbench.',
-    ],
-    nextSlices: [
-      'Open referenced media or media set details from usage rows.',
-      'Add safe cleanup warnings before retiring media that is still referenced.',
-      'Add source-object links when owning modules publish safe BackOffice routes.',
-    ],
-  },
-  'storage-delivery': {
-    model: 'Media storage and delivery policy',
-    purpose:
-      'Explains upload constraints and content delivery behavior without exposing provider secrets or server filesystem paths.',
-    availableNow: [
-      'Axis calls the media storage policy endpoint with safe probe descriptors for known media folders.',
-      'Media access goes through the media content route or future provider-owned signed/public URLs.',
-      'Absolute server paths and provider credentials are intentionally not exposed to the browser.',
-    ],
-    nextSlices: [
-      'Display backend-published provider diagnostics after the media service exposes a safe inspection contract.',
-      'Display delivery visibility behavior from an explicit media delivery-policy contract.',
-      'Prepare provider-specific panels for local, NAS, cloud, FTP, or CDN-backed storage.',
-    ],
-  },
-});
-const defaultSectionDetails = sectionDetails['media-management']!;
 
 function humanize(value: string): string {
   return value
@@ -379,15 +269,60 @@ function mediaSummary(record: WorkbenchRecord): string {
 
 const sourceTypeByFolderCode: Readonly<Record<string, string>> = Object.freeze({
   cmsAssets: 'Content media',
+  contentMedia: 'Content media',
   contentAssets: 'Content media',
+  dataExport: 'Data exports',
+  dataExports: 'Data exports',
+  dataImport: 'Data imports',
+  dataImports: 'Data imports',
   default: 'Utility media',
   exportFiles: 'Data exports',
   exportResults: 'Data exports',
   importSources: 'Data imports',
+  productMedia: 'Product media',
   productAssets: 'Product media',
   utilityFiles: 'Utility media',
   utilityMedia: 'Utility media',
 });
+
+const governedMediaSourceTypes = Object.freeze([
+  'Data imports',
+  'Data exports',
+  'Product media',
+  'Content media',
+  'Utility media',
+]);
+
+const manualMediaUploadSourceTypes = Object.freeze([
+  'Data imports',
+  'Product media',
+  'Content media',
+  'Utility media',
+]);
+
+const preferredUploadFolderCodesBySourceType: Readonly<
+  Record<string, readonly string[]>
+> = Object.freeze({
+  'Content media': Object.freeze(['contentMedia', 'cmsAssets', 'contentAssets']),
+  'Data imports': Object.freeze(['dataImport', 'dataImports', 'importSources']),
+  'Product media': Object.freeze(['productMedia', 'productAssets']),
+  'Utility media': Object.freeze(['utilityMedia', 'utilityFiles', 'default']),
+});
+
+const formatLabelByCode: Readonly<Record<string, string>> = Object.freeze({
+  contentImage: 'Content image',
+  exportFile: 'Export file',
+  importFile: 'Import file',
+  original: 'Original media',
+  productGallery: 'Product gallery image',
+  productImage: 'Product image',
+  thumbnail: 'Thumbnail',
+  utilityFile: 'Utility file',
+});
+
+function normalizedPolicyCode(value: string): string {
+  return value.trim().toLowerCase();
+}
 
 function mediaSourceType(folderCode: string): string {
   const normalized = folderCode.trim();
@@ -400,6 +335,32 @@ function mediaSourceType(folderCode: string): string {
   if (/content|cms|banner|page/i.test(normalized)) return 'Content media';
   if (/document|kyc|process/i.test(normalized)) return 'Business documents';
   return humanize(normalized);
+}
+
+function selectPreferredUploadPolicy(
+  policies: readonly MediaFolderUploadPolicy[],
+  sourceType: string,
+): MediaFolderUploadPolicy | undefined {
+  if (!sourceType) return undefined;
+  const preferredCodes = preferredUploadFolderCodesBySourceType[sourceType] ?? [];
+  const preferredPolicy = preferredCodes
+    .map((code) =>
+      policies.find(
+        (policy) =>
+          normalizedPolicyCode(policy.folderCode) === normalizedPolicyCode(code),
+      ),
+    )
+    .find((policy): policy is MediaFolderUploadPolicy => Boolean(policy));
+  return (
+    preferredPolicy ??
+    policies.find((policy) => mediaSourceType(policy.folderCode) === sourceType)
+  );
+}
+
+function mediaFormatLabel(formatCode: string): string {
+  const normalized = formatCode.trim();
+  if (!normalized || normalized === '—') return 'Unassigned format';
+  return formatLabelByCode[normalized] ?? humanize(normalized);
 }
 
 function uniqueSorted(values: readonly string[]): string[] {
@@ -856,23 +817,288 @@ function acceptFromPolicy(
   return accept.length > 0 ? accept.join(',') : undefined;
 }
 
+function normalizedExtension(value: string): string {
+  return value.trim().toLowerCase().replace(/^\./, '');
+}
+
+function extensionFromFileName(fileName: string): string {
+  const name = fileName.trim();
+  const dotIndex = name.lastIndexOf('.');
+  if (dotIndex < 0 || dotIndex === name.length - 1) return '';
+  return normalizedExtension(name.slice(dotIndex + 1));
+}
+
+function allowedExtensionLabel(policy: MediaFolderUploadPolicy): string {
+  if (policy.allowedExtensions.includes('*')) return 'any backend-approved file';
+  return policy.allowedExtensions
+    .map((extension) => `.${normalizedExtension(extension)}`)
+    .join(', ');
+}
+
+function filePolicyIssue(
+  policy: MediaFolderUploadPolicy | undefined,
+  file: File | undefined,
+  sourceType = '',
+): string | undefined {
+  if (!policy || !file) return undefined;
+  const policyScope = sourceType || policy.label;
+  const extension = extensionFromFileName(file.name);
+  if (!extension) {
+    return 'The selected file does not have a file extension. Choose a file with a governed extension for this source type.';
+  }
+  const allowedExtensions = policy.allowedExtensions.map(normalizedExtension);
+  if (
+    allowedExtensions.length > 0 &&
+    !allowedExtensions.includes('*') &&
+    !allowedExtensions.includes(extension)
+  ) {
+    return `.${extension} files are not allowed for ${policyScope}. Choose ${allowedExtensionLabel(policy)}, or select a different source type.`;
+  }
+  return undefined;
+}
+
+function isImageFile(file: File): boolean {
+  return file.type.startsWith('image/');
+}
+
+function isTextPreviewFile(file: File): boolean {
+  const extension = extensionFromFileName(file.name);
+  return (
+    file.type.startsWith('text/') ||
+    ['csv', 'json', 'js', 'md', 'txt', 'xml'].includes(extension)
+  );
+}
+
 function defaultFormatForFolder(folderCode: string): string {
-  if (folderCode === 'importSources') return 'importFile';
+  if (['dataImport', 'dataImports', 'importSources'].includes(folderCode)) {
+    return 'importFile';
+  }
+  if (['dataExport', 'dataExports', 'exportFiles', 'exportResults'].includes(folderCode)) {
+    return 'exportFile';
+  }
+  if (['cmsAssets', 'contentAssets', 'contentMedia'].includes(folderCode)) {
+    return 'contentImage';
+  }
+  if (['productAssets', 'productMedia'].includes(folderCode)) return 'productImage';
+  if (['default', 'utilityFiles', 'utilityMedia'].includes(folderCode)) return 'utilityFile';
   return 'original';
 }
 
-function moduleForFolder(folderCode: string): string | undefined {
-  if (folderCode === 'cmsAssets') return 'cms';
-  if (folderCode === 'productAssets') return 'product';
-  if (folderCode === 'importSources') return 'import';
+function defaultFormatForSourceType(sourceType: string, folderCode: string): string {
+  if (sourceType === 'Data imports') return 'importFile';
+  if (sourceType === 'Data exports') return 'exportFile';
+  if (sourceType === 'Product media') return 'productImage';
+  if (sourceType === 'Content media') return 'contentImage';
+  if (sourceType === 'Utility media') return 'utilityFile';
+  return defaultFormatForFolder(folderCode);
+}
+
+function moduleForSourceType(sourceType: string): string | undefined {
+  if (sourceType === 'Content media') return 'cms';
+  if (sourceType === 'Product media') return 'product';
+  if (sourceType === 'Data imports') return 'import';
   return undefined;
 }
 
-function schemaForFolder(folderCode: string): string | undefined {
-  if (folderCode === 'cmsAssets') return 'cmsComponent';
-  if (folderCode === 'productAssets') return 'product';
-  if (folderCode === 'importSources') return 'mediaImport';
+function schemaForSourceType(sourceType: string): string | undefined {
+  if (sourceType === 'Content media') return 'cmsComponent';
+  if (sourceType === 'Product media') return 'product';
+  if (sourceType === 'Data imports') return 'mediaImport';
   return undefined;
+}
+
+function mediaReviewType(file: File): string {
+  const extension = extensionFromFileName(file.name);
+  if (isImageFile(file)) return 'Image preview';
+  if (extension === 'csv') return 'CSV data file';
+  if (['xls', 'xlsx'].includes(extension)) return 'Spreadsheet workbook';
+  if (extension === 'pdf') return 'PDF document';
+  if (extension === 'json') return 'JSON document';
+  if (isTextPreviewFile(file)) return 'Text file';
+  return 'Metadata review';
+}
+
+function sourceTypeStorageRouteLabel(sourceType: string): string {
+  if (sourceType === 'Data imports') {
+    return 'media/data/import/{tenant}/{enterprise}/{schema}/{yyyy}/{mm}/{mediaCode}.{extension}';
+  }
+  if (sourceType === 'Data exports') {
+    return 'media/data/export/{tenant}/{enterprise}/{schema}/{yyyy}/{mm}/{mediaCode}.{extension}';
+  }
+  if (sourceType === 'Product media') {
+    return 'media/product/{tenant}/{enterprise}/{schema}/{yyyy}/{mm}/{mediaCode}.{extension}';
+  }
+  if (sourceType === 'Content media') {
+    return 'media/content/{tenant}/{enterprise}/{schema}/{yyyy}/{mm}/{mediaCode}.{extension}';
+  }
+  if (sourceType === 'Utility media') {
+    return 'media/utility/{tenant}/{enterprise}/{schema}/{yyyy}/{mm}/{mediaCode}.{extension}';
+  }
+  return 'Select a source type to see backend-routed storage.';
+}
+
+function sourceTypeUploadPurpose(sourceType: string): string {
+  if (sourceType === 'Data imports') {
+    return 'Upload governed files that will later be validated and processed by nImport.';
+  }
+  if (sourceType === 'Product media') {
+    return 'Upload product images, galleries, or product-owned media assets.';
+  }
+  if (sourceType === 'Content media') {
+    return 'Upload CMS and storefront content assets such as banners, icons, and page imagery.';
+  }
+  if (sourceType === 'Utility media') {
+    return 'Upload general governed files that are not owned by product, content, import, or export flows.';
+  }
+  return 'Choose a source type before selecting a file.';
+}
+
+function maxUploadSizeLabel(policy: MediaFolderUploadPolicy | undefined): string {
+  return policy?.maxFileSizeBytes
+    ? formatBytes(policy.maxFileSizeBytes)
+    : 'backend default';
+}
+
+function MediaUploadReview(props: {
+  readonly file: File;
+  readonly policy: MediaFolderUploadPolicy;
+  readonly policyIssue: string | undefined;
+  readonly sourceType: string;
+}) {
+  const [textPreview, setTextPreview] = useState('');
+  const [previewError, setPreviewError] = useState('');
+  const [imagePreviewUrl, setImagePreviewUrl] = useState('');
+
+  useEffect(() => {
+    setTextPreview('');
+    setPreviewError('');
+    setImagePreviewUrl('');
+
+    if (isImageFile(props.file)) {
+      const objectUrl = URL.createObjectURL(props.file);
+      setImagePreviewUrl(objectUrl);
+      return () => URL.revokeObjectURL(objectUrl);
+    }
+
+    if (isTextPreviewFile(props.file)) {
+      let cancelled = false;
+      props.file
+        .text()
+        .then((content) => {
+          if (cancelled) return;
+          const lines = content.split(/\r?\n/).slice(0, 12).join('\n');
+          setTextPreview(lines || 'The selected text file is empty.');
+        })
+        .catch(() => {
+          if (!cancelled) {
+            setPreviewError('Axis could not read a local text preview for this file.');
+          }
+        });
+      return () => {
+        cancelled = true;
+      };
+    }
+
+    return undefined;
+  }, [props.file]);
+
+  const extension = extensionFromFileName(props.file.name);
+  const reviewMessage = props.policyIssue
+    ? props.policyIssue
+    : isImageFile(props.file)
+      ? 'Image preview is available before upload. Backend policy still performs final validation.'
+      : isTextPreviewFile(props.file)
+        ? 'A small local text preview is shown below. Backend import/export processes perform governed content validation.'
+        : 'This file type uses metadata review in Axis. Detailed content validation is handled by its owning backend process.';
+
+  return (
+    <Box
+      sx={{
+        bgcolor: 'background.paper',
+        border: 1,
+        borderColor: props.policyIssue ? 'warning.light' : 'divider',
+        borderRadius: 2,
+        p: 1.5,
+      }}
+    >
+      <Stack spacing={1.5}>
+        <Stack
+          direction={{ xs: 'column', md: 'row' }}
+          spacing={1}
+          sx={{ alignItems: { md: 'flex-start' }, justifyContent: 'space-between' }}
+        >
+          <Box>
+            <Typography sx={{ fontWeight: 700 }}>Review selected media</Typography>
+            <Typography color="text.secondary" variant="body2">
+              Confirm the source type, file type, and backend policy before uploading.
+            </Typography>
+          </Box>
+          <Chip
+            color={props.policyIssue ? 'warning' : 'success'}
+            label={props.policyIssue ? 'Needs correction' : 'Ready for upload'}
+            size="small"
+          />
+        </Stack>
+
+        <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap' }}>
+          <Chip label={`Source type: ${props.sourceType}`} size="small" />
+          <Chip label={`Review: ${mediaReviewType(props.file)}`} size="small" />
+          <Chip
+            label={`Format: ${mediaFormatLabel(defaultFormatForSourceType(props.sourceType, props.policy.folderCode))}`}
+            size="small"
+          />
+          <Chip label={`Extension: ${extension ? `.${extension}` : 'missing'}`} size="small" />
+          <Chip label={`Size: ${formatBytes(props.file.size)}`} size="small" />
+          <Chip label={`Allowed: ${allowedExtensionLabel(props.policy)}`} size="small" />
+        </Stack>
+
+        <Alert severity={props.policyIssue ? 'warning' : 'info'}>
+          {reviewMessage}
+        </Alert>
+
+        {imagePreviewUrl ? (
+          <Box
+            component="img"
+            alt={`Preview of ${props.file.name}`}
+            src={imagePreviewUrl}
+            sx={{
+              bgcolor: 'action.hover',
+              border: 1,
+              borderColor: 'divider',
+              borderRadius: 1.5,
+              maxHeight: 220,
+              maxWidth: '100%',
+              objectFit: 'contain',
+              p: 1,
+            }}
+          />
+        ) : null}
+
+        {textPreview ? (
+          <Box
+            component="pre"
+            sx={{
+              bgcolor: 'action.hover',
+              border: 1,
+              borderColor: 'divider',
+              borderRadius: 1.5,
+              fontFamily: 'monospace',
+              fontSize: '0.875rem',
+              m: 0,
+              maxHeight: 220,
+              overflow: 'auto',
+              p: 1.5,
+              whiteSpace: 'pre-wrap',
+            }}
+          >
+            {textPreview}
+          </Box>
+        ) : null}
+
+        {previewError ? <Alert severity="warning">{previewError}</Alert> : null}
+      </Stack>
+    </Box>
+  );
 }
 
 function MediaUploadPanel(props: {
@@ -883,21 +1109,58 @@ function MediaUploadPanel(props: {
   readonly onUploaded: (media: MediaUploadResult) => void;
   readonly policies: readonly MediaFolderUploadPolicy[];
 }) {
-  const [selectedFolderCode, setSelectedFolderCode] = useState('');
+  const [selectedSourceType, setSelectedSourceType] = useState('');
   const [selectedFile, setSelectedFile] = useState<File>();
-  const selectedPolicy =
-    props.policies.find((policy) => policy.folderCode === selectedFolderCode) ??
-    props.policies[0];
+  const uploadablePolicies = useMemo(
+    () =>
+      props.policies.filter(
+        (policy) => mediaSourceType(policy.folderCode) !== 'Data exports',
+      ),
+    [props.policies],
+  );
+  const uploadableSourceTypes = useMemo(
+    () =>
+      manualMediaUploadSourceTypes.filter((sourceType) =>
+        Boolean(selectPreferredUploadPolicy(uploadablePolicies, sourceType)),
+      ),
+    [uploadablePolicies],
+  );
+  const selectedPolicy = selectPreferredUploadPolicy(
+    uploadablePolicies,
+    selectedSourceType,
+  );
+  const selectedFilePolicyIssue = filePolicyIssue(
+    selectedPolicy,
+    selectedFile,
+    selectedSourceType,
+  );
   const upload = useMutation({
     mutationFn: () => {
-      const moduleName = moduleForFolder(selectedPolicy!.folderCode);
-      const schemaName = schemaForFolder(selectedPolicy!.folderCode);
+      if (!props.connection) throw new Error('Media service is unavailable.');
+      if (!selectedSourceType) throw new Error('Select a media source type first.');
+      if (!selectedPolicy) {
+        throw new Error(
+          'The selected source type does not have an active backend upload policy.',
+        );
+      }
+      if (!selectedFile) throw new Error('Choose a media file before uploading.');
+      const policyIssue = filePolicyIssue(
+        selectedPolicy,
+        selectedFile,
+        selectedSourceType,
+      );
+      if (policyIssue) throw new Error(policyIssue);
+      const moduleName = moduleForSourceType(selectedSourceType);
+      const schemaName = schemaForSourceType(selectedSourceType);
       return uploadMedia(props.connection!, props.configuration, {
-        file: selectedFile!,
-        folderCode: selectedPolicy!.folderCode,
-        formatCode: defaultFormatForFolder(selectedPolicy!.folderCode),
-        name: selectedFile!.name,
-        description: `Uploaded from Nodics Axis Media Management for ${selectedPolicy!.label}`,
+        file: selectedFile,
+        folderCode: selectedPolicy.folderCode,
+        formatCode: defaultFormatForSourceType(
+          selectedSourceType,
+          selectedPolicy.folderCode,
+        ),
+        name: selectedFile.name,
+        description: `Uploaded from Nodics Axis Media Management as ${selectedSourceType}`,
         ...(moduleName ? { moduleName } : {}),
         ...(schemaName ? { schemaName } : {}),
       });
@@ -908,7 +1171,11 @@ function MediaUploadPanel(props: {
     },
   });
   const canUpload = Boolean(
-    props.connection && selectedPolicy && selectedFile && !upload.isPending,
+    props.connection &&
+      selectedPolicy &&
+      selectedFile &&
+      !selectedFilePolicyIssue &&
+      !upload.isPending,
   );
 
   return (
@@ -950,135 +1217,222 @@ function MediaUploadPanel(props: {
               ? props.error.message
               : 'Media upload policy is unavailable.'}
           </Alert>
-        ) : props.policies.length === 0 ? (
+        ) : uploadableSourceTypes.length === 0 ? (
           <Alert severity="warning">
             The media service did not publish upload folder policy for this employee
             session.
           </Alert>
         ) : (
           <>
-            <TextField
-              fullWidth
-              select
-              label="Upload purpose"
-              value={selectedPolicy?.folderCode ?? ''}
-              onChange={(event) => {
-                setSelectedFolderCode(event.target.value);
-                upload.reset();
-              }}
-            >
-              {props.policies.map((policy) => (
-                <MenuItem key={policy.folderCode} value={policy.folderCode}>
-                  {policy.label} — {policy.access}
-                </MenuItem>
-              ))}
-            </TextField>
-
-            {selectedPolicy ? (
-              <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap' }}>
-                <Chip label={`Folder: ${selectedPolicy.folderCode}`} size="small" />
-                <Chip
-                  label={`Format: ${defaultFormatForFolder(selectedPolicy.folderCode)}`}
-                  size="small"
-                />
-                <Chip
-                  label={`Extensions: ${folderList(selectedPolicy.allowedExtensions)}`}
-                  size="small"
-                />
-                <Chip
-                  label={`Max size: ${formatBytes(selectedPolicy.maxFileSizeBytes)}`}
-                  size="small"
-                />
-              </Stack>
-            ) : null}
-
-            <Stack
-              direction={{ xs: 'column', sm: 'row' }}
-              spacing={1.5}
-              sx={{ alignItems: { sm: 'center' } }}
-            >
-              <Button
-                component="label"
-                disabled={!selectedPolicy || upload.isPending}
-                variant="outlined"
-              >
-                Choose file
-                <Box
-                  component="input"
-                  type="file"
-                  hidden
-                  accept={acceptFromPolicy(selectedPolicy)}
-                  onChange={(event) => {
-                    setSelectedFile(event.currentTarget.files?.[0]);
-                    upload.reset();
-                    event.currentTarget.value = '';
-                  }}
-                />
-              </Button>
-              <Button
-                disabled={!canUpload}
-                onClick={() => upload.mutate()}
-                variant="contained"
-              >
-                Upload to media
-              </Button>
-            </Stack>
-
-            {selectedFile ? (
-              <Box
-                sx={{
-                  bgcolor: 'background.paper',
-                  border: 1,
-                  borderColor: 'divider',
-                  borderRadius: 2,
-                  p: 1.5,
-                }}
-              >
-                <Stack
-                  direction={{ xs: 'column', sm: 'row' }}
-                  spacing={1}
-                  sx={{ alignItems: { sm: 'center' }, justifyContent: 'space-between' }}
-                >
+            <Card variant="outlined">
+              <CardContent>
+                <Stack spacing={1.5}>
                   <Box>
-                    <Typography sx={{ fontWeight: 700 }}>
-                      {selectedFile.name}
+                    <Typography component="h4" variant="h6">
+                      1. Select source type
                     </Typography>
-                    <Stack
-                      direction="row"
-                      spacing={1}
-                      sx={{ flexWrap: 'wrap', mt: 0.5 }}
-                    >
-                      <Chip label={selectedFile.type || 'Unknown MIME'} size="small" />
-                      <Chip label={formatBytes(selectedFile.size)} size="small" />
-                      <Chip label="LOCAL SELECTION" size="small" />
-                    </Stack>
+                    <Typography color="text.secondary">
+                      Source type tells the backend which governed storage route,
+                      folder policy, format, and allowed file types apply.
+                    </Typography>
                   </Box>
-                  <IconButton
-                    aria-label="Remove selected media upload file"
-                    onClick={() => {
+                  <TextField
+                    fullWidth
+                    select
+                    label="Source type"
+                    value={selectedSourceType}
+                    helperText="Data exports are generated by the Exports workspace and are not uploaded manually here."
+                    onChange={(event) => {
+                      setSelectedSourceType(event.target.value);
                       setSelectedFile(undefined);
                       upload.reset();
                     }}
                   >
-                    ×
-                  </IconButton>
+                    {uploadableSourceTypes.map((sourceType) => (
+                      <MenuItem key={sourceType} value={sourceType}>
+                        {sourceType}
+                      </MenuItem>
+                    ))}
+                  </TextField>
+                  {selectedSourceType ? (
+                    <Alert severity="info">
+                      {sourceTypeUploadPurpose(selectedSourceType)}
+                    </Alert>
+                  ) : null}
                 </Stack>
-              </Box>
+              </CardContent>
+            </Card>
+
+            <Card variant="outlined">
+              <CardContent>
+                <Stack spacing={1.5}>
+                  <Box>
+                    <Typography component="h4" variant="h6">
+                      2. Review backend policy and select media
+                    </Typography>
+                    <Typography color="text.secondary">
+                      Axis shows the policy before upload. The media service still
+                      performs final validation when the file is submitted.
+                    </Typography>
+                  </Box>
+
+                  {selectedPolicy ? (
+                    <Stack spacing={1.5}>
+                      <Box
+                        sx={{
+                          bgcolor: 'background.default',
+                          border: 1,
+                          borderColor: 'divider',
+                          borderRadius: 2,
+                          p: 1.5,
+                        }}
+                      >
+                        <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap' }}>
+                          <Chip
+                            label={`Target route: ${sourceTypeStorageRouteLabel(selectedSourceType)}`}
+                            size="small"
+                          />
+                          <Chip
+                            label={`Format: ${mediaFormatLabel(defaultFormatForSourceType(selectedSourceType, selectedPolicy.folderCode))}`}
+                            size="small"
+                          />
+                          <Chip
+                            label={`Allowed: ${allowedExtensionLabel(selectedPolicy)}`}
+                            size="small"
+                          />
+                          <Chip
+                            label={`Max size: ${maxUploadSizeLabel(selectedPolicy)}`}
+                            size="small"
+                          />
+                        </Stack>
+                      </Box>
+
+                      <Stack
+                        direction={{ xs: 'column', sm: 'row' }}
+                        spacing={1.5}
+                        sx={{ alignItems: { sm: 'center' } }}
+                      >
+                        <Button
+                          component="label"
+                          disabled={upload.isPending}
+                          variant="outlined"
+                        >
+                          Choose media
+                          <Box
+                            component="input"
+                            type="file"
+                            hidden
+                            accept={acceptFromPolicy(selectedPolicy)}
+                            onChange={(event) => {
+                              setSelectedFile(event.currentTarget.files?.[0]);
+                              upload.reset();
+                              event.currentTarget.value = '';
+                            }}
+                          />
+                        </Button>
+                      </Stack>
+                    </Stack>
+                  ) : (
+                    <Alert severity="info">
+                      Select the source type first. File selection stays disabled until
+                      Axis can show the owning backend policy.
+                    </Alert>
+                  )}
+                </Stack>
+              </CardContent>
+            </Card>
+
+            {selectedFile ? (
+              <Stack spacing={1}>
+                <Box
+                  sx={{
+                    bgcolor: 'background.paper',
+                    border: 1,
+                    borderColor: 'divider',
+                    borderRadius: 2,
+                    p: 1.5,
+                  }}
+                >
+                  <Stack
+                    direction={{ xs: 'column', sm: 'row' }}
+                    spacing={1}
+                    sx={{ alignItems: { sm: 'center' }, justifyContent: 'space-between' }}
+                  >
+                    <Box>
+                      <Typography sx={{ fontWeight: 700 }}>
+                        {selectedFile.name}
+                      </Typography>
+                      <Stack
+                        direction="row"
+                        spacing={1}
+                        sx={{ flexWrap: 'wrap', mt: 0.5 }}
+                      >
+                        <Chip label={selectedFile.type || 'Unknown MIME'} size="small" />
+                        <Chip label={formatBytes(selectedFile.size)} size="small" />
+                        <Chip label="LOCAL SELECTION" size="small" />
+                      </Stack>
+                    </Box>
+                    <IconButton
+                      aria-label="Remove selected media upload file"
+                      onClick={() => {
+                        setSelectedFile(undefined);
+                        upload.reset();
+                      }}
+                    >
+                      ×
+                    </IconButton>
+                  </Stack>
+                </Box>
+                {selectedPolicy ? (
+                  <MediaUploadReview
+                    file={selectedFile}
+                    policy={selectedPolicy}
+                    policyIssue={selectedFilePolicyIssue}
+                    sourceType={selectedSourceType}
+                  />
+                ) : null}
+              </Stack>
             ) : (
-              <Alert severity="info">
-                Choose a file after selecting the upload purpose.
-              </Alert>
+              selectedPolicy ? (
+                <Alert severity="info">Choose a media file to review before upload.</Alert>
+              ) : null
             )}
 
-            {upload.error ? (
-              <Alert severity="error">{presentMediaUploadError(upload.error)}</Alert>
-            ) : null}
-            {upload.data ? (
-              <Alert severity="success">
-                Media uploaded as {upload.data.code}. The media record list has been
-                refreshed.
-              </Alert>
-            ) : null}
+            <Card variant="outlined">
+              <CardContent>
+                <Stack spacing={1.5}>
+                  <Box>
+                    <Typography component="h4" variant="h6">
+                      3. Upload governed media
+                    </Typography>
+                    <Typography color="text.secondary">
+                      Upload becomes available only after source type, policy, file, and
+                      local review are all valid.
+                    </Typography>
+                  </Box>
+                  <Button
+                    disabled={!canUpload}
+                    onClick={() => upload.mutate()}
+                    sx={{ alignSelf: 'flex-start' }}
+                    variant="contained"
+                  >
+                    Upload to media
+                  </Button>
+                  {selectedFilePolicyIssue ? (
+                    <Alert severity="warning">{selectedFilePolicyIssue}</Alert>
+                  ) : null}
+                  {upload.error ? (
+                    <Alert severity="error">{presentMediaUploadError(upload.error)}</Alert>
+                  ) : null}
+                  {upload.data ? (
+                    <Alert severity="success">
+                      Media uploaded as {upload.data.code}. The media record list has
+                      been refreshed.
+                    </Alert>
+                  ) : null}
+                </Stack>
+              </CardContent>
+            </Card>
           </>
         )}
       </Stack>
@@ -1241,7 +1595,7 @@ const recordWorkspaceConfigurations: Readonly<
       'Search uploaded and generated media metadata through the authorized media schema contract. Raw storage paths stay hidden from Axis.',
     recordCountLabel: 'records',
     searchPlaceholder:
-      'Search by code, filename, source type, status, MIME type, or format',
+      'Search by code, filename, folder, status, MIME type, or format',
     emptyMessage: 'No media records match the current search.',
     detailEmptyMessage: 'Select a media record to review governed metadata.',
     hiddenPathNotice:
@@ -1275,7 +1629,10 @@ const recordWorkspaceConfigurations: Readonly<
         label: 'Source type',
         render: (record) => mediaSourceType(textValue(record, 'folderCode')),
       },
-      { label: 'Format', render: (record) => textValue(record, 'formatCode') },
+      {
+        label: 'Format',
+        render: (record) => mediaFormatLabel(textValue(record, 'formatCode')),
+      },
       {
         label: 'Visibility',
         render: (record) => (
@@ -1556,14 +1913,119 @@ const recordWorkspaceConfigurations: Readonly<
   },
 });
 
+const emptyFacetFilters: readonly MediaRecordFacetFilter[] = Object.freeze([]);
+
+const recordWorkspaceFacetFilters: Readonly<
+  Record<string, readonly MediaRecordFacetFilter[]>
+> = Object.freeze({
+  media: [
+    {
+      allLabel: 'All source types',
+      key: 'sourceType',
+      label: 'Source type',
+      staticOptions: governedMediaSourceTypes,
+      value: (record) => mediaSourceType(textValue(record, 'folderCode')),
+    },
+  ],
+  'media-folders': [
+    {
+      allLabel: 'All source types',
+      key: 'sourceType',
+      label: 'Source type',
+      value: (record) => mediaSourceType(textValue(record, 'code')),
+    },
+    {
+      allLabel: 'All visibility rules',
+      key: 'access',
+      label: 'Visibility',
+      optionLabel: humanize,
+      value: (record) => textValue(record, 'access'),
+    },
+    {
+      allLabel: 'All storage prefixes',
+      key: 'storagePrefix',
+      label: 'Storage prefix',
+      optionLabel: humanize,
+      value: (record) => textValue(record, 'storagePrefix'),
+    },
+  ],
+  'media-formats': [
+    {
+      allLabel: 'All purposes',
+      key: 'purpose',
+      label: 'Purpose',
+      optionLabel: humanize,
+      value: (record) => textValue(record, 'purpose'),
+    },
+    {
+      allLabel: 'All dimensions',
+      key: 'dimensions',
+      label: 'Dimensions',
+      value: formatDimensions,
+    },
+  ],
+  'media-sets': [
+    {
+      allLabel: 'All media types',
+      key: 'mediaType',
+      label: 'Media type',
+      optionLabel: humanize,
+      value: (record) => textValue(record, 'mediaType'),
+    },
+    {
+      allLabel: 'All business purposes',
+      key: 'businessPurpose',
+      label: 'Business purpose',
+      optionLabel: humanize,
+      value: (record) => textValue(record, 'businessPurpose'),
+    },
+    {
+      allLabel: 'All statuses',
+      key: 'status',
+      label: 'Status',
+      optionLabel: humanize,
+      value: (record) => textValue(record, 'status'),
+    },
+  ],
+  'media-usage': [
+    {
+      allLabel: 'All owner modules',
+      key: 'ownerModule',
+      label: 'Owner module',
+      optionLabel: humanize,
+      value: (record) => textValue(record, 'ownerModule'),
+    },
+    {
+      allLabel: 'All owner schemas',
+      key: 'ownerSchema',
+      label: 'Owner schema',
+      optionLabel: humanize,
+      value: (record) => textValue(record, 'ownerSchema'),
+    },
+    {
+      allLabel: 'All relations',
+      key: 'relationType',
+      label: 'Relation',
+      optionLabel: humanize,
+      value: (record) => textValue(record, 'relationType'),
+    },
+    {
+      allLabel: 'All statuses',
+      key: 'status',
+      label: 'Status',
+      optionLabel: humanize,
+      value: (record) => textValue(record, 'status'),
+    },
+  ],
+});
+
 export function MediaManagementRoutePage(props: MediaManagementRoutePageProps) {
   const location = useLocation();
   const queryClient = useQueryClient();
   const [recordSearch, setRecordSearch] = useState('');
-  const [mediaSourceFilter, setMediaSourceFilter] = useState('ALL');
-  const [mediaAccessFilter, setMediaAccessFilter] = useState('ALL');
-  const [mediaStatusFilter, setMediaStatusFilter] = useState('ALL');
-  const [mediaFormatFilter, setMediaFormatFilter] = useState('ALL');
+  const [recordFacetFilters, setRecordFacetFilters] = useState<Record<string, string>>(
+    {},
+  );
   const [recordPage, setRecordPage] = useState(0);
   const [recordRowsPerPage, setRecordRowsPerPage] = useState(10);
   const [selectedRecordCode, setSelectedRecordCode] = useState<string>();
@@ -1590,11 +2052,13 @@ export function MediaManagementRoutePage(props: MediaManagementRoutePageProps) {
   const childItems = mediaNavigation.filter(
     (item) => item.parentId === 'media-management',
   );
-  const currentDetails =
-    sectionDetails[currentItem?.id ?? 'media-management'] ?? defaultSectionDetails;
   const recordWorkspaceConfiguration = currentItem
     ? recordWorkspaceConfigurations[currentItem.id]
     : undefined;
+  const currentFacetFilters = currentItem
+    ? recordWorkspaceFacetFilters[currentItem.id] ?? emptyFacetFilters
+    : emptyFacetFilters;
+  const facetStateKey = (key: string) => `${currentItem?.id ?? 'none'}:${key}`;
   const schemas = useQuery({
     enabled: Boolean(recordWorkspaceConfiguration && connection),
     queryKey: ['media-management', 'schemas', connection?.endpoint],
@@ -1651,24 +2115,38 @@ export function MediaManagementRoutePage(props: MediaManagementRoutePageProps) {
     () => records.data?.records ?? [],
     [records.data?.records],
   );
-  const mediaSourceOptions = useMemo(
+  const facetFilterOptions = useMemo(
     () =>
-      uniqueSorted(
-        loadedRecords.map((record) => mediaSourceType(textValue(record, 'folderCode'))),
-      ),
-    [loadedRecords],
+      currentFacetFilters
+        .map((filter) => {
+          const dynamicOptions = uniqueSorted(
+            loadedRecords
+              .map((record) => filter.value(record))
+              .filter((value) => value && value !== '—'),
+          );
+          const options = uniqueSorted([
+            ...(filter.staticOptions ?? []),
+            ...dynamicOptions,
+          ]);
+          return {
+            filter,
+            options,
+          };
+        })
+        .filter(({ options }) => options.length > 0),
+    [currentFacetFilters, loadedRecords],
   );
-  const mediaAccessOptions = useMemo(
-    () => uniqueSorted(loadedRecords.map((record) => textValue(record, 'access'))),
-    [loadedRecords],
-  );
-  const mediaStatusOptions = useMemo(
-    () => uniqueSorted(loadedRecords.map((record) => textValue(record, 'status'))),
-    [loadedRecords],
-  );
-  const mediaFormatOptions = useMemo(
-    () => uniqueSorted(loadedRecords.map((record) => textValue(record, 'formatCode'))),
-    [loadedRecords],
+  const mediaSourceFacetOption =
+    currentItem?.id === 'media'
+      ? facetFilterOptions.find(({ filter }) => filter.key === 'sourceType')
+      : undefined;
+  const hasActiveFacetFilters = useMemo(
+    () =>
+      currentFacetFilters.some((filter) => {
+        const value = recordFacetFilters[`${currentItem?.id ?? 'none'}:${filter.key}`];
+        return Boolean(value && value !== 'ALL');
+      }),
+    [currentFacetFilters, currentItem?.id, recordFacetFilters],
   );
   const filteredRecords = useMemo(() => {
     const normalizedSearch = recordSearch.trim().toLowerCase();
@@ -1682,43 +2160,18 @@ export function MediaManagementRoutePage(props: MediaManagementRoutePageProps) {
       ) {
         return false;
       }
-      if (
-        currentItem?.id === 'media' &&
-        mediaSourceFilter !== 'ALL' &&
-        mediaSourceType(textValue(record, 'folderCode')) !== mediaSourceFilter
-      ) {
-        return false;
-      }
-      if (
-        currentItem?.id === 'media' &&
-        mediaAccessFilter !== 'ALL' &&
-        textValue(record, 'access') !== mediaAccessFilter
-      ) {
-        return false;
-      }
-      if (
-        currentItem?.id === 'media' &&
-        mediaStatusFilter !== 'ALL' &&
-        textValue(record, 'status') !== mediaStatusFilter
-      ) {
-        return false;
-      }
-      if (
-        currentItem?.id === 'media' &&
-        mediaFormatFilter !== 'ALL' &&
-        textValue(record, 'formatCode') !== mediaFormatFilter
-      ) {
-        return false;
-      }
-      return true;
+      return currentFacetFilters.every((filter) => {
+        const selectedValue =
+          recordFacetFilters[`${currentItem?.id ?? 'none'}:${filter.key}`] ??
+          'ALL';
+        return selectedValue === 'ALL' || filter.value(record) === selectedValue;
+      });
     });
   }, [
+    currentFacetFilters,
     currentItem?.id,
     loadedRecords,
-    mediaAccessFilter,
-    mediaFormatFilter,
-    mediaSourceFilter,
-    mediaStatusFilter,
+    recordFacetFilters,
     recordSearch,
     recordWorkspaceConfiguration?.searchKeys,
   ]);
@@ -1862,124 +2315,67 @@ export function MediaManagementRoutePage(props: MediaManagementRoutePageProps) {
           </Stack>
         </Box>
 
-        <Alert severity="info">
-          Axis presents this workspace from BackOffice media metadata. Media records,
-          folders, formats, references, storage policy, and delivery remain
-          backend-owned.
-        </Alert>
-
-        <Card variant="outlined">
-          <CardContent>
-            <Stack spacing={2}>
-              <Stack direction="row" spacing={1.5} sx={{ alignItems: 'center' }}>
-                <ShellIcon color="primary" name={currentItem.icon} />
-                <Box>
-                  <Typography component="h2" variant="h4">
-                    {currentItem.label}
-                  </Typography>
-                  <Typography color="text.secondary">
-                    {sectionSummaries[currentItem.id] ??
-                      sectionSummaries['media-management']}
-                  </Typography>
-                </Box>
-              </Stack>
-              <Divider />
-              <Typography>{currentDetails.purpose}</Typography>
-              <Grid container spacing={2}>
-                <Grid size={{ xs: 12, lg: 4 }}>
-                  <Box
+        {currentItem.id === 'media-management' ? (
+          <Grid container spacing={2}>
+            {childItems.map((item) => {
+              const workspace = recordWorkspaceConfigurations[item.id];
+              return (
+                <Grid key={item.id} size={{ xs: 12, md: 6, xl: 4 }}>
+                  <Card
+                    component={RouterLink}
+                    to={item.route}
+                    variant="outlined"
                     sx={{
-                      border: 1,
-                      borderColor: 'divider',
-                      borderRadius: 2,
+                      color: 'inherit',
+                      display: 'block',
                       height: '100%',
-                      p: 2,
+                      textDecoration: 'none',
+                      transition:
+                        'border-color 160ms ease, box-shadow 160ms ease, transform 160ms ease',
+                      '&:hover': {
+                        borderColor: 'primary.main',
+                        boxShadow: 3,
+                        transform: 'translateY(-2px)',
+                      },
                     }}
                   >
-                    <Typography
-                      color="text.secondary"
-                      sx={{
-                        fontWeight: 800,
-                        letterSpacing: 2,
-                        textTransform: 'uppercase',
-                      }}
-                      variant="caption"
-                    >
-                      Backend owner
-                    </Typography>
-                    <Typography sx={{ mt: 1, fontWeight: 700 }}>
-                      {currentDetails.model}
-                    </Typography>
-                    <Typography color="text.secondary" sx={{ mt: 1 }} variant="body2">
-                      The media service remains the authority for media metadata,
-                      storage, references, upload policy, and delivery behavior.
-                    </Typography>
-                  </Box>
+                    <CardContent>
+                      <Stack spacing={1.5}>
+                        <Stack
+                          direction="row"
+                          spacing={1.5}
+                          sx={{ alignItems: 'flex-start' }}
+                        >
+                          <ShellIcon color="primary" name={item.icon} />
+                          <Box sx={{ minWidth: 0 }}>
+                            <Typography component="h2" variant="h5">
+                              {item.label}
+                            </Typography>
+                            <Typography color="text.secondary" variant="body2">
+                              {sectionSummaries[item.id] ??
+                                'Manage this governed media capability.'}
+                            </Typography>
+                          </Box>
+                        </Stack>
+                        <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap' }}>
+                          {workspace?.schemaName ? (
+                            <Chip
+                              label={`Schema: ${humanize(workspace.schemaName)}`}
+                              size="small"
+                            />
+                          ) : (
+                            <Chip label="Storage policy" size="small" />
+                          )}
+                          <Chip label="Backend governed" size="small" />
+                        </Stack>
+                      </Stack>
+                    </CardContent>
+                  </Card>
                 </Grid>
-                <Grid size={{ xs: 12, lg: 4 }}>
-                  <Box
-                    sx={{
-                      border: 1,
-                      borderColor: 'divider',
-                      borderRadius: 2,
-                      height: '100%',
-                      p: 2,
-                    }}
-                  >
-                    <Typography
-                      color="text.secondary"
-                      sx={{
-                        fontWeight: 800,
-                        letterSpacing: 2,
-                        textTransform: 'uppercase',
-                      }}
-                      variant="caption"
-                    >
-                      Available now
-                    </Typography>
-                    <Stack component="ul" spacing={1} sx={{ mb: 0, mt: 1.5, pl: 2.5 }}>
-                      {currentDetails.availableNow.map((item) => (
-                        <Typography component="li" key={item} variant="body2">
-                          {item}
-                        </Typography>
-                      ))}
-                    </Stack>
-                  </Box>
-                </Grid>
-                <Grid size={{ xs: 12, lg: 4 }}>
-                  <Box
-                    sx={{
-                      border: 1,
-                      borderColor: 'divider',
-                      borderRadius: 2,
-                      height: '100%',
-                      p: 2,
-                    }}
-                  >
-                    <Typography
-                      color="text.secondary"
-                      sx={{
-                        fontWeight: 800,
-                        letterSpacing: 2,
-                        textTransform: 'uppercase',
-                      }}
-                      variant="caption"
-                    >
-                      Next capability slices
-                    </Typography>
-                    <Stack component="ul" spacing={1} sx={{ mb: 0, mt: 1.5, pl: 2.5 }}>
-                      {currentDetails.nextSlices.map((item) => (
-                        <Typography component="li" key={item} variant="body2">
-                          {item}
-                        </Typography>
-                      ))}
-                    </Stack>
-                  </Box>
-                </Grid>
-              </Grid>
-            </Stack>
-          </CardContent>
-        </Card>
+              );
+            })}
+          </Grid>
+        ) : null}
 
         {recordWorkspaceConfiguration ? (
           <Card variant="outlined">
@@ -2022,42 +2418,80 @@ export function MediaManagementRoutePage(props: MediaManagementRoutePageProps) {
                   </Stack>
                 </Stack>
 
-                <TextField
-                  fullWidth
-                  placeholder={recordWorkspaceConfiguration.searchPlaceholder}
-                  value={recordSearch}
-                  onChange={(event) => {
-                    setSelectedRecordCode(undefined);
-                    setRecordPage(0);
-                    setRecordSearch(event.target.value);
-                  }}
-                  slotProps={{
-                    input: {
-                      startAdornment: (
-                        <InputAdornment position="start">
-                          <ShellIcon color="action" name="search" />
-                        </InputAdornment>
-                      ),
-                      endAdornment: recordSearch ? (
-                        <InputAdornment position="end">
-                          <IconButton
-                            aria-label={`Clear ${recordWorkspaceConfiguration.title.toLowerCase()} search`}
-                            edge="end"
-                            onClick={() => {
-                              setSelectedRecordCode(undefined);
-                              setRecordPage(0);
-                              setRecordSearch('');
-                            }}
-                          >
-                            ×
-                          </IconButton>
-                        </InputAdornment>
-                      ) : undefined,
-                    },
-                  }}
-                />
+                <Stack
+                  direction={{ xs: 'column', md: 'row' }}
+                  spacing={1.5}
+                  sx={{ alignItems: { md: 'center' } }}
+                >
+                  <TextField
+                    fullWidth
+                    placeholder={recordWorkspaceConfiguration.searchPlaceholder}
+                    value={recordSearch}
+                    onChange={(event) => {
+                      setSelectedRecordCode(undefined);
+                      setRecordPage(0);
+                      setRecordSearch(event.target.value);
+                    }}
+                    slotProps={{
+                      input: {
+                        startAdornment: (
+                          <InputAdornment position="start">
+                            <ShellIcon color="action" name="search" />
+                          </InputAdornment>
+                        ),
+                        endAdornment: recordSearch ? (
+                          <InputAdornment position="end">
+                            <IconButton
+                              aria-label={`Clear ${recordWorkspaceConfiguration.title.toLowerCase()} search`}
+                              edge="end"
+                              onClick={() => {
+                                setSelectedRecordCode(undefined);
+                                setRecordPage(0);
+                                setRecordSearch('');
+                              }}
+                            >
+                              ×
+                            </IconButton>
+                          </InputAdornment>
+                        ) : undefined,
+                      },
+                    }}
+                  />
+                  {mediaSourceFacetOption ? (
+                    <TextField
+                      label={mediaSourceFacetOption.filter.label}
+                      select
+                      sx={{ minWidth: { xs: '100%', md: 280 } }}
+                      value={
+                        recordFacetFilters[
+                          facetStateKey(mediaSourceFacetOption.filter.key)
+                        ] ?? 'ALL'
+                      }
+                      onChange={(event) => {
+                        setSelectedRecordCode(undefined);
+                        setRecordPage(0);
+                        setRecordFacetFilters((current) => ({
+                          ...current,
+                          [facetStateKey(mediaSourceFacetOption.filter.key)]:
+                            event.target.value,
+                        }));
+                      }}
+                    >
+                      <MenuItem value="ALL">
+                        {mediaSourceFacetOption.filter.allLabel}
+                      </MenuItem>
+                      {mediaSourceFacetOption.options.map((option) => (
+                        <MenuItem key={option} value={option}>
+                          {mediaSourceFacetOption.filter.optionLabel
+                            ? mediaSourceFacetOption.filter.optionLabel(option)
+                            : option}
+                        </MenuItem>
+                      ))}
+                    </TextField>
+                  ) : null}
+                </Stack>
 
-                {currentItem.id === 'media' ? (
+                {currentFacetFilters.length > 0 && !mediaSourceFacetOption ? (
                   <Box
                     sx={{
                       backgroundColor: 'background.default',
@@ -2078,108 +2512,79 @@ export function MediaManagementRoutePage(props: MediaManagementRoutePageProps) {
                       >
                         <Box>
                           <Typography component="h3" variant="h6">
-                            Filter media
+                            Filter {recordWorkspaceConfiguration.title.toLowerCase()}
                           </Typography>
                           <Typography color="text.secondary" variant="body2">
-                            Narrow the list by business source, delivery visibility,
-                            status, or format.
+                            Narrow this workspace by source type. Search still covers code,
+                            filename, folder, status, MIME type, and format.
                           </Typography>
                         </Box>
-                        <Chip
-                          label={`${filteredRecords.length} shown from ${records.data?.totalCount ?? loadedRecords.length}`}
-                          size="small"
-                        />
+                        <Stack
+                          direction="row"
+                          spacing={1}
+                          sx={{ alignItems: 'center', flexWrap: 'wrap' }}
+                        >
+                          <Chip
+                            label={`${filteredRecords.length} shown from ${records.data?.totalCount ?? loadedRecords.length}`}
+                            size="small"
+                          />
+                          <Button
+                            disabled={
+                              !recordSearch.trim() && !hasActiveFacetFilters
+                            }
+                            size="small"
+                            variant="text"
+                            onClick={() => {
+                              setSelectedRecordCode(undefined);
+                              setRecordPage(0);
+                              setRecordSearch('');
+                              setRecordFacetFilters({});
+                            }}
+                          >
+                            Reset filters
+                          </Button>
+                        </Stack>
                       </Stack>
                       <Grid container spacing={1.5}>
-                        <Grid size={{ xs: 12, md: 3 }}>
-                          <TextField
-                            fullWidth
-                            label="Source type"
-                            select
-                            size="small"
-                            value={mediaSourceFilter}
-                            onChange={(event) => {
-                              setSelectedRecordCode(undefined);
-                              setRecordPage(0);
-                              setMediaSourceFilter(event.target.value);
+                        {facetFilterOptions.map(({ filter, options }) => (
+                          <Grid
+                            key={filter.key}
+                            size={{
+                              xs: 12,
+                              md: 4,
+                              lg: facetFilterOptions.length > 4 ? 2.4 : 3,
                             }}
                           >
-                            <MenuItem value="ALL">All source types</MenuItem>
-                            {mediaSourceOptions.map((option) => (
-                              <MenuItem key={option} value={option}>
-                                {option}
-                              </MenuItem>
-                            ))}
-                          </TextField>
-                        </Grid>
-                        <Grid size={{ xs: 12, md: 3 }}>
-                          <TextField
-                            fullWidth
-                            label="Visibility"
-                            select
-                            size="small"
-                            value={mediaAccessFilter}
-                            onChange={(event) => {
-                              setSelectedRecordCode(undefined);
-                              setRecordPage(0);
-                              setMediaAccessFilter(event.target.value);
-                            }}
-                          >
-                            <MenuItem value="ALL">All visibility</MenuItem>
-                            {mediaAccessOptions.map((option) => (
-                              <MenuItem key={option} value={option}>
-                                {humanize(option)}
-                              </MenuItem>
-                            ))}
-                          </TextField>
-                        </Grid>
-                        <Grid size={{ xs: 12, md: 3 }}>
-                          <TextField
-                            fullWidth
-                            label="Status"
-                            select
-                            size="small"
-                            value={mediaStatusFilter}
-                            onChange={(event) => {
-                              setSelectedRecordCode(undefined);
-                              setRecordPage(0);
-                              setMediaStatusFilter(event.target.value);
-                            }}
-                          >
-                            <MenuItem value="ALL">All statuses</MenuItem>
-                            {mediaStatusOptions.map((option) => (
-                              <MenuItem key={option} value={option}>
-                                {humanize(option)}
-                              </MenuItem>
-                            ))}
-                          </TextField>
-                        </Grid>
-                        <Grid size={{ xs: 12, md: 3 }}>
-                          <TextField
-                            fullWidth
-                            label="Format"
-                            select
-                            size="small"
-                            value={mediaFormatFilter}
-                            onChange={(event) => {
-                              setSelectedRecordCode(undefined);
-                              setRecordPage(0);
-                              setMediaFormatFilter(event.target.value);
-                            }}
-                          >
-                            <MenuItem value="ALL">All formats</MenuItem>
-                            {mediaFormatOptions.map((option) => (
-                              <MenuItem key={option} value={option}>
-                                {humanize(option)}
-                              </MenuItem>
-                            ))}
-                          </TextField>
-                        </Grid>
+                            <TextField
+                              fullWidth
+                              label={filter.label}
+                              select
+                              size="small"
+                              value={recordFacetFilters[facetStateKey(filter.key)] ?? 'ALL'}
+                              onChange={(event) => {
+                                setSelectedRecordCode(undefined);
+                                setRecordPage(0);
+                                setRecordFacetFilters((current) => ({
+                                  ...current,
+                                  [facetStateKey(filter.key)]: event.target.value,
+                                }));
+                              }}
+                            >
+                              <MenuItem value="ALL">{filter.allLabel}</MenuItem>
+                              {options.map((option) => (
+                                <MenuItem key={option} value={option}>
+                                  {filter.optionLabel
+                                    ? filter.optionLabel(option)
+                                    : option}
+                                </MenuItem>
+                              ))}
+                            </TextField>
+                          </Grid>
+                        ))}
                       </Grid>
                       <Typography color="text.secondary" variant="caption">
-                        Visibility is the backend delivery policy. Data import and
-                        export files are normally private; approved content or product
-                        assets may be public.
+                        Filters are presentation helpers only. The selected workspace
+                        still reads records through the owning backend schema contract.
                       </Typography>
                     </Stack>
                   </Box>
@@ -2423,54 +2828,6 @@ export function MediaManagementRoutePage(props: MediaManagementRoutePageProps) {
           />
         ) : null}
 
-        <Grid container spacing={2}>
-          {childItems.map((item) => (
-            <Grid key={item.id} size={{ xs: 12, md: 6, xl: 4 }}>
-              <Card
-                variant="outlined"
-                sx={{
-                  height: '100%',
-                  borderColor: item.id === currentItem.id ? 'primary.main' : 'divider',
-                  backgroundColor:
-                    item.id === currentItem.id ? 'action.hover' : 'background.paper',
-                }}
-              >
-                <CardContent>
-                  <Stack spacing={1.5}>
-                    <Stack
-                      direction="row"
-                      spacing={1}
-                      sx={{ alignItems: 'center', justifyContent: 'space-between' }}
-                    >
-                      <Stack direction="row" spacing={1} sx={{ alignItems: 'center' }}>
-                        <ShellIcon color="action" name={item.icon} />
-                        <Typography component="h3" variant="h5">
-                          {item.label}
-                        </Typography>
-                      </Stack>
-                      <Chip
-                        label={item.featureState === 'ACTIVE' ? 'Active' : 'Preview'}
-                        size="small"
-                      />
-                    </Stack>
-                    <Typography color="text.secondary">
-                      {sectionSummaries[item.id]}
-                    </Typography>
-                    <Button
-                      component={RouterLink}
-                      size="small"
-                      sx={{ alignSelf: 'flex-start' }}
-                      to={item.route}
-                      variant={item.id === currentItem.id ? 'contained' : 'outlined'}
-                    >
-                      {item.id === currentItem.id ? 'Viewing section' : 'Open section'}
-                    </Button>
-                  </Stack>
-                </CardContent>
-              </Card>
-            </Grid>
-          ))}
-        </Grid>
       </Stack>
     </WorkspaceContainer>
   );

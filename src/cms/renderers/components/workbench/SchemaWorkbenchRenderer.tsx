@@ -28,9 +28,9 @@ import type { WorkbenchRecord } from '../../../../workbench/api/workbenchContrac
 import { WorkbenchRecordDetail } from '../../../../workbench/detail/WorkbenchRecordDetail';
 import { WorkbenchDeleteDialog } from '../../../../workbench/delete/WorkbenchDeleteDialog';
 import { WorkbenchRecordForm } from '../../../../workbench/form/WorkbenchRecordForm';
-import { WorkbenchFilterBuilder } from '../../../../workbench/query/WorkbenchFilterBuilder';
 import { stringProperty } from '../../shared/rendererProperties';
 import type { CmsComponentRendererProps } from '../../shared/rendererTypes';
+import { SchemaQueryBuilderRenderer } from '../query/SchemaQueryBuilderRenderer';
 
 function displayValue(value: unknown): string {
   if (value === undefined || value === null || value === '') return '—';
@@ -374,30 +374,9 @@ export function SchemaWorkbenchRenderer({
                     disabled={selected.queryCapabilities.searchableFields.length === 0}
                     onChange={(event) => controller.setRecordSearch(event.target.value)}
                   />
-                  <WorkbenchFilterBuilder
-                    key={`${selected.moduleName}:${selected.schemaName}:${JSON.stringify(controller.recordFilters ?? null)}`}
-                    capabilities={selected.queryCapabilities}
-                    copy={{
-                      addConditionLabel: stringProperty(component, 'addConditionLabel'),
-                      addGroupLabel: stringProperty(component, 'addGroupLabel'),
-                      applyFiltersLabel: stringProperty(component, 'applyFiltersLabel'),
-                      clearFiltersLabel: stringProperty(component, 'clearFiltersLabel'),
-                      fieldLabel: stringProperty(component, 'filterFieldLabel'),
-                      filterBuilderLabel: stringProperty(
-                        component,
-                        'filterBuilderLabel',
-                      ),
-                      matchLabel: stringProperty(component, 'filterMatchLabel'),
-                      operatorLabel: stringProperty(component, 'filterOperatorLabel'),
-                      removeLabel: stringProperty(component, 'removeFilterLabel'),
-                      requestPreviewLabel: stringProperty(
-                        component,
-                        'requestPreviewLabel',
-                      ),
-                      valueLabel: stringProperty(component, 'filterValueLabel'),
-                    }}
-                    value={controller.recordFilters}
-                    onChange={controller.setRecordFilters}
+                  <SchemaQueryBuilderRenderer
+                    actions={actions}
+                    component={component}
                   />
                   <Paper sx={{ p: 1.5 }} variant="outlined">
                     <Stack spacing={1.25}>

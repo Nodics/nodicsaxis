@@ -101,6 +101,23 @@ page. Page-specific placement is reserved for a renderer contract deliberately
 owned by only that page. Backend data must never contain a TypeScript import,
 React component name, executable file path, script URL, or HTML implementation.
 
+Reusable interaction patterns follow the same rule. A capability such as
+schema query building, record filtering, media selection, relationship
+selection, or any later business-data picker should be implemented once as a
+generic Axis-owned component or CMS component renderer and then composed by
+pages that need it. For example, the Schema Query Builder is a shared
+workbench capability: Schema Workbench, Imports and Exports, and future
+schema-backed pages should reuse the same implementation instead of creating
+separate query widgets.
+
+The content catalog may declare that a generic component is needed and may
+provide labels, placeholders, help text, default presentation options, and a
+logical renderer key. It must not become the query authority. Searchable
+fields, filter operators, sort rules, page-size limits, authorization, and
+execution remain backend-owned contracts delivered by the relevant Nodics
+module. Axis owns the executable renderer and keeps it safe, typed,
+localized, responsive, and reusable.
+
 ## Dependency decision rule
 
 Before adding a frontend dependency:

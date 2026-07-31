@@ -48,6 +48,26 @@ function isDataReleaseArea(area: ImportExportArea): area is DataReleaseType {
   return releaseTypes.includes(area as DataReleaseType);
 }
 
+function initialAreaFromLocation(): ImportExportArea {
+  if (typeof window === 'undefined') return 'init';
+  const candidate = new URLSearchParams(window.location.search).get('area');
+  return importExportAreas.includes(candidate as ImportExportArea)
+    ? (candidate as ImportExportArea)
+    : 'init';
+}
+
+function replaceAreaInLocation(area: ImportExportArea): void {
+  if (typeof window === 'undefined') return;
+  const next = new URL(window.location.href);
+  if (area === 'init') next.searchParams.delete('area');
+  else next.searchParams.set('area', area);
+  window.history.replaceState(
+    window.history.state,
+    '',
+    `${next.pathname}${next.search}${next.hash}`,
+  );
+}
+
 function createPlan(
   type: DataReleaseType,
   releases: readonly DataRelease[],
@@ -64,7 +84,7 @@ function createPlan(
 }
 
 export function ImportExportRoutePage(props: ImportExportRoutePageProps) {
-  const [area, setArea] = useState<ImportExportArea>('init');
+  const [area, setArea] = useState<ImportExportArea>(() => initialAreaFromLocation());
   const [historyFilter, setHistoryFilter] = useState<HistoryFilter>('all');
   const [historySearch, setHistorySearch] = useState('');
   const [selected, setSelected] = useState<ReadonlySet<string>>(new Set());
@@ -174,6 +194,7 @@ export function ImportExportRoutePage(props: ImportExportRoutePageProps) {
 
   const changeArea = (next: ImportExportArea) => {
     setArea(next);
+    replaceAreaInLocation(next);
     setSelected(new Set());
     operation.reset();
   };
