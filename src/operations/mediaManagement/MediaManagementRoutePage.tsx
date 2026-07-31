@@ -494,6 +494,10 @@ function MediaFolderPolicyActionsPanel(props: {
     Boolean(props.connection) &&
     props.folderSchema.mutationMode === 'GENERATED_CRUD' &&
     props.folderSchema.operations.includes('update');
+  const canCreate =
+    Boolean(props.connection) &&
+    props.folderSchema.mutationMode === 'GENERATED_CRUD' &&
+    props.folderSchema.operations.includes('create');
   const parsedMaximumFileSizeBytes =
     parseOptionalNonNegativeInteger(maximumFileSizeBytes);
   const parsedRetentionDays = parseOptionalNonNegativeInteger(retentionDays);
@@ -592,6 +596,24 @@ function MediaFolderPolicyActionsPanel(props: {
       >
         Save folder policy
       </Button>
+      <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1}>
+        <Button
+          component={RouterLink}
+          to="/schema-workbench?module=media&schema=mediaFolder"
+          variant="text"
+        >
+          Open full folder record in Schema Workbench
+        </Button>
+        {canCreate ? (
+          <Button
+            component={RouterLink}
+            to="/schema-workbench?module=media&schema=mediaFolder&mode=create"
+            variant="text"
+          >
+            Create folder in Schema Workbench
+          </Button>
+        ) : null}
+      </Stack>
       {mutation.error ? (
         <Alert severity="error">
           {mutation.error instanceof Error

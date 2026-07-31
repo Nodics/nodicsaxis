@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useLocation } from 'react-router';
 
 import { CmsRoutePage } from '../app/CmsRoutePage';
 import {
@@ -46,7 +47,39 @@ function workbenchRecordKey(
     : `record-${String(index)}`;
 }
 
+export interface WorkbenchDeepLinkTarget {
+  readonly key: string;
+  readonly mode?: 'create' | undefined;
+  readonly schema: WorkbenchSchema;
+}
+
+export function resolveWorkbenchDeepLinkTarget(
+  search: string,
+  schemas: readonly WorkbenchSchema[],
+): WorkbenchDeepLinkTarget | undefined {
+  const parameters = new URLSearchParams(search);
+  const moduleName = parameters.get('module')?.trim();
+  const schemaName = parameters.get('schema')?.trim();
+  if (!moduleName || !schemaName) return undefined;
+  const schema = schemas.find(
+    (candidate) =>
+      candidate.moduleName === moduleName && candidate.schemaName === schemaName,
+  );
+  if (!schema) return undefined;
+  const requestedMode = parameters.get('mode')?.trim();
+  const mode =
+    requestedMode === 'create' && schema.operations.includes('create')
+      ? 'create'
+      : undefined;
+  return Object.freeze({
+    key: `${schema.moduleName}:${schema.schemaName}:${mode ?? 'browse'}`,
+    ...(mode ? { mode } : {}),
+    schema,
+  });
+}
+
 export function WorkbenchRoutePage(props: WorkbenchRoutePageProps) {
+  const location = useLocation();
   const [selectedSchema, setSelectedSchema] = useState<WorkbenchSchema>();
   const [createOpen, setCreateOpen] = useState(false);
   const [selectedRecord, setSelectedRecord] =
@@ -75,6 +108,7 @@ export function WorkbenchRoutePage(props: WorkbenchRoutePageProps) {
   );
   const [visibleColumns, setVisibleColumns] = useState<readonly string[]>([]);
   const [selectedRecordKeys, setSelectedRecordKeys] = useState<readonly string[]>([]);
+  const consumedDeepLinkKey = useRef<string | undefined>(undefined);
   const queryClient = useQueryClient();
   const updatePreferences = (next: WorkbenchPreferences) => {
     setPreferences(next);
@@ -266,6 +300,61 @@ export function WorkbenchRoutePage(props: WorkbenchRoutePageProps) {
       });
     },
   });
+  const selectWorkbenchSchema = useCallback(
+    (schema: WorkbenchSchema, options: { readonly openCreate?: boolean } = {}) => {
+      createRecord.reset();
+      updateRecord.reset();
+      deleteRecord.reset();
+      deleteImpact.reset();
+      bulkDelete.reset();
+      setCreateOpen(Boolean(options.openCreate));
+      setEditOpen(false);
+      setSelectedRecord(undefined);
+      setDeleteOpen(false);
+      setRecordSearchInput('');
+      setRecordSearch('');
+      setRecordFilters(undefined);
+      setRecordPageNumber(1);
+      setRecordPageSize(schema.queryCapabilities.defaultPageSize);
+      setRecordSort(schema.queryCapabilities.defaultSort);
+      const key = schemaPreferenceKey(schema.moduleName, schema.schemaName);
+      const schemaPreference = preferences.schemaPreferences[key];
+      const defaultColumns = schema.fields
+        .filter((field) => field.primary || field.searchable)
+        .slice(0, 5)
+        .map((field) => field.name);
+      setVisibleColumns(
+        schemaPreference?.visibleColumns.length
+          ? schemaPreference.visibleColumns
+          : defaultColumns.length
+            ? defaultColumns
+            : schema.fields.slice(0, 5).map((field) => field.name),
+      );
+      setSelectedRecordKeys([]);
+      updatePreferences({
+        ...preferences,
+        recentSchemas: Object.freeze(
+          [key, ...preferences.recentSchemas.filter((item) => item !== key)].slice(
+            0,
+            10,
+          ),
+        ),
+      });
+      setSelectedSchema(schema);
+    },
+    [bulkDelete, createRecord, deleteImpact, deleteRecord, preferences, updateRecord],
+  );
+  const deepLinkTarget = useMemo(
+    () => resolveWorkbenchDeepLinkTarget(location.search, schemas.data ?? []),
+    [location.search, schemas.data],
+  );
+  useEffect(() => {
+    if (!deepLinkTarget || consumedDeepLinkKey.current === deepLinkTarget.key) return;
+    consumedDeepLinkKey.current = deepLinkTarget.key;
+    selectWorkbenchSchema(deepLinkTarget.schema, {
+      openCreate: deepLinkTarget.mode === 'create',
+    });
+  }, [deepLinkTarget, selectWorkbenchSchema]);
   const relationshipRuntime = useMemo(
     () => ({
       schemas: schemas.data ?? [],
@@ -360,47 +449,7 @@ export function WorkbenchRoutePage(props: WorkbenchRoutePageProps) {
           bulkDeleting: bulkDelete.isPending,
           tenantCode: props.bootstrap.tenantCode,
           enterpriseCode: props.runtime.enterpriseCode,
-          selectSchema: (schema) => {
-            createRecord.reset();
-            updateRecord.reset();
-            deleteRecord.reset();
-            deleteImpact.reset();
-            bulkDelete.reset();
-            setCreateOpen(false);
-            setEditOpen(false);
-            setSelectedRecord(undefined);
-            setDeleteOpen(false);
-            setRecordSearchInput('');
-            setRecordSearch('');
-            setRecordFilters(undefined);
-            setRecordPageNumber(1);
-            setRecordPageSize(schema.queryCapabilities.defaultPageSize);
-            setRecordSort(schema.queryCapabilities.defaultSort);
-            const key = schemaPreferenceKey(schema.moduleName, schema.schemaName);
-            const schemaPreference = preferences.schemaPreferences[key];
-            const defaultColumns = schema.fields
-              .filter((field) => field.primary || field.searchable)
-              .slice(0, 5)
-              .map((field) => field.name);
-            setVisibleColumns(
-              schemaPreference?.visibleColumns.length
-                ? schemaPreference.visibleColumns
-                : defaultColumns.length
-                  ? defaultColumns
-                  : schema.fields.slice(0, 5).map((field) => field.name),
-            );
-            setSelectedRecordKeys([]);
-            updatePreferences({
-              ...preferences,
-              recentSchemas: Object.freeze(
-                [
-                  key,
-                  ...preferences.recentSchemas.filter((item) => item !== key),
-                ].slice(0, 10),
-              ),
-            });
-            setSelectedSchema(schema);
-          },
+          selectSchema: selectWorkbenchSchema,
           setRecordSearch: setRecordSearchInput,
           setRecordFilters: (filters) => {
             setRecordPageNumber(1);

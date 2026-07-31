@@ -472,6 +472,14 @@ describe('MediaManagementRoutePage', () => {
       screen.getByText(/Editing is unavailable until nMedia exposes generated update/i),
     ).toBeVisible();
     expect(screen.getByRole('button', { name: 'Save folder policy' })).toBeDisabled();
+    expect(
+      screen.getByRole('link', {
+        name: 'Open full folder record in Schema Workbench',
+      }),
+    ).toHaveAttribute('href', '/schema-workbench?module=media&schema=mediaFolder');
+    expect(
+      screen.queryByRole('link', { name: 'Create folder in Schema Workbench' }),
+    ).not.toBeInTheDocument();
     expect(screen.queryByText('/do/not/show/cms-assets')).not.toBeInTheDocument();
     expect(screen.queryByText('must-not-render')).not.toBeInTheDocument();
   });
@@ -480,7 +488,7 @@ describe('MediaManagementRoutePage', () => {
     const user = userEvent.setup();
     const editableMediaFolderSchema: WorkbenchSchema = {
       ...mediaFolderSchema,
-      operations: ['search', 'read', 'update'],
+      operations: ['search', 'read', 'create', 'update'],
     };
     const fetchMock = vi
       .spyOn(globalThis, 'fetch')
@@ -550,6 +558,12 @@ describe('MediaManagementRoutePage', () => {
     expect(
       screen.getByText(/Axis submits folder policy changes through the generated/i),
     ).toBeVisible();
+    expect(
+      screen.getByRole('link', { name: 'Create folder in Schema Workbench' }),
+    ).toHaveAttribute(
+      'href',
+      '/schema-workbench?module=media&schema=mediaFolder&mode=create',
+    );
 
     await user.click(screen.getByRole('combobox', { name: 'Visibility' }));
     await user.click(await screen.findByRole('option', { name: 'SIGNED' }));

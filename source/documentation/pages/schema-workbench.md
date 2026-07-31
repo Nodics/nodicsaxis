@@ -60,6 +60,12 @@ The authenticated `/schema-workbench` route:
 - displays only the bounded backend error code/message contract and never
   renders diagnostic contexts, records, queries, or stacks;
 - closes record details and refreshes the list only after confirmed deletion;
+- supports reusable feature handoff links using
+  `/schema-workbench?module=<moduleName>&schema=<schemaName>` to select an
+  authorized schema after discovery;
+- supports `/schema-workbench?module=<moduleName>&schema=<schemaName>&mode=create`
+  only when the discovered schema advertises Create, so feature pages can hand
+  users to generic generated CRUD without duplicating record forms;
 - renders one typed field component per supported schema field type;
 - creates independent Address and Contact records through generated CRUD;
 - renders schema-declared relationship fields separately from ordinary arrays;

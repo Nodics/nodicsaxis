@@ -181,6 +181,14 @@ not edit storage prefixes, resolved paths, provider secrets, provider
 configuration, or browser-side policy rules. nMedia remains responsible for
 validation, routing, provider behavior, tenant policy, and persistence.
 
+For full generated CRUD, Media Management links to Schema Workbench instead of
+duplicating the generic record form. The handoff URL is
+`/schema-workbench?module=media&schema=mediaFolder`; when the backend advertises
+create permission, Axis may also link to
+`/schema-workbench?module=media&schema=mediaFolder&mode=create`. Schema
+Workbench still uses the discovered nMedia schema and the employee's authorized
+operations, so the handoff does not create a second media-folder authority.
+
 The **Media Formats** section is also operational. Axis discovers the
 `mediaFormat` schema from nMedia and shows reusable presentation or processing
 formats such as original, thumbnail, desktop, mobile, zoom, or import file. The
