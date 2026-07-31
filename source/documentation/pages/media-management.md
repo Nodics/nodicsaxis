@@ -164,6 +164,14 @@ size, and retention days. This helps administrators understand where import
 files, data export files, CMS assets, product assets, and utility documents are
 routed without making Axis own storage rules.
 
+When an employee selects a folder, Axis shows a policy-impact warning. The
+warning explains that changes to the folder policy affect future upload
+validation, default visibility, retention, and provider-relative routing. It
+also repeats the boundary: provider secrets, raw paths, and alternate
+browser-side upload rules must not be added to Axis. If editing is later
+enabled through authorized schema mutations, the backend remains the policy
+authority.
+
 The **Media Formats** section is also operational. Axis discovers the
 `mediaFormat` schema from nMedia and shows reusable presentation or processing
 formats such as original, thumbnail, desktop, mobile, zoom, or import file. The

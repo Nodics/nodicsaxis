@@ -77,6 +77,13 @@ const bootstrap: AxisAuthenticatedBootstrap = {
       252,
       'media-management',
     ),
+    navigationItem(
+      'media-folders',
+      'Media folders',
+      '/media-management/folders',
+      253,
+      'media-management',
+    ),
   ],
   environments: ['startioLocal'],
   moduleCatalog: {},
@@ -126,6 +133,25 @@ const mediaReferenceSchema: WorkbenchSchema = {
   ...mediaSchema,
   schemaName: 'mediaReference',
   label: 'Media reference',
+  operations: ['search', 'read'],
+};
+
+const mediaFolderSchema: WorkbenchSchema = {
+  ...mediaSchema,
+  schemaName: 'mediaFolder',
+  label: 'Media folder',
+  displayProperties: ['code', 'name'],
+  queryCapabilities: {
+    ...mediaSchema.queryCapabilities,
+    searchableFields: [
+      'code',
+      'name',
+      'storagePrefix',
+      'access',
+      'allowedExtensions',
+      'allowedMimeTypes',
+    ],
+  },
   operations: ['search', 'read'],
 };
 
@@ -181,7 +207,10 @@ describe('MediaManagementRoutePage', () => {
         const url = fetchInputUrl(input);
         if (url.pathname === '/nodics/media/v0/schema/workbench') {
           return Promise.resolve(
-            json({ moduleName: 'media', schemas: [mediaSchema, mediaReferenceSchema] }),
+            json({
+              moduleName: 'media',
+              schemas: [mediaSchema, mediaReferenceSchema, mediaFolderSchema],
+            }),
           );
         }
         if (url.pathname === '/nodics/media/v0/schema/workbench/media/records') {
@@ -220,6 +249,31 @@ describe('MediaManagementRoutePage', () => {
             json({
               records: [],
               totalCount: 0,
+              pageNumber: 1,
+              pageSize: 10,
+              sort: { field: 'code', direction: 'ASC' },
+            }),
+          );
+        }
+        if (url.pathname === '/nodics/media/v0/schema/workbench/mediaFolder/records') {
+          return Promise.resolve(
+            json({
+              records: [
+                {
+                  code: 'cmsAssets',
+                  name: 'CMS assets',
+                  description: 'Content media folder',
+                  storagePrefix: 'media/content',
+                  access: 'PUBLIC',
+                  allowedExtensions: ['png', 'webp'],
+                  allowedMimeTypes: ['image/png', 'image/webp'],
+                  maximumFileSizeBytes: 52428800,
+                  retentionDays: 0,
+                  fullPath: '/do/not/show/cms-assets',
+                  providerSecret: 'must-not-render',
+                },
+              ],
+              totalCount: 1,
               pageNumber: 1,
               pageSize: 10,
               sort: { field: 'code', direction: 'ASC' },
@@ -361,5 +415,60 @@ describe('MediaManagementRoutePage', () => {
     expect(uploadPolicyWarnings.length).toBeGreaterThan(0);
     expect(uploadPolicyWarnings[0]).toBeVisible();
     expect(screen.getByRole('button', { name: 'Upload to media' })).toBeDisabled();
+  });
+
+  it('shows media folder policy impact without exposing provider internals', async () => {
+    vi.spyOn(globalThis, 'fetch').mockImplementation((input) => {
+      const url = fetchInputUrl(input);
+      if (url.pathname === '/nodics/media/v0/schema/workbench') {
+        return Promise.resolve(
+          json({
+            moduleName: 'media',
+            schemas: [mediaSchema, mediaReferenceSchema, mediaFolderSchema],
+          }),
+        );
+      }
+      if (url.pathname === '/nodics/media/v0/schema/workbench/mediaFolder/records') {
+        return Promise.resolve(
+          json({
+            records: [
+              {
+                code: 'cmsAssets',
+                name: 'CMS assets',
+                description: 'Content media folder',
+                storagePrefix: 'media/content',
+                access: 'PUBLIC',
+                allowedExtensions: ['png', 'webp'],
+                allowedMimeTypes: ['image/png', 'image/webp'],
+                maximumFileSizeBytes: 52428800,
+                retentionDays: 0,
+                fullPath: '/do/not/show/cms-assets',
+                providerSecret: 'must-not-render',
+              },
+            ],
+            totalCount: 1,
+            pageNumber: 1,
+            pageSize: 10,
+            sort: { field: 'code', direction: 'ASC' },
+          }),
+        );
+      }
+      if (url.pathname === '/nodics/media/v0/contexts') {
+        return Promise.resolve(json({ contexts: [] }));
+      }
+      return Promise.resolve(json({}));
+    });
+
+    renderPage('/media-management/folders');
+
+    expect((await screen.findAllByText('CMS assets')).length).toBeGreaterThan(0);
+    expect(
+      screen.getByText(/Folder policy affects future uploads for cmsAssets/i),
+    ).toBeVisible();
+    expect(
+      screen.getByText(/nMedia uses this folder policy for upload validation/i),
+    ).toBeVisible();
+    expect(screen.queryByText('/do/not/show/cms-assets')).not.toBeInTheDocument();
+    expect(screen.queryByText('must-not-render')).not.toBeInTheDocument();
   });
 });

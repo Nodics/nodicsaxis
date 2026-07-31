@@ -419,6 +419,32 @@ function formatRetentionDays(record: WorkbenchRecord): string {
   return `${value} day${value === 1 ? '' : 's'}`;
 }
 
+function MediaFolderPolicyImpactPanel(props: { readonly record: WorkbenchRecord }) {
+  const folderCode = textValue(props.record, 'code');
+  const access = humanize(textValue(props.record, 'access'));
+  const maxSize = formatBytes(numberValue(props.record, 'maximumFileSizeBytes'));
+  const retention = formatRetentionDays(props.record);
+  return (
+    <Alert severity="warning">
+      <Stack spacing={0.75}>
+        <Typography sx={{ fontWeight: 700 }}>
+          Folder policy affects future uploads for {folderCode}.
+        </Typography>
+        <Typography variant="body2">
+          nMedia uses this folder policy for upload validation, default visibility,
+          retention, and provider-relative routing. Current policy: visibility {access},
+          max size {maxSize}, retention {retention}.
+        </Typography>
+        <Typography variant="body2">
+          Change folder rules only through backend-authorized media configuration or
+          schema mutations. Axis must not expose provider secrets, raw storage paths, or
+          alternate browser-side upload policy.
+        </Typography>
+      </Stack>
+    </Alert>
+  );
+}
+
 function formatDimensions(record: WorkbenchRecord): string {
   const width = numberValue(record, 'width');
   const height = numberValue(record, 'height');
@@ -2196,6 +2222,9 @@ export function MediaManagementRoutePage(props: MediaManagementRoutePageProps) {
                                   void selectedMediaUsage.refetch();
                                 }}
                               />
+                            ) : null}
+                            {currentItem.id === 'media-folders' ? (
+                              <MediaFolderPolicyImpactPanel record={selectedRecord} />
                             ) : null}
                             {recordWorkspaceConfiguration.details.map((detail) => (
                               <Box key={detail.key}>
