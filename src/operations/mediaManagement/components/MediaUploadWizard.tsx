@@ -196,6 +196,13 @@ function localStructureSummary(file: File, content: string): string {
   return '';
 }
 
+function imageDimensionSummary(image: HTMLImageElement): string {
+  const width = image.naturalWidth || image.width;
+  const height = image.naturalHeight || image.height;
+  if (!width || !height) return 'Image summary: dimensions unavailable locally.';
+  return `Image summary: ${width} × ${height} px.`;
+}
+
 function maxUploadSizeLabel(
   policy: MediaFolderUploadPolicy | undefined,
   formatBytes: (value: number | undefined) => string,
@@ -217,6 +224,9 @@ function MediaUploadReview(props: {
     | { readonly file: File; readonly summary: string; readonly value: string }
     | undefined
   >(undefined);
+  const [imageSummary, setImageSummary] = useState<
+    { readonly file: File; readonly value: string } | undefined
+  >(undefined);
   const [previewError, setPreviewError] = useState<
     { readonly file: File; readonly value: string } | undefined
   >(undefined);
@@ -229,6 +239,32 @@ function MediaUploadReview(props: {
     if (!imagePreviewUrl) return undefined;
     return () => URL.revokeObjectURL(imagePreviewUrl);
   }, [imagePreviewUrl]);
+
+  useEffect(() => {
+    if (!imagePreviewUrl) return undefined;
+    let cancelled = false;
+    const image = new Image();
+    image.onload = () => {
+      if (cancelled) return;
+      setImageSummary({
+        file: props.file,
+        value: imageDimensionSummary(image),
+      });
+    };
+    image.onerror = () => {
+      if (cancelled) return;
+      setPreviewError({
+        file: props.file,
+        value: 'Axis could not read local image dimensions for this file.',
+      });
+    };
+    image.src = imagePreviewUrl;
+    return () => {
+      cancelled = true;
+      image.onload = null;
+      image.onerror = null;
+    };
+  }, [imagePreviewUrl, props.file]);
 
   useEffect(() => {
     if (isTextPreviewFile(props.file)) {
@@ -264,6 +300,8 @@ function MediaUploadReview(props: {
   const currentTextPreview = textPreview?.file === props.file ? textPreview.value : '';
   const currentStructureSummary =
     textPreview?.file === props.file ? textPreview.summary : '';
+  const currentImageSummary =
+    imageSummary?.file === props.file ? imageSummary.value : '';
   const currentPreviewError =
     previewError?.file === props.file ? previewError.value : '';
   const reviewMessage = props.policyIssue
@@ -325,6 +363,10 @@ function MediaUploadReview(props: {
 
         {currentStructureSummary ? (
           <Alert severity="info">{currentStructureSummary}</Alert>
+        ) : null}
+
+        {currentImageSummary ? (
+          <Alert severity="info">{currentImageSummary}</Alert>
         ) : null}
 
         {imagePreviewUrl ? (

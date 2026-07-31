@@ -223,6 +223,39 @@ describe('MediaUploadWizard', () => {
     ).toBeVisible();
   });
 
+  it('summarizes image dimensions before upload without treating the preview as validation', async () => {
+    const originalImage = globalThis.Image;
+    class MockImage {
+      onload: (() => void) | null = null;
+      onerror: (() => void) | null = null;
+      naturalWidth = 640;
+      naturalHeight = 480;
+      width = 640;
+      height = 480;
+
+      set src(_value: string) {
+        queueMicrotask(() => this.onload?.());
+      }
+    }
+    vi.stubGlobal('Image', MockImage);
+    renderWizard();
+
+    try {
+      await selectContentMediaAndUpload(
+        new File(['png-data'], 'hero.png', { type: 'image/png' }),
+      );
+
+      expect(await screen.findByText('Image summary: 640 × 480 px.')).toBeVisible();
+      expect(
+        screen.getByText(
+          /Image preview is available before upload\. Backend policy still performs final validation/i,
+        ),
+      ).toBeVisible();
+    } finally {
+      vi.stubGlobal('Image', originalImage);
+    }
+  });
+
   it('blocks unsupported file extensions before calling nMedia', async () => {
     const uploadMediaMock = vi.mocked(uploadMedia);
     renderWizard();
