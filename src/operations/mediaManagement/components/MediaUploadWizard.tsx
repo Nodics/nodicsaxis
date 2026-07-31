@@ -157,6 +157,45 @@ function mediaReviewType(file: File): string {
   return 'Metadata review';
 }
 
+function csvStructureSummary(content: string): string {
+  const rows = content
+    .split(/\r?\n/)
+    .map((row) => row.trim())
+    .filter(Boolean);
+  if (rows.length === 0) return 'CSV summary: empty file.';
+  const headers =
+    rows[0]
+      ?.split(',')
+      .map((header) => header.trim())
+      .filter(Boolean) ?? [];
+  const dataRowCount = Math.max(rows.length - 1, 0);
+  const sampleHeaders = headers.slice(0, 6).join(', ');
+  return `CSV summary: ${headers.length} columns, ${dataRowCount} data rows. Headers: ${sampleHeaders || 'none detected'}.`;
+}
+
+function jsonStructureSummary(content: string): string {
+  try {
+    const value = JSON.parse(content) as unknown;
+    if (Array.isArray(value)) {
+      return `JSON summary: array with ${value.length} top-level items.`;
+    }
+    if (typeof value === 'object' && value !== null) {
+      const keys = Object.keys(value);
+      return `JSON summary: object with ${keys.length} top-level keys: ${keys.slice(0, 8).join(', ') || 'none'}.`;
+    }
+    return `JSON summary: top-level ${typeof value}.`;
+  } catch {
+    return 'JSON summary: Axis could not parse this file locally. Backend validation will provide the authoritative result.';
+  }
+}
+
+function localStructureSummary(file: File, content: string): string {
+  const extension = extensionFromFileName(file.name);
+  if (extension === 'csv') return csvStructureSummary(content);
+  if (extension === 'json') return jsonStructureSummary(content);
+  return '';
+}
+
 function maxUploadSizeLabel(
   policy: MediaFolderUploadPolicy | undefined,
   formatBytes: (value: number | undefined) => string,
@@ -175,7 +214,8 @@ function MediaUploadReview(props: {
   readonly sourceContexts: readonly MediaSourceContext[] | undefined;
 }) {
   const [textPreview, setTextPreview] = useState<
-    { readonly file: File; readonly value: string } | undefined
+    | { readonly file: File; readonly summary: string; readonly value: string }
+    | undefined
   >(undefined);
   const [previewError, setPreviewError] = useState<
     { readonly file: File; readonly value: string } | undefined
@@ -200,6 +240,7 @@ function MediaUploadReview(props: {
           const lines = content.split(/\r?\n/).slice(0, 12).join('\n');
           setTextPreview({
             file: props.file,
+            summary: localStructureSummary(props.file, content),
             value: lines || 'The selected text file is empty.',
           });
         })
@@ -221,6 +262,8 @@ function MediaUploadReview(props: {
 
   const extension = extensionFromFileName(props.file.name);
   const currentTextPreview = textPreview?.file === props.file ? textPreview.value : '';
+  const currentStructureSummary =
+    textPreview?.file === props.file ? textPreview.summary : '';
   const currentPreviewError =
     previewError?.file === props.file ? previewError.value : '';
   const reviewMessage = props.policyIssue
@@ -279,6 +322,10 @@ function MediaUploadReview(props: {
         </Stack>
 
         <Alert severity={props.policyIssue ? 'warning' : 'info'}>{reviewMessage}</Alert>
+
+        {currentStructureSummary ? (
+          <Alert severity="info">{currentStructureSummary}</Alert>
+        ) : null}
 
         {imagePreviewUrl ? (
           <Box

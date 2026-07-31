@@ -49,14 +49,17 @@ function formatBytes(value: number | undefined): string {
 }
 
 function policy(folderCode: string): MediaFolderUploadPolicy {
+  const importSource = folderCode === 'importSources';
   return Object.freeze({
     folderCode,
     label: folderCode,
     access: folderCode === 'cmsAssets' ? 'PUBLIC' : 'PRIVATE',
-    allowedExtensions: Object.freeze(['png']),
-    allowedMimeTypes: Object.freeze(['image/png']),
+    allowedExtensions: Object.freeze(importSource ? ['csv', 'json'] : ['png']),
+    allowedMimeTypes: Object.freeze(
+      importSource ? ['text/csv', 'application/json'] : ['image/png'],
+    ),
     checksumAlgorithm: 'sha256',
-    maxFileSizeBytes: 1024,
+    maxFileSizeBytes: importSource ? 4096 : 1024,
   });
 }
 
@@ -82,10 +85,22 @@ function context(
         retentionDays: 0,
       }),
     ]),
-    allowedFormatCodes: Object.freeze(['original']),
-    defaultFormatCode: 'original',
-    defaultModuleName: sourceType === 'Content media' ? 'cms' : undefined,
-    defaultSchemaName: sourceType === 'Content media' ? 'cmsComponent' : undefined,
+    allowedFormatCodes: Object.freeze(
+      sourceType === 'Data imports' ? ['importFile'] : ['original'],
+    ),
+    defaultFormatCode: sourceType === 'Data imports' ? 'importFile' : 'original',
+    defaultModuleName:
+      sourceType === 'Content media'
+        ? 'cms'
+        : sourceType === 'Data imports'
+          ? 'import'
+          : undefined,
+    defaultSchemaName:
+      sourceType === 'Content media'
+        ? 'cmsComponent'
+        : sourceType === 'Data imports'
+          ? 'mediaImport'
+          : undefined,
     targetRequired: false,
     manualUploadEnabled,
     storageRouteTemplate: `media/${folderCode}/{mediaCode}.{extension}`,
@@ -93,6 +108,7 @@ function context(
 }
 
 const sourceContexts: readonly MediaSourceContext[] = Object.freeze([
+  context('dataImports', 'Data imports', 'importSources', true),
   context('contentMedia', 'Content media', 'cmsAssets', true),
   context('dataExports', 'Data exports', 'exportFiles', false),
 ]);
@@ -115,7 +131,7 @@ function renderWizard(props?: {
         formatBytes={formatBytes}
         loading={false}
         onUploaded={props?.onUploaded ?? vi.fn()}
-        policies={[policy('cmsAssets'), policy('exportFiles')]}
+        policies={[policy('importSources'), policy('cmsAssets'), policy('exportFiles')]}
         sourceContexts={sourceContexts}
       />
     </QueryClientProvider>,
@@ -123,9 +139,13 @@ function renderWizard(props?: {
 }
 
 async function selectContentMediaAndUpload(file: File) {
+  return selectSourceTypeAndUpload('Content media', file);
+}
+
+async function selectSourceTypeAndUpload(sourceType: string, file: File) {
   const user = userEvent.setup();
   await user.click(screen.getByRole('combobox', { name: 'Source type' }));
-  await user.click(await screen.findByRole('option', { name: 'Content media' }));
+  await user.click(await screen.findByRole('option', { name: sourceType }));
   const fileInput = document.querySelector('input[type="file"]');
   expect(fileInput).toBeInstanceOf(HTMLInputElement);
   await user.upload(fileInput as HTMLInputElement, file);
@@ -148,6 +168,7 @@ describe('MediaUploadWizard', () => {
     await user.click(screen.getByRole('combobox', { name: 'Source type' }));
 
     expect(await screen.findByRole('option', { name: 'Content media' })).toBeVisible();
+    expect(screen.getByRole('option', { name: 'Data imports' })).toBeVisible();
     expect(
       screen.queryByRole('option', { name: 'Data exports' }),
     ).not.toBeInTheDocument();
@@ -248,5 +269,57 @@ describe('MediaUploadWizard', () => {
     expect(
       screen.queryByText(/Media upload failed: Backend policy rejected this file/i),
     ).not.toBeInTheDocument();
+  });
+
+  it('summarizes CSV import files before upload without treating the preview as validation', async () => {
+    renderWizard();
+
+    await selectSourceTypeAndUpload(
+      'Data imports',
+      new File(
+        ['code,name,status\np1,Product 1,ACTIVE\np2,Product 2,DRAFT'],
+        'products.csv',
+        {
+          type: 'text/csv',
+        },
+      ),
+    );
+
+    expect(
+      await screen.findByText(
+        'CSV summary: 3 columns, 2 data rows. Headers: code, name, status.',
+      ),
+    ).toBeVisible();
+    expect(
+      screen.getByText(
+        /Backend import\/export processes perform governed content validation/i,
+      ),
+    ).toBeVisible();
+  });
+
+  it('summarizes JSON import files before upload without treating the preview as validation', async () => {
+    renderWizard();
+
+    await selectSourceTypeAndUpload(
+      'Data imports',
+      new File(
+        [JSON.stringify({ products: [], metadata: { release: 'local' } })],
+        'products.json',
+        {
+          type: 'application/json',
+        },
+      ),
+    );
+
+    expect(
+      await screen.findByText(
+        'JSON summary: object with 2 top-level keys: products, metadata.',
+      ),
+    ).toBeVisible();
+    expect(
+      screen.getByText(
+        /Backend import\/export processes perform governed content validation/i,
+      ),
+    ).toBeVisible();
   });
 });
