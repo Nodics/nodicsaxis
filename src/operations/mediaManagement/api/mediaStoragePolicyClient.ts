@@ -24,6 +24,27 @@ export interface MediaFolderUploadPolicy {
   readonly maxFileSizeBytes: number | undefined;
 }
 
+export interface MediaSourceContextFolderPolicy extends MediaFolderUploadPolicy {
+  readonly storagePrefix: string | undefined;
+  readonly retentionDays: number | undefined;
+}
+
+export interface MediaSourceContext {
+  readonly code: string;
+  readonly label: string;
+  readonly description: string | undefined;
+  readonly folderCodes: readonly string[];
+  readonly defaultFolderCode: string | undefined;
+  readonly allowedFolders: readonly MediaSourceContextFolderPolicy[];
+  readonly allowedFormatCodes: readonly string[];
+  readonly defaultFormatCode: string | undefined;
+  readonly defaultModuleName: string | undefined;
+  readonly defaultSchemaName: string | undefined;
+  readonly targetRequired: boolean;
+  readonly manualUploadEnabled: boolean;
+  readonly storageRouteTemplate: string | undefined;
+}
+
 export interface MediaUploadInput {
   readonly file: File;
   readonly folderCode: string;
@@ -103,6 +124,10 @@ function optionalNumber(value: unknown): number | undefined {
   return typeof value === 'number' && Number.isFinite(value) ? value : undefined;
 }
 
+function optionalBoolean(value: unknown): boolean {
+  return value === true;
+}
+
 function stringList(value: unknown): readonly string[] {
   if (!Array.isArray(value)) return Object.freeze([]);
   return Object.freeze(
@@ -132,8 +157,64 @@ function parseFolderUploadPolicy(
     allowedExtensions: stringList(uploadPolicy.allowedExtensions),
     allowedMimeTypes: stringList(uploadPolicy.allowedMimeTypes),
     checksumAlgorithm: optionalText(uploadPolicy.checksumAlgorithm) ?? '—',
-    maxFileSizeBytes: optionalNumber(uploadPolicy.maxFileSizeBytes),
+    maxFileSizeBytes:
+      optionalNumber(uploadPolicy.maxFileSizeBytes) ??
+      optionalNumber(uploadPolicy.maximumFileSizeBytes),
   });
+}
+
+function parseContextFolderPolicy(value: unknown): MediaSourceContextFolderPolicy {
+  const data = record(value, 'Media context folder policy');
+  const uploadPolicy = record(data.uploadPolicy, 'Media context upload policy');
+  const folderCode = optionalText(data.folderCode);
+  if (!folderCode) throw new Error('Media context folder policy is missing folderCode');
+  return Object.freeze({
+    folderCode,
+    label: optionalText(data.label) ?? folderCode,
+    storagePrefix: optionalText(data.storagePrefix),
+    access: optionalText(data.access) ?? 'UNKNOWN',
+    retentionDays: optionalNumber(data.retentionDays),
+    allowedExtensions: stringList(uploadPolicy.allowedExtensions),
+    allowedMimeTypes: stringList(uploadPolicy.allowedMimeTypes),
+    checksumAlgorithm: optionalText(uploadPolicy.checksumAlgorithm) ?? '—',
+    maxFileSizeBytes:
+      optionalNumber(uploadPolicy.maxFileSizeBytes) ??
+      optionalNumber(uploadPolicy.maximumFileSizeBytes),
+  });
+}
+
+function parseMediaSourceContext(value: unknown): MediaSourceContext {
+  const data = record(value, 'Media source context');
+  const code = optionalText(data.code);
+  if (!code) throw new Error('Media source context is missing code');
+  return Object.freeze({
+    code,
+    label: optionalText(data.label) ?? code,
+    description: optionalText(data.description),
+    folderCodes: stringList(data.folderCodes),
+    defaultFolderCode: optionalText(data.defaultFolderCode),
+    allowedFolders: Object.freeze(
+      Array.isArray(data.allowedFolders)
+        ? data.allowedFolders.map(parseContextFolderPolicy)
+        : [],
+    ),
+    allowedFormatCodes: stringList(data.allowedFormatCodes),
+    defaultFormatCode: optionalText(data.defaultFormatCode),
+    defaultModuleName: optionalText(data.defaultModuleName),
+    defaultSchemaName: optionalText(data.defaultSchemaName),
+    targetRequired: optionalBoolean(data.targetRequired),
+    manualUploadEnabled: optionalBoolean(data.manualUploadEnabled),
+    storageRouteTemplate: optionalText(data.storageRouteTemplate),
+  });
+}
+
+function parseMediaSourceContexts(value: unknown): readonly MediaSourceContext[] {
+  const data = record(value, 'Media source context response');
+  const contexts = data.contexts;
+  if (!Array.isArray(contexts)) {
+    throw new Error('Media source context response does not contain contexts');
+  }
+  return Object.freeze(contexts.map(parseMediaSourceContext));
 }
 
 function parseMediaUploadResult(value: unknown): MediaUploadResult {
@@ -229,6 +310,49 @@ export async function loadMediaFolderUploadPolicies(
       ),
     ),
   );
+}
+
+export async function loadMediaSourceContexts(
+  connection: AxisModuleConnection,
+  configuration: MediaStoragePolicyClientConfiguration,
+  fetchImplementation: typeof fetch = fetch,
+): Promise<readonly MediaSourceContext[]> {
+  const endpoint = new URL(connection.endpoint);
+  if (!['http:', 'https:'].includes(endpoint.protocol)) {
+    throw new Error('Media endpoint is invalid');
+  }
+  const controller = new AbortController();
+  const timeout = globalThis.setTimeout(
+    () => controller.abort(),
+    configuration.timeoutMs,
+  );
+  try {
+    const response = await fetchImplementation(
+      new URL(`${endpoint.toString().replace(/\/$/, '')}/v0/contexts`),
+      {
+        method: 'GET',
+        cache: 'no-store',
+        credentials: 'omit',
+        redirect: 'error',
+        signal: controller.signal,
+        headers: {
+          Accept: 'application/json',
+          Authorization: `Bearer ${configuration.accessToken}`,
+          'x-enterprise-code': configuration.enterpriseCode,
+        },
+      },
+    );
+    if (!response.ok) throw new Error(await safeError(response));
+    return parseMediaSourceContexts(envelopeData(await response.json()));
+  } catch (error: unknown) {
+    if (controller.signal.aborted)
+      throw new Error('Media source context request timed out');
+    throw error instanceof Error
+      ? error
+      : new Error('Media source context request failed');
+  } finally {
+    globalThis.clearTimeout(timeout);
+  }
 }
 
 export async function uploadMedia(

@@ -46,13 +46,16 @@ import type {
   WorkbenchSchema,
 } from '../../workbench/api/workbenchContracts';
 import {
+  loadMediaSourceContexts,
   loadMediaFolderUploadPolicies,
   uploadMedia,
   type MediaFolderUploadPolicy,
+  type MediaSourceContext,
   type MediaUploadResult,
 } from './api/mediaStoragePolicyClient';
 import {
   defaultFormatForSourceType,
+  folderUploadPoliciesFromContexts,
   governedMediaSourceTypes,
   manualUploadSourceTypesForPolicies,
   mediaFormatLabel,
@@ -807,6 +810,7 @@ function MediaUploadReview(props: {
   readonly policy: MediaFolderUploadPolicy;
   readonly policyIssue: string | undefined;
   readonly sourceType: string;
+  readonly sourceContexts: readonly MediaSourceContext[] | undefined;
 }) {
   const [textPreview, setTextPreview] = useState<
     { readonly file: File; readonly value: string } | undefined
@@ -898,7 +902,7 @@ function MediaUploadReview(props: {
           <Chip label={`Source type: ${props.sourceType}`} size="small" />
           <Chip label={`Review: ${mediaReviewType(props.file)}`} size="small" />
           <Chip
-            label={`Format: ${mediaFormatLabel(defaultFormatForSourceType(props.sourceType, props.policy.folderCode))}`}
+            label={`Format: ${mediaFormatLabel(defaultFormatForSourceType(props.sourceType, props.policy.folderCode, props.sourceContexts))}`}
             size="small"
           />
           <Chip
@@ -968,23 +972,26 @@ function MediaUploadPanel(props: {
   readonly loading: boolean;
   readonly onUploaded: (media: MediaUploadResult) => void;
   readonly policies: readonly MediaFolderUploadPolicy[];
+  readonly sourceContexts: readonly MediaSourceContext[] | undefined;
 }) {
   const [selectedSourceType, setSelectedSourceType] = useState('');
   const [selectedFile, setSelectedFile] = useState<File>();
   const uploadablePolicies = useMemo(
     () =>
       props.policies.filter(
-        (policy) => mediaSourceType(policy.folderCode) !== 'Data exports',
+        (policy) =>
+          mediaSourceType(policy.folderCode, props.sourceContexts) !== 'Data exports',
       ),
-    [props.policies],
+    [props.policies, props.sourceContexts],
   );
   const uploadableSourceTypes = useMemo(
-    () => manualUploadSourceTypesForPolicies(uploadablePolicies),
-    [uploadablePolicies],
+    () => manualUploadSourceTypesForPolicies(uploadablePolicies, props.sourceContexts),
+    [props.sourceContexts, uploadablePolicies],
   );
   const selectedPolicy = selectPreferredUploadPolicy(
     uploadablePolicies,
     selectedSourceType,
+    props.sourceContexts,
   );
   const selectedFilePolicyIssue = filePolicyIssue(
     selectedPolicy,
@@ -1007,14 +1014,15 @@ function MediaUploadPanel(props: {
         selectedSourceType,
       );
       if (policyIssue) throw new Error(policyIssue);
-      const moduleName = moduleForSourceType(selectedSourceType);
-      const schemaName = schemaForSourceType(selectedSourceType);
+      const moduleName = moduleForSourceType(selectedSourceType, props.sourceContexts);
+      const schemaName = schemaForSourceType(selectedSourceType, props.sourceContexts);
       return uploadMedia(props.connection, props.configuration, {
         file: selectedFile,
         folderCode: selectedPolicy.folderCode,
         formatCode: defaultFormatForSourceType(
           selectedSourceType,
           selectedPolicy.folderCode,
+          props.sourceContexts,
         ),
         name: selectedFile.name,
         description: `Uploaded from Nodics Axis Media Management as ${selectedSourceType}`,
@@ -1113,7 +1121,10 @@ function MediaUploadPanel(props: {
                   </TextField>
                   {selectedSourceType ? (
                     <Alert severity="info">
-                      {sourceTypeUploadPurpose(selectedSourceType)}
+                      {sourceTypeUploadPurpose(
+                        selectedSourceType,
+                        props.sourceContexts,
+                      )}
                     </Alert>
                   ) : null}
                 </Stack>
@@ -1146,11 +1157,11 @@ function MediaUploadPanel(props: {
                       >
                         <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap' }}>
                           <Chip
-                            label={`Target route: ${sourceTypeStorageRouteLabel(selectedSourceType)}`}
+                            label={`Target route: ${sourceTypeStorageRouteLabel(selectedSourceType, props.sourceContexts)}`}
                             size="small"
                           />
                           <Chip
-                            label={`Format: ${mediaFormatLabel(defaultFormatForSourceType(selectedSourceType, selectedPolicy.folderCode))}`}
+                            label={`Format: ${mediaFormatLabel(defaultFormatForSourceType(selectedSourceType, selectedPolicy.folderCode, props.sourceContexts))}`}
                             size="small"
                           />
                           <Chip
@@ -1251,6 +1262,7 @@ function MediaUploadPanel(props: {
                     file={selectedFile}
                     policy={selectedPolicy}
                     policyIssue={selectedFilePolicyIssue}
+                    sourceContexts={props.sourceContexts}
                     sourceType={selectedSourceType}
                   />
                 ) : null}
@@ -2114,19 +2126,46 @@ export function MediaManagementRoutePage(props: MediaManagementRoutePageProps) {
         ),
       ),
   });
-  const storagePolicies = useQuery({
+  const mediaContexts = useQuery({
     enabled: Boolean(
       (currentItem?.id === 'storage-delivery' || currentItem?.id === 'media') &&
       connection,
     ),
     queryKey: [
       'media-management',
-      'storage-delivery',
+      'media-contexts',
+      connection?.endpoint,
+      configuration.enterpriseCode,
+    ],
+    queryFn: () => loadMediaSourceContexts(connection!, configuration),
+  });
+  const storagePolicies = useQuery({
+    enabled: Boolean(
+      (currentItem?.id === 'storage-delivery' || currentItem?.id === 'media') &&
+      connection &&
+      mediaContexts.isError,
+    ),
+    queryKey: [
+      'media-management',
+      'storage-delivery-fallback',
       connection?.endpoint,
       configuration.enterpriseCode,
     ],
     queryFn: () => loadMediaFolderUploadPolicies(connection!, configuration),
   });
+  const effectiveStoragePolicies = useMemo(
+    () =>
+      mediaContexts.data
+        ? folderUploadPoliciesFromContexts(mediaContexts.data)
+        : (storagePolicies.data ?? []),
+    [mediaContexts.data, storagePolicies.data],
+  );
+  const storagePolicyLoading =
+    mediaContexts.isLoading || (mediaContexts.isError && storagePolicies.isLoading);
+  const storagePolicyError =
+    mediaContexts.isError && storagePolicies.isError
+      ? (storagePolicies.error ?? mediaContexts.error)
+      : undefined;
   const refreshMediaRecords = (uploaded?: MediaUploadResult) => {
     if (uploaded) setSelectedRecordCode(uploaded.code);
     void queryClient.invalidateQueries({ queryKey: ['media-management'] });
@@ -2456,9 +2495,10 @@ export function MediaManagementRoutePage(props: MediaManagementRoutePageProps) {
                   <MediaUploadPanel
                     connection={connection}
                     configuration={configuration}
-                    error={storagePolicies.error}
-                    loading={storagePolicies.isLoading}
-                    policies={storagePolicies.data ?? []}
+                    error={storagePolicyError}
+                    loading={storagePolicyLoading}
+                    policies={effectiveStoragePolicies}
+                    sourceContexts={mediaContexts.data}
                     onUploaded={refreshMediaRecords}
                   />
                 ) : null}
@@ -2684,9 +2724,9 @@ export function MediaManagementRoutePage(props: MediaManagementRoutePageProps) {
           <StorageDeliveryPolicyPanel
             connectionAvailable={Boolean(connection)}
             deliveryBaseUrl={connection?.endpoint}
-            error={storagePolicies.error}
-            loading={storagePolicies.isLoading}
-            policies={storagePolicies.data ?? []}
+            error={storagePolicyError}
+            loading={storagePolicyLoading}
+            policies={effectiveStoragePolicies}
           />
         ) : null}
       </Stack>

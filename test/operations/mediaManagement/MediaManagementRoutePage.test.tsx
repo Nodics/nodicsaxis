@@ -224,6 +224,43 @@ describe('MediaManagementRoutePage', () => {
             }),
           );
         }
+        if (url.pathname === '/nodics/media/v0/contexts') {
+          return Promise.resolve(
+            json({
+              contexts: [
+                {
+                  code: 'contentMedia',
+                  label: 'Content media',
+                  description: 'Backend content media context',
+                  folderCodes: ['cmsAssets'],
+                  defaultFolderCode: 'cmsAssets',
+                  allowedFolders: [
+                    {
+                      folderCode: 'cmsAssets',
+                      storagePrefix: 'media/content',
+                      access: 'PUBLIC',
+                      retentionDays: 0,
+                      uploadPolicy: {
+                        maximumFileSizeBytes: 52428800,
+                        allowedExtensions: ['png'],
+                        allowedMimeTypes: ['image/png'],
+                        checksumAlgorithm: 'sha256',
+                      },
+                    },
+                  ],
+                  allowedFormatCodes: ['original', 'desktop'],
+                  defaultFormatCode: 'original',
+                  defaultModuleName: 'cms',
+                  defaultSchemaName: 'cmsComponent',
+                  targetRequired: false,
+                  manualUploadEnabled: true,
+                  storageRouteTemplate:
+                    'media/content/{tenant}/{enterprise}/{schema}/{yyyy}/{mm}/{mediaCode}.{extension}',
+                },
+              ],
+            }),
+          );
+        }
         if (url.pathname === '/nodics/media/v0/storage/policy') {
           const body = JSON.parse(fetchBodyText(init)) as {
             readonly folderCode?: string;
@@ -267,13 +304,16 @@ describe('MediaManagementRoutePage', () => {
       expect(
         fetchMock.mock.calls.some(([input, init]) => {
           const url = fetchInputUrl(input);
-          return (
-            url.pathname === '/nodics/media/v0/storage/policy' &&
-            fetchBodyText(init).includes('"folderCode":"default"')
-          );
+          return url.pathname === '/nodics/media/v0/contexts' && init?.method === 'GET';
         }),
       ).toBe(true);
     });
+    expect(
+      fetchMock.mock.calls.some(([input]) => {
+        const url = fetchInputUrl(input);
+        return url.pathname === '/nodics/media/v0/storage/policy';
+      }),
+    ).toBe(false);
     expect(fetchMock).toHaveBeenCalledWith(
       expect.objectContaining({
         pathname: '/nodics/media/v0/schema/workbench/media/records',

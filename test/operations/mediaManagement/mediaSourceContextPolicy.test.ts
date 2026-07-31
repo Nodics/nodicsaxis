@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import type { MediaFolderUploadPolicy } from '../../../src/operations/mediaManagement/api/mediaStoragePolicyClient';
 import {
   defaultFormatForSourceType,
+  folderUploadPoliciesFromContexts,
   manualUploadSourceTypesForPolicies,
   mediaFormatLabel,
   mediaSourceType,
@@ -11,6 +12,7 @@ import {
   selectPreferredUploadPolicy,
   sourceTypeStorageRouteLabel,
 } from '../../../src/operations/mediaManagement/mediaSourceContextPolicy';
+import type { MediaSourceContext } from '../../../src/operations/mediaManagement/api/mediaStoragePolicyClient';
 
 function policy(folderCode: string): MediaFolderUploadPolicy {
   return Object.freeze({
@@ -23,6 +25,62 @@ function policy(folderCode: string): MediaFolderUploadPolicy {
     maxFileSizeBytes: 1024,
   });
 }
+
+function contextFolder(folderCode: string) {
+  return Object.freeze({
+    ...policy(folderCode),
+    storagePrefix: `media/${folderCode}`,
+    retentionDays: 0,
+  });
+}
+
+const backendContexts: readonly MediaSourceContext[] = Object.freeze([
+  Object.freeze({
+    code: 'dataImports',
+    label: 'Data imports',
+    description: 'Backend import context',
+    folderCodes: Object.freeze(['importSources']),
+    defaultFolderCode: 'importSources',
+    allowedFolders: Object.freeze([contextFolder('importSources')]),
+    allowedFormatCodes: Object.freeze(['importFile']),
+    defaultFormatCode: 'importFile',
+    defaultModuleName: 'import',
+    defaultSchemaName: 'mediaImport',
+    targetRequired: true,
+    manualUploadEnabled: true,
+    storageRouteTemplate: 'data/import/{mediaCode}.{extension}',
+  }),
+  Object.freeze({
+    code: 'dataExports',
+    label: 'Data exports',
+    description: 'Backend export context',
+    folderCodes: Object.freeze(['exportFiles']),
+    defaultFolderCode: 'exportFiles',
+    allowedFolders: Object.freeze([contextFolder('exportFiles')]),
+    allowedFormatCodes: Object.freeze(['exportFile']),
+    defaultFormatCode: 'exportFile',
+    defaultModuleName: undefined,
+    defaultSchemaName: undefined,
+    targetRequired: true,
+    manualUploadEnabled: false,
+    storageRouteTemplate: 'data/export/{mediaCode}.{extension}',
+  }),
+  Object.freeze({
+    code: 'contentMedia',
+    label: 'Content media',
+    description: 'Backend content context',
+    folderCodes: Object.freeze(['cmsAssets']),
+    defaultFolderCode: 'cmsAssets',
+    allowedFolders: Object.freeze([contextFolder('cmsAssets')]),
+    allowedFormatCodes: Object.freeze(['original', 'desktop']),
+    defaultFormatCode: 'original',
+    defaultModuleName: 'cms',
+    defaultSchemaName: 'cmsComponent',
+    targetRequired: false,
+    manualUploadEnabled: true,
+    storageRouteTemplate: 'media/content/{mediaCode}.{extension}',
+  }),
+]);
 
 describe('mediaSourceContextPolicy', () => {
   it('maps known backend folder codes to business source types', () => {
@@ -60,9 +118,7 @@ describe('mediaSourceContextPolicy', () => {
     expect(selectPreferredUploadPolicy(policies, 'Content media')?.folderCode).toBe(
       'cmsAssets',
     );
-    expect(defaultFormatForSourceType('Content media', 'cmsAssets')).toBe(
-      'contentImage',
-    );
+    expect(defaultFormatForSourceType('Content media', 'cmsAssets')).toBe('original');
     expect(moduleForSourceType('Content media')).toBe('cms');
     expect(schemaForSourceType('Content media')).toBe('cmsComponent');
   });
@@ -73,5 +129,27 @@ describe('mediaSourceContextPolicy', () => {
       'exportFile',
     );
     expect(mediaFormatLabel('exportFile')).toBe('Export file');
+  });
+
+  it('prefers backend media source contexts when available', () => {
+    const policies = folderUploadPoliciesFromContexts(backendContexts);
+
+    expect(mediaSourceType('cmsAssets', backendContexts)).toBe('Content media');
+    expect(manualUploadSourceTypesForPolicies(policies, backendContexts)).toEqual([
+      'Data imports',
+      'Content media',
+    ]);
+    expect(
+      selectPreferredUploadPolicy(policies, 'Content media', backendContexts)
+        ?.folderCode,
+    ).toBe('cmsAssets');
+    expect(
+      defaultFormatForSourceType('Content media', 'cmsAssets', backendContexts),
+    ).toBe('original');
+    expect(moduleForSourceType('Content media', backendContexts)).toBe('cms');
+    expect(schemaForSourceType('Content media', backendContexts)).toBe('cmsComponent');
+    expect(sourceTypeStorageRouteLabel('Content media', backendContexts)).toBe(
+      'media/content/{mediaCode}.{extension}',
+    );
   });
 });
