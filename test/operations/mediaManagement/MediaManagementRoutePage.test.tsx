@@ -1,5 +1,6 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { render, screen, waitFor } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
@@ -173,6 +174,7 @@ describe('MediaManagementRoutePage', () => {
   });
 
   it('renders media records through nMedia contracts without exposing storage keys', async () => {
+    const user = userEvent.setup();
     const fetchMock = vi
       .spyOn(globalThis, 'fetch')
       .mockImplementation((input, init) => {
@@ -248,7 +250,7 @@ describe('MediaManagementRoutePage', () => {
                       access: 'PUBLIC',
                       retentionDays: 0,
                       uploadPolicy: {
-                        maximumFileSizeBytes: 52428800,
+                        maximumFileSizeBytes: 4,
                         allowedExtensions: ['png'],
                         allowedMimeTypes: ['image/png'],
                         checksumAlgorithm: 'sha256',
@@ -341,5 +343,23 @@ describe('MediaManagementRoutePage', () => {
       pageSize: 10,
       sort: { field: 'code', direction: 'ASC' },
     });
+
+    const sourceTypeComboboxes = screen.getAllByRole('combobox', {
+      name: 'Source type',
+    });
+    await user.click(sourceTypeComboboxes[sourceTypeComboboxes.length - 1]!);
+    await user.click(await screen.findByRole('option', { name: 'Content media' }));
+    const fileInput = document.querySelector('input[type="file"]');
+    expect(fileInput).toBeInstanceOf(HTMLInputElement);
+    await user.upload(
+      fileInput as HTMLInputElement,
+      new File(['oversized-media-content'], 'oversized.png', { type: 'image/png' }),
+    );
+    const uploadPolicyWarnings = await screen.findAllByText(
+      /larger than the 4 B backend upload limit/i,
+    );
+    expect(uploadPolicyWarnings.length).toBeGreaterThan(0);
+    expect(uploadPolicyWarnings[0]).toBeVisible();
+    expect(screen.getByRole('button', { name: 'Upload to media' })).toBeDisabled();
   });
 });

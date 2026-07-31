@@ -919,6 +919,20 @@ function filePolicyIssue(
   ) {
     return `.${extension} files are not allowed for ${policyScope}. Choose ${allowedExtensionLabel(policy)}, or select a different source type.`;
   }
+  const allowedMimeTypes = policy.allowedMimeTypes
+    .map((mimeType) => mimeType.trim().toLowerCase())
+    .filter(Boolean);
+  if (
+    file.type &&
+    allowedMimeTypes.length > 0 &&
+    !allowedMimeTypes.includes('*/*') &&
+    !allowedMimeTypes.includes(file.type.toLowerCase())
+  ) {
+    return `${file.type} files are not allowed for ${policyScope}. Choose a backend-approved MIME type, or select a different source type.`;
+  }
+  if (policy.maxFileSizeBytes && file.size > policy.maxFileSizeBytes) {
+    return `${file.name} is ${formatBytes(file.size)}, which is larger than the ${formatBytes(policy.maxFileSizeBytes)} backend upload limit for ${policyScope}.`;
+  }
   return undefined;
 }
 
