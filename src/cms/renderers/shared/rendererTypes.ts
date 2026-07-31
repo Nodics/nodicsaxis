@@ -1,6 +1,8 @@
 import type { ReactNode } from 'react';
 
 import type { AssistantPresentationState } from '../../../assistant/presentation/assistantPresentationContracts';
+import type { AxisAuthenticatedBootstrap } from '../../../bootstrap/publicBootstrap';
+import type { AxisRuntimeConfig } from '../../../runtime/runtimeConfig';
 import type {
   WorkbenchFilterGroup,
   WorkbenchRecord,
@@ -94,6 +96,12 @@ export interface WorkbenchRendererController {
   readonly retryRecords: () => void;
 }
 
+export interface MediaManagementRendererController {
+  readonly accessToken: string;
+  readonly bootstrap: AxisAuthenticatedBootstrap;
+  readonly runtime: AxisRuntimeConfig;
+}
+
 export interface CmsRendererActions {
   readonly onEmployeeLogin?: (loginId: string, password: string) => void;
   readonly onEmployeeRecovery?: (identifier: string) => void;
@@ -103,6 +111,7 @@ export interface CmsRendererActions {
   readonly authenticationError?: string;
   readonly assistant?: AssistantRendererController | undefined;
   readonly workbench?: WorkbenchRendererController | undefined;
+  readonly mediaManagement?: MediaManagementRendererController | undefined;
 }
 
 export interface CmsComponentRendererProps {

@@ -23,6 +23,11 @@ export const PAGE_RENDERER_REGISTRY = Object.freeze({
       default: module.SchemaWorkbenchPageRenderer,
     })),
   ),
+  'axis.page.media-management': lazy(() =>
+    import('../pages/MediaManagementPageRenderer').then((module) => ({
+      default: module.MediaManagementPageRenderer,
+    })),
+  ),
   'documentation.page.article': lazy(() =>
     import('../pages/DocumentationArticlePageRenderer').then((module) => ({
       default: module.DocumentationArticlePageRenderer,

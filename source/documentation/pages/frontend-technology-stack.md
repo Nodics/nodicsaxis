@@ -82,6 +82,7 @@ src/cms/renderers/
 ├── components/
 │   ├── authentication/     # authentication-specific component renderers
 │   ├── dashboard/          # dashboard-specific component renderers
+│   ├── media/              # Media Management workspace renderer
 │   └── shared/             # genuinely reusable component renderers
 ├── registry/               # typed logical-key mappings and contract manifest
 └── shared/                 # renderer-only types, guards, and property readers

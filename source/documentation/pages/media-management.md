@@ -44,9 +44,13 @@ not authorize it.
 
 ## Implemented Axis behavior
 
-The implemented route is `/media-management/*`. It provides a governed workspace
-shell and section cards that explain the active nMedia capability areas. Each
-section route is meaningful even before its full CRUD grid is implemented:
+The implemented browser route is `/media-management/*`, but page composition is
+owned by the authenticated Axis CMS content catalog route at
+`/media-management`. The catalog maps `axis.page.media-management` to the Axis
+page renderer, `axis.template.media-management` to the template renderer, and
+`axis.component.media-management-workspace` to the reusable workspace component
+renderer. The renderer reads the current browser location and backend-published
+navigation to make each section route meaningful:
 
 - `/media-management` explains the full governed media operations area.
 - `/media-management/media` explains uploaded media records.
@@ -65,7 +69,9 @@ The active section shows three beginner-friendly blocks:
 3. the next capability slices that will make the section operational.
 
 The route uses the same employee session, screen-lock, runtime bootstrap,
-left-nav, and authorization gates as the rest of Axis.
+left-nav, CMS renderer boundary, and authorization gates as the rest of Axis.
+Axis must not mount Media Management as a direct operations page that bypasses
+the content catalog and renderer registry.
 
 The **Media** section now includes an operational media record workspace. Axis
 discovers the `media` schema through the same generated Schema Workbench
@@ -477,7 +483,7 @@ When adding a Media Management feature, verify:
 1. nMedia publishes the navigation or API contract.
 2. BackOffice filters the entry by permissions.
 3. Axis renders the route only when the authenticated bootstrap contains the
-   entry.
+   entry and the CMS content catalog resolves the `/media-management` page.
 4. Media record, folder, format, and set search use the nMedia-owned
    schema/workbench API and never a direct database or storage read.
 5. Storage policy inspection uses nMedia `/contexts` first, including
@@ -493,22 +499,27 @@ When adding a Media Management feature, verify:
    directly.
 9. Usage deep links filter the nMedia `mediaReference` schema through the
    generated workbench contract.
-10. Retire and restore actions use the nMedia media schema update contract and
+10. Renderer coverage includes `axis.page.media-management`,
+    `axis.template.media-management`, and
+    `axis.component.media-management-workspace`; future media presentation
+    changes must extend CMS properties or renderer contracts rather than
+    adding another direct operations page.
+11. Retire and restore actions use the nMedia media schema update contract and
     are hidden or disabled when update is not authorized.
-11. Large media lists provide source-type, visibility, status, format, free-text
+12. Large media lists provide source-type, visibility, status, format, free-text
     search, and pagination without creating a browser-side media authority.
-12. Import/export linkage remains read-only. Axis may query nImport history by
+13. Import/export linkage remains read-only. Axis may query nImport history by
     media code and show import/export media references, but it must not mutate
     import runs, export results, Product records, CMS records, or partner owner
     records through Media Management.
-13. Storage provider summaries show only safe operator metadata: active
+14. Storage provider summaries show only safe operator metadata: active
     provider code, provider type, enabled/active state, health, key strategy,
     and delivery mode. They must not show credentials, certificates, buckets,
     storage keys, signed URL secrets, absolute paths, or backend-resolved full
     paths.
-14. Generated export files are downloaded through nMedia media-code delivery,
+15. Generated export files are downloaded through nMedia media-code delivery,
     not through export-specific browser paths or duplicate binary routes.
-15. Upload, search, reference, lifecycle, or delivery behavior stays
+16. Upload, search, reference, lifecycle, or delivery behavior stays
     backend-owned.
-16. Positive, negative, boundary, permission, contract, integration, and
+17. Positive, negative, boundary, permission, contract, integration, and
     regression tests cover the new behavior.

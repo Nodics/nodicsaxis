@@ -32,6 +32,10 @@ describe('CMS renderer registries', () => {
       COMPONENT_RENDERER_REGISTRY['documentation.component.article'],
     ).toBeDefined();
     expect(PAGE_RENDERER_REGISTRY['axis.page.authentication']).toBeDefined();
+    expect(PAGE_RENDERER_REGISTRY['axis.page.media-management']).toBeDefined();
+    expect(
+      COMPONENT_RENDERER_REGISTRY['axis.component.media-management-workspace'],
+    ).toBeDefined();
     expect(PAGE_RENDERER_REGISTRY['documentation.page.article']).toBeDefined();
   });
 

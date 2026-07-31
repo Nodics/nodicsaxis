@@ -76,8 +76,8 @@
       "canonicalSource": "source/documentation/pages/frontend-technology-stack.md",
       "destinationRoute": "/docs/nodics-axis/technology-stack",
       "disposition": "migrated",
-      "sourceHash": "a18228099fbe23e9ba0232ccd06a4e0cf01325a1b51b2c4a56bbb87303cae704",
-      "wordCount": 1069,
+      "sourceHash": "8abe85c340b862cd361d4aa147e28e9c88451c276a16f0bb0da6b8eeca676f62",
+      "wordCount": 1074,
       "headings": [
         "Selected foundation",
         "State ownership",
@@ -342,8 +342,8 @@
       "canonicalSource": "source/documentation/pages/media-management.md",
       "destinationRoute": "/docs/nodics-axis/media-management",
       "disposition": "migrated",
-      "sourceHash": "43e935723173b893b2f5b33d74c9d1c473dc009c1b415c9a13521b0607b38d83",
-      "wordCount": 4052,
+      "sourceHash": "1371f3b9cfd55b2ba193909a2d1738cb1607719a8b048471a880e6e7110a47cd",
+      "wordCount": 4146,
       "headings": [
         "Purpose",
         "Navigation",

@@ -20,7 +20,6 @@ import { WorkbenchRoutePage } from '../workbench/WorkbenchRoutePage';
 import { DocumentationRoutePage } from '../documentation/DocumentationRoutePage';
 import { ModuleHealthRoutePage } from '../operations/moduleHealth/ModuleHealthRoutePage';
 import { ImportExportRoutePage } from '../operations/importExport/ImportExportRoutePage';
-import { MediaManagementRoutePage } from '../operations/mediaManagement/MediaManagementRoutePage';
 import { useIdleScreenLock } from '../auth/useIdleScreenLock';
 import {
   clearScreenLock,
@@ -509,11 +508,13 @@ export function App() {
           session && !locked && authenticatedBootstrap && mediaManagementNavigation ? (
             authenticatedShell(
               ['UP', 'DEGRADED'].includes(mediaManagementNavigation.availability) ? (
-                <MediaManagementRoutePage
-                  accessToken={session.accessToken}
-                  bootstrap={authenticatedBootstrap}
-                  runtime={runtime}
-                />
+                page('/media-management', session.accessToken, {
+                  mediaManagement: {
+                    accessToken: session.accessToken,
+                    bootstrap: authenticatedBootstrap,
+                    runtime,
+                  },
+                })
               ) : (
                 <ModuleWorkspacePlaceholder item={mediaManagementNavigation} />
               ),

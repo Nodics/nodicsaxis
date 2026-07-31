@@ -22,6 +22,10 @@ export const CMS_RENDERER_MANIFEST = Object.freeze({
     kind: 'page',
     contractVersions: Object.freeze([1]),
   },
+  'axis.page.media-management': {
+    kind: 'page',
+    contractVersions: Object.freeze([1]),
+  },
   'documentation.page.article': {
     kind: 'page',
     contractVersions: Object.freeze([1, 2]),
@@ -39,6 +43,10 @@ export const CMS_RENDERER_MANIFEST = Object.freeze({
     contractVersions: Object.freeze([1]),
   },
   'axis.template.schema-workbench': {
+    kind: 'template',
+    contractVersions: Object.freeze([1]),
+  },
+  'axis.template.media-management': {
     kind: 'template',
     contractVersions: Object.freeze([1]),
   },
@@ -91,6 +99,10 @@ export const CMS_RENDERER_MANIFEST = Object.freeze({
     contractVersions: Object.freeze([1]),
   },
   'axis.component.schema-query-builder': {
+    kind: 'component',
+    contractVersions: Object.freeze([1]),
+  },
+  'axis.component.media-management-workspace': {
     kind: 'component',
     contractVersions: Object.freeze([1]),
   },

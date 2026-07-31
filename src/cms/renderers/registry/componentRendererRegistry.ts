@@ -63,6 +63,11 @@ export const COMPONENT_RENDERER_REGISTRY = Object.freeze({
       default: module.SchemaQueryBuilderRenderer,
     })),
   ),
+  'axis.component.media-management-workspace': lazy(() =>
+    import('../components/media/MediaManagementWorkspaceRenderer').then((module) => ({
+      default: module.MediaManagementWorkspaceRenderer,
+    })),
+  ),
   'documentation.component.article': lazy(() =>
     import('../components/documentation/DocumentationArticleRenderer').then(
       (module) => ({

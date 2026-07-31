@@ -72,7 +72,7 @@ import {
   mediaSourceType,
 } from './mediaSourceContextPolicy';
 
-interface MediaManagementRoutePageProps {
+export interface MediaManagementRoutePageProps {
   readonly accessToken: string;
   readonly bootstrap: AxisAuthenticatedBootstrap;
   readonly runtime: AxisRuntimeConfig;
