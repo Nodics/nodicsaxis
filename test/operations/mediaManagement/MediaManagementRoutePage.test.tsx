@@ -32,6 +32,14 @@ const mediaConnection = {
   state: 'UP' as const,
 };
 
+const importConnection = {
+  moduleName: 'import',
+  instanceId: 'startioLocal:monoServer:import:0',
+  endpoint: 'http://localhost:3000/nodics/import',
+  environment: 'startioLocal',
+  state: 'UP' as const,
+};
+
 function navigationItem(
   id: string,
   label: string,
@@ -92,10 +100,17 @@ const bootstrap: AxisAuthenticatedBootstrap = {
       'media-management',
     ),
     navigationItem(
+      'media-usage',
+      'Media usage',
+      '/media-management/usage',
+      255,
+      'media-management',
+    ),
+    navigationItem(
       'media-sets',
       'Media sets',
       '/media-management/sets',
-      255,
+      256,
       'media-management',
     ),
   ],
@@ -103,6 +118,7 @@ const bootstrap: AxisAuthenticatedBootstrap = {
   moduleCatalog: {},
   moduleConnections: {
     media: [mediaConnection],
+    import: [importConnection],
   },
   documentationSources: [],
   tenantCode: 'default',
@@ -344,12 +360,40 @@ describe('MediaManagementRoutePage', () => {
         ) {
           return Promise.resolve(
             json({
-              records: [],
-              totalCount: 0,
+              records: [
+                {
+                  code: 'ref-home-banner-import',
+                  ownerModule: 'import',
+                  ownerSchema: 'importRun',
+                  ownerCode: 'importRun_media_1',
+                  mediaCode: 'home-banner',
+                  relationType: 'SOURCE_FILE',
+                  status: 'ACTIVE',
+                },
+              ],
+              totalCount: 1,
               pageNumber: 1,
               pageSize: 10,
               sort: { field: 'code', direction: 'ASC' },
             }),
+          );
+        }
+        if (url.pathname === '/nodics/import/v0/run/history') {
+          expect(url.searchParams.get('mediaCode')).toBe('home-banner');
+          return Promise.resolve(
+            json([
+              {
+                runId: 'importRun_media_1',
+                status: 'COMPLETED',
+                dataType: 'media',
+                modules: ['cms'],
+                summary: {
+                  recordsRead: 10,
+                  recordsSucceeded: 10,
+                  recordsFailed: 0,
+                },
+              },
+            ]),
           );
         }
         if (url.pathname === '/nodics/media/v0/schema/workbench/mediaFolder/records') {
@@ -449,6 +493,10 @@ describe('MediaManagementRoutePage', () => {
     });
     expect(screen.getByText('Content media')).toBeVisible();
     expect(screen.getByText('Visibility: PUBLIC')).toBeVisible();
+    expect(await screen.findByText('Import/export linkage')).toBeVisible();
+    expect(await screen.findByText('importRun_media_1')).toBeVisible();
+    expect(screen.getByText('nImport')).toBeVisible();
+    expect(screen.getByText(/does not mutate owner records/i)).toBeVisible();
     expect(
       screen.getByRole('link', { name: 'Open through media delivery' }),
     ).toHaveAttribute(
@@ -478,6 +526,15 @@ describe('MediaManagementRoutePage', () => {
         return url.pathname === '/nodics/media/v0/storage/policy';
       }),
     ).toBe(false);
+    expect(
+      fetchMock.mock.calls.some(([input]) => {
+        const url = fetchInputUrl(input);
+        return (
+          url.pathname === '/nodics/import/v0/run/history' &&
+          url.searchParams.get('mediaCode') === 'home-banner'
+        );
+      }),
+    ).toBe(true);
     expect(fetchMock).toHaveBeenCalledWith(
       expect.objectContaining({
         pathname: '/nodics/media/v0/schema/workbench/media/records',
@@ -581,6 +638,103 @@ describe('MediaManagementRoutePage', () => {
     ).not.toBeInTheDocument();
     expect(screen.queryByText('/do/not/show/cms-assets')).not.toBeInTheDocument();
     expect(screen.queryByText('must-not-render')).not.toBeInTheDocument();
+  });
+
+  it('shows safe storage provider operations without exposing raw paths or secrets', async () => {
+    const fetchMock = vi.spyOn(globalThis, 'fetch').mockImplementation((input) => {
+      const url = fetchInputUrl(input);
+      if (url.pathname === '/nodics/media/v0/contexts') {
+        return Promise.resolve(
+          json({
+            contexts: [
+              {
+                code: 'importSourceFile',
+                sourceType: 'Import source',
+                aliases: ['importSources'],
+                label: 'Import source',
+                folderCodes: ['importSources'],
+                defaultFolderCode: 'importSources',
+                allowedFolders: [
+                  {
+                    folderCode: 'importSources',
+                    storagePrefix: 'media/import',
+                    access: 'PRIVATE',
+                    uploadPolicy: {
+                      allowedExtensions: ['csv'],
+                      allowedMimeTypes: ['text/csv'],
+                      checksumAlgorithm: 'sha256',
+                      maximumFileSizeBytes: 1024,
+                    },
+                  },
+                ],
+                allowedFormatCodes: ['importFile'],
+                defaultFormatCode: 'importFile',
+                targetRequired: true,
+                manualUploadEnabled: true,
+              },
+            ],
+          }),
+        );
+      }
+      if (url.pathname === '/nodics/media/v0/storage/providers/summary') {
+        return Promise.resolve(
+          json({
+            activeProviderCode: 'local',
+            keyStrategyName: 'tenantEnterpriseSchemaDateMedia',
+            delivery: {
+              enabled: true,
+              publicAccessEnabled: true,
+              signedAccessEnabled: false,
+              privateAccessEnabled: true,
+              cacheControl: 'public, max-age=3600',
+            },
+            providers: [
+              {
+                providerCode: 'local',
+                providerType: 'LOCAL_FILESYSTEM',
+                active: true,
+                enabled: true,
+                health: {
+                  status: 'AVAILABLE',
+                  rootMode: 'CONFIGURED_RELATIVE',
+                  pathExposed: false,
+                  message: 'Local media provider is available.',
+                },
+                deliveryMode: 'BACKEND_DELIVERY',
+                secretsHidden: true,
+                rawPathsHidden: true,
+                rawPath: '/tmp/media',
+                bucketName: 'private-bucket',
+              },
+            ],
+          }),
+        );
+      }
+      return Promise.resolve(json({}));
+    });
+
+    renderPage('/media-management/storage-delivery');
+
+    expect(await screen.findByText('Provider operations')).toBeVisible();
+    expect(screen.getByText('Active: local')).toBeVisible();
+    expect(
+      screen.getByText('Key strategy: tenantEnterpriseSchemaDateMedia'),
+    ).toBeVisible();
+    expect(screen.getByText('Local Filesystem')).toBeVisible();
+    expect(screen.getByText('Health: Available')).toBeVisible();
+    expect(screen.getByText('Root mode: Configured Relative')).toBeVisible();
+    expect(
+      screen.getByText(/provider summaries set secret and raw path/i),
+    ).toBeVisible();
+    expect(screen.getByText('Import source')).toBeVisible();
+    expect(screen.queryByText('/tmp/media')).not.toBeInTheDocument();
+    expect(screen.queryByText('private-bucket')).not.toBeInTheDocument();
+    expect(
+      fetchMock.mock.calls.some(([input]) => {
+        const url = fetchInputUrl(input);
+        return url.pathname === '/nodics/media/v0/storage/providers/summary';
+      }),
+    ).toBe(true);
   });
 
   it('updates effective media folder policy through nMedia policy operations', async () => {

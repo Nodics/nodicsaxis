@@ -499,6 +499,34 @@ export async function loadImportHistory(
   );
 }
 
+export async function loadImportHistoryForMediaCode(
+  connection: AxisModuleConnection,
+  configuration: DataReleaseClientConfiguration,
+  mediaCode: string,
+  fetchImplementation: typeof fetch = fetch,
+): Promise<readonly ImportRunSummary[]> {
+  const normalizedMediaCode = mediaCode.trim();
+  if (!normalizedMediaCode) {
+    throw new Error('Media code is required for import history lookup');
+  }
+  const value = await request(
+    connection,
+    `/run/history?limit=10&skip=0&mediaCode=${encodeURIComponent(normalizedMediaCode)}`,
+    configuration,
+    {},
+    fetchImplementation,
+  );
+  if (!Array.isArray(value)) throw new Error('Import history is invalid');
+  return Object.freeze(
+    value.map((item) => {
+      const importRun = parseImportRun(item);
+      if (!importRun || importRun.runId === 'unknown')
+        throw new Error('Import run identifier is invalid');
+      return importRun;
+    }),
+  );
+}
+
 function parseMediaUpload(value: unknown): MediaUploadSummary {
   const source = record(value, 'Uploaded media');
   const media: MediaUploadSummary = {

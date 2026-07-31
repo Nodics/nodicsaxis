@@ -83,6 +83,40 @@ export interface MediaUploadResult {
   readonly accessUrl: string | undefined;
 }
 
+export interface MediaStorageDeliverySummary {
+  readonly enabled: boolean;
+  readonly publicAccessEnabled: boolean;
+  readonly signedAccessEnabled: boolean;
+  readonly privateAccessEnabled: boolean;
+  readonly cacheControl: string | undefined;
+  readonly contentDisposition: string | undefined;
+}
+
+export interface MediaStorageProviderHealthSummary {
+  readonly status: string;
+  readonly rootMode: string | undefined;
+  readonly pathExposed: boolean;
+  readonly message: string | undefined;
+}
+
+export interface MediaStorageProviderSummaryItem {
+  readonly providerCode: string;
+  readonly providerType: string;
+  readonly active: boolean;
+  readonly enabled: boolean;
+  readonly health: MediaStorageProviderHealthSummary;
+  readonly deliveryMode: string;
+  readonly secretsHidden: boolean;
+  readonly rawPathsHidden: boolean;
+}
+
+export interface MediaStorageProviderSummary {
+  readonly activeProviderCode: string;
+  readonly keyStrategyName: string;
+  readonly delivery: MediaStorageDeliverySummary;
+  readonly providers: readonly MediaStorageProviderSummaryItem[];
+}
+
 export const mediaFolderPolicyProbes: readonly MediaFolderPolicyProbe[] = Object.freeze(
   [
     Object.freeze({
@@ -252,6 +286,63 @@ function parseMediaUploadResult(value: unknown): MediaUploadResult {
   });
 }
 
+function parseStorageProviderHealth(value: unknown): MediaStorageProviderHealthSummary {
+  const data =
+    typeof value === 'object' && value !== null && !Array.isArray(value)
+      ? (value as Record<string, unknown>)
+      : {};
+  return Object.freeze({
+    status: optionalText(data.status) ?? 'UNKNOWN',
+    rootMode: optionalText(data.rootMode),
+    pathExposed: data.pathExposed === true,
+    message: optionalText(data.message),
+  });
+}
+
+function parseStorageProviderSummaryItem(
+  value: unknown,
+): MediaStorageProviderSummaryItem {
+  const data = record(value, 'Media storage provider summary');
+  const providerCode = optionalText(data.providerCode);
+  if (!providerCode) throw new Error('Media storage provider summary is missing code');
+  return Object.freeze({
+    providerCode,
+    providerType: optionalText(data.providerType) ?? 'CUSTOM',
+    active: optionalBoolean(data.active),
+    enabled: optionalBoolean(data.enabled),
+    health: parseStorageProviderHealth(data.health),
+    deliveryMode: optionalText(data.deliveryMode) ?? 'BACKEND_DELIVERY',
+    secretsHidden: data.secretsHidden !== false,
+    rawPathsHidden: data.rawPathsHidden !== false,
+  });
+}
+
+function parseStorageDeliverySummary(value: unknown): MediaStorageDeliverySummary {
+  const data = record(value, 'Media storage delivery summary');
+  return Object.freeze({
+    enabled: optionalBoolean(data.enabled),
+    publicAccessEnabled: optionalBoolean(data.publicAccessEnabled),
+    signedAccessEnabled: optionalBoolean(data.signedAccessEnabled),
+    privateAccessEnabled: optionalBoolean(data.privateAccessEnabled),
+    cacheControl: optionalText(data.cacheControl),
+    contentDisposition: optionalText(data.contentDisposition),
+  });
+}
+
+function parseStorageProviderSummary(value: unknown): MediaStorageProviderSummary {
+  const data = record(value, 'Media storage provider response');
+  return Object.freeze({
+    activeProviderCode: optionalText(data.activeProviderCode) ?? 'unknown',
+    keyStrategyName: optionalText(data.keyStrategyName) ?? 'default',
+    delivery: parseStorageDeliverySummary(data.delivery),
+    providers: Object.freeze(
+      Array.isArray(data.providers)
+        ? data.providers.map(parseStorageProviderSummaryItem)
+        : [],
+    ),
+  });
+}
+
 async function safeError(response: Response): Promise<string> {
   try {
     const value = record(await response.json(), 'Media storage error');
@@ -366,6 +457,49 @@ export async function loadMediaSourceContexts(
     throw error instanceof Error
       ? error
       : new Error('Media source context request failed');
+  } finally {
+    globalThis.clearTimeout(timeout);
+  }
+}
+
+export async function loadMediaStorageProviderSummary(
+  connection: AxisModuleConnection,
+  configuration: MediaStoragePolicyClientConfiguration,
+  fetchImplementation: typeof fetch = fetch,
+): Promise<MediaStorageProviderSummary> {
+  const endpoint = new URL(connection.endpoint);
+  if (!['http:', 'https:'].includes(endpoint.protocol)) {
+    throw new Error('Media endpoint is invalid');
+  }
+  const controller = new AbortController();
+  const timeout = globalThis.setTimeout(
+    () => controller.abort(),
+    configuration.timeoutMs,
+  );
+  try {
+    const response = await fetchImplementation(
+      new URL(`${endpoint.toString().replace(/\/$/, '')}/v0/storage/providers/summary`),
+      {
+        method: 'GET',
+        cache: 'no-store',
+        credentials: 'omit',
+        redirect: 'error',
+        signal: controller.signal,
+        headers: {
+          Accept: 'application/json',
+          Authorization: `Bearer ${configuration.accessToken}`,
+          'x-enterprise-code': configuration.enterpriseCode,
+        },
+      },
+    );
+    if (!response.ok) throw new Error(await safeError(response));
+    return parseStorageProviderSummary(envelopeData(await response.json()));
+  } catch (error: unknown) {
+    if (controller.signal.aborted)
+      throw new Error('Media storage provider summary request timed out');
+    throw error instanceof Error
+      ? error
+      : new Error('Media storage provider summary request failed');
   } finally {
     globalThis.clearTimeout(timeout);
   }

@@ -244,12 +244,26 @@ workspace to that media item. This gives Media detail a safe deep link into
 usage without inventing a second search endpoint. The filter still runs through
 nMedia's generated schema/workbench contract.
 
+Usage can also be filtered by owner module, owner schema, owner record, relation
+type, and status when the backend schema advertises those fields as queryable.
+The owner-record filter is useful when a business user already knows the
+Product, CMS, import, export, or partner record that may be holding a reference.
+
 This is not analytics usage and it is not a duplicate product or CMS editor.
 nMedia owns only the media reference trace. The product, CMS, import, or partner
 module continues to own the business record and its validation rules. This
 separation lets administrators safely answer cleanup questions such as "can this
 file be retired?" before removing or retiring media that may still be attached
 to another business object.
+
+Media detail also includes an **Import/export linkage** panel. The panel is
+read-only. It asks nImport for run history with the selected `mediaCode` and
+shows any matching import runs, counts, status, data type, and modules. It also
+summarizes import/export `mediaReference` traces when they exist. Axis does not
+edit the import run, export result, Product record, CMS record, or partner
+record from this panel; it links the employee to the owning Import/Export
+workspace for deeper work. Export status remains owned by nExport and should be
+surfaced only through nExport-published contracts.
 
 The **Storage and Delivery** section now provides a read-only policy inspection
 view. Axis first calls the nMedia `/contexts` API and derives safe folder
@@ -261,13 +275,15 @@ purposes. The result shows folder-level upload rules: folder code, business
 label, visibility, allowed extensions, allowed MIME types, maximum file size,
 and checksum algorithm.
 
-This screen is intentionally not a provider diagnostic console yet. The current
-backend contract does not expose provider internals, and Axis must not infer
-them. It does not call the storage-location endpoint, does not generate storage
-keys, and does not display absolute filesystem paths, bucket names,
-certificates, or credentials. It also does not decide whether a folder is
-local, NAS, S3, Azure, Google Cloud Storage, FTP, or a partner provider. nMedia
-owns that decision.
+The same screen also calls `/storage/providers/summary` when the backend
+publishes it. That summary is deliberately safe: active provider code, provider
+type, enabled/active flags, provider health status, key strategy name, and
+delivery mode. It does not expose absolute filesystem paths, bucket names,
+certificates, credentials, object keys, or signed URL secrets. Axis does not
+call the storage-location endpoint, does not generate storage keys, and does
+not offer provider credential controls. nMedia still decides whether a folder
+uses local storage, NAS, S3, Azure, Google Cloud Storage, FTP, or a partner
+provider.
 
 For a beginner developer, this means:
 
@@ -275,11 +291,13 @@ For a beginner developer, this means:
    for this employee workspace?"
 2. nMedia returns safe context and upload-policy metadata without provider
    secrets or raw paths.
-3. Axis displays only the safe context and policy metadata.
-4. When a real upload happens, Axis sends the selected file to nMedia.
-5. nMedia resolves provider and storage location, creates the media record, and
+3. Axis optionally asks nMedia for the safe storage provider summary and shows
+   only provider code, type, health, delivery, and key-strategy metadata.
+4. Axis displays only the safe context, policy, and provider summary metadata.
+5. When a real upload happens, Axis sends the selected file to nMedia.
+6. nMedia resolves provider and storage location, creates the media record, and
    returns the media code.
-6. When a file is opened, Axis uses the nMedia content delivery endpoint with
+7. When a file is opened, Axis uses the nMedia content delivery endpoint with
    the media code instead of a raw file path.
 
 For example, an import CSV is uploaded under the `importSources` purpose. A

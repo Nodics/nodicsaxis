@@ -49,14 +49,18 @@ import type {
 import {
   loadMediaSourceContexts,
   loadMediaFolderUploadPolicies,
+  loadMediaStorageProviderSummary,
   removeMediaSetEntry,
   reorderMediaSetEntries,
   setPrimaryMediaSetEntry,
   updateMediaFolderPolicy,
   type MediaFolderUploadPolicy,
+  type MediaStorageProviderSummary,
   type MediaSourceContext,
   type MediaUploadResult,
 } from './api/mediaStoragePolicyClient';
+import { loadImportHistoryForMediaCode } from '../importExport/api/dataReleaseClient';
+import type { ImportRunSummary } from '../importExport/api/dataReleaseContracts';
 import { MediaUploadWizard } from './components/MediaUploadWizard';
 import {
   defaultFormatForSourceType,
@@ -989,7 +993,11 @@ function StorageDeliveryPolicyPanel(props: {
   readonly error: unknown;
   readonly loading: boolean;
   readonly policies: readonly MediaFolderUploadPolicy[];
+  readonly providerSummary: MediaStorageProviderSummary | undefined;
+  readonly providerSummaryError: unknown;
+  readonly providerSummaryLoading: boolean;
 }) {
+  const providerSummary = props.providerSummary;
   return (
     <Card variant="outlined">
       <CardContent>
@@ -1026,6 +1034,122 @@ function StorageDeliveryPolicyPanel(props: {
             owns provider selection, key generation, absolute paths, upload validation,
             and delivery authorization.
           </Alert>
+
+          {props.providerSummaryLoading ? (
+            <Stack direction="row" spacing={1.5} sx={{ alignItems: 'center' }}>
+              <CircularProgress size={20} />
+              <Typography color="text.secondary" variant="body2">
+                Loading provider summary…
+              </Typography>
+            </Stack>
+          ) : props.providerSummaryError ? (
+            <Alert severity="warning">
+              {props.providerSummaryError instanceof Error
+                ? props.providerSummaryError.message
+                : 'Media storage provider summary is unavailable.'}
+            </Alert>
+          ) : providerSummary ? (
+            <Box
+              sx={{
+                border: 1,
+                borderColor: 'divider',
+                borderRadius: 2,
+                p: 2,
+              }}
+            >
+              <Stack spacing={2}>
+                <Stack
+                  direction={{ xs: 'column', md: 'row' }}
+                  spacing={1}
+                  sx={{ alignItems: { md: 'center' }, justifyContent: 'space-between' }}
+                >
+                  <Box>
+                    <Typography component="h3" variant="h6">
+                      Provider operations
+                    </Typography>
+                    <Typography color="text.secondary" variant="body2">
+                      Safe provider metadata published by nMedia. Paths, buckets,
+                      certificates, and credentials remain hidden.
+                    </Typography>
+                  </Box>
+                  <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap' }}>
+                    <Chip
+                      color="primary"
+                      label={`Active: ${providerSummary.activeProviderCode}`}
+                      size="small"
+                    />
+                    <Chip
+                      label={`Key strategy: ${providerSummary.keyStrategyName}`}
+                      size="small"
+                    />
+                    <Chip
+                      color={providerSummary.delivery.enabled ? 'success' : 'default'}
+                      label={
+                        providerSummary.delivery.enabled
+                          ? 'Delivery enabled'
+                          : 'Delivery disabled'
+                      }
+                      size="small"
+                    />
+                  </Stack>
+                </Stack>
+                <Grid container spacing={1.5}>
+                  {providerSummary.providers.map((provider) => (
+                    <Grid key={provider.providerCode} size={{ xs: 12, md: 6, xl: 4 }}>
+                      <Box
+                        sx={{
+                          border: 1,
+                          borderColor: provider.active ? 'primary.main' : 'divider',
+                          borderRadius: 2,
+                          height: '100%',
+                          p: 1.5,
+                        }}
+                      >
+                        <Stack spacing={1}>
+                          <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap' }}>
+                            <Chip
+                              color={provider.active ? 'primary' : 'default'}
+                              label={provider.providerCode}
+                              size="small"
+                            />
+                            <Chip
+                              color={provider.enabled ? 'success' : 'default'}
+                              label={provider.enabled ? 'Enabled' : 'Disabled'}
+                              size="small"
+                            />
+                          </Stack>
+                          <Typography sx={{ fontWeight: 700 }}>
+                            {humanize(provider.providerType.toLowerCase())}
+                          </Typography>
+                          <Typography color="text.secondary" variant="body2">
+                            Health: {humanize(provider.health.status.toLowerCase())}
+                          </Typography>
+                          <Typography color="text.secondary" variant="body2">
+                            Delivery: {humanize(provider.deliveryMode.toLowerCase())}
+                          </Typography>
+                          {provider.health.rootMode ? (
+                            <Typography color="text.secondary" variant="body2">
+                              Root mode:{' '}
+                              {humanize(provider.health.rootMode.toLowerCase())}
+                            </Typography>
+                          ) : null}
+                          {provider.health.message ? (
+                            <Typography color="text.secondary" variant="caption">
+                              {provider.health.message}
+                            </Typography>
+                          ) : null}
+                        </Stack>
+                      </Box>
+                    </Grid>
+                  ))}
+                </Grid>
+                <Alert severity="success">
+                  Hidden values confirmed: provider summaries set secret and raw path
+                  hiding flags. Axis does not offer provider credential controls.
+                </Alert>
+              </Stack>
+            </Box>
+          ) : null}
 
           {props.loading ? (
             <Stack direction="row" spacing={1.5} sx={{ alignItems: 'center' }}>
@@ -1332,6 +1456,154 @@ function MediaUsageSummaryPanel(props: {
         <Alert severity="success">
           No active usage references were found for this media item.
         </Alert>
+      )}
+    </Stack>
+  );
+}
+
+function MediaImportExportLinkagePanel(props: {
+  readonly error: unknown;
+  readonly importConnectionAvailable: boolean;
+  readonly importHistory: readonly ImportRunSummary[];
+  readonly loading: boolean;
+  readonly mediaCode: string;
+  readonly record: WorkbenchRecord;
+  readonly usageRecords: readonly WorkbenchRecord[];
+}) {
+  const folderCode = textValue(props.record, 'folderCode');
+  const formatCode = textValue(props.record, 'formatCode');
+  const importExportReferences = props.usageRecords.filter((record) =>
+    ['import', 'export', 'nImport', 'nExport'].includes(
+      textValue(record, 'ownerModule'),
+    ),
+  );
+  return (
+    <Stack spacing={1.5}>
+      <Divider />
+      <Stack
+        direction={{ xs: 'column', sm: 'row' }}
+        spacing={1}
+        sx={{ alignItems: { sm: 'center' }, justifyContent: 'space-between' }}
+      >
+        <Box>
+          <Typography component="h4" variant="h6">
+            Import/export linkage
+          </Typography>
+          <Typography color="text.secondary" variant="body2">
+            Read-only linkage between this media record, nImport run history, and media
+            reference traces.
+          </Typography>
+        </Box>
+        <Button
+          component={RouterLink}
+          size="small"
+          to="/import-export?area=history"
+          variant="outlined"
+        >
+          Open import/export
+        </Button>
+      </Stack>
+      <Alert severity="info">
+        Media Management does not mutate owner records. Product, CMS, import, and export
+        modules remain authoritative for their own business state.
+      </Alert>
+      <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap' }}>
+        <Chip label={`Folder: ${folderCode}`} size="small" />
+        <Chip label={`Format: ${formatCode}`} size="small" />
+        <Chip
+          color={folderCode === 'importSources' ? 'primary' : 'default'}
+          label={
+            folderCode === 'importSources'
+              ? 'Import source candidate'
+              : 'Not an import source folder'
+          }
+          size="small"
+        />
+        <Chip
+          color={folderCode === 'exportFiles' ? 'primary' : 'default'}
+          label={
+            folderCode === 'exportFiles'
+              ? 'Export file candidate'
+              : 'Not an export output folder'
+          }
+          size="small"
+        />
+      </Stack>
+      {!props.importConnectionAvailable ? (
+        <Alert severity="warning">
+          nImport is not available in the current BackOffice registry response, so
+          import run history cannot be checked for {props.mediaCode}.
+        </Alert>
+      ) : props.loading ? (
+        <Stack direction="row" spacing={1.5} sx={{ alignItems: 'center' }}>
+          <CircularProgress size={20} />
+          <Typography color="text.secondary" variant="body2">
+            Checking nImport history…
+          </Typography>
+        </Stack>
+      ) : props.error ? (
+        <Alert severity="warning">
+          {props.error instanceof Error
+            ? props.error.message
+            : 'Import history is unavailable for this media item.'}
+        </Alert>
+      ) : props.importHistory.length > 0 ? (
+        <Stack spacing={1}>
+          {props.importHistory.map((run) => (
+            <Box
+              key={run.runId}
+              sx={{ border: 1, borderColor: 'divider', borderRadius: 2, p: 1.5 }}
+            >
+              <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap' }}>
+                <Chip color="primary" label="nImport" size="small" />
+                <Chip label={run.status} size="small" />
+                {run.dataType ? <Chip label={run.dataType} size="small" /> : null}
+              </Stack>
+              <Typography sx={{ mt: 1, overflowWrap: 'anywhere', fontWeight: 700 }}>
+                {run.runId}
+              </Typography>
+              <Typography color="text.secondary" variant="body2">
+                Modules: {run.modules.length > 0 ? run.modules.join(', ') : '—'}
+              </Typography>
+              {run.summary ? (
+                <Typography color="text.secondary" variant="body2">
+                  Records: {run.summary.recordsRead ?? '—'} read,{' '}
+                  {run.summary.recordsSucceeded ?? '—'} succeeded,{' '}
+                  {run.summary.recordsFailed ?? '—'} failed
+                </Typography>
+              ) : null}
+            </Box>
+          ))}
+        </Stack>
+      ) : (
+        <Alert severity="success">
+          No nImport run history was found for media code {props.mediaCode}.
+        </Alert>
+      )}
+      {importExportReferences.length > 0 ? (
+        <Box>
+          <Typography sx={{ fontWeight: 700 }} variant="body2">
+            Import/export reference traces
+          </Typography>
+          <Stack spacing={0.5} sx={{ mt: 0.5 }}>
+            {importExportReferences.map((reference) => (
+              <Typography
+                key={textValue(reference, 'code')}
+                color="text.secondary"
+                variant="body2"
+              >
+                {textValue(reference, 'ownerModule')} /{' '}
+                {textValue(reference, 'ownerSchema')} /{' '}
+                {textValue(reference, 'ownerCode')} —{' '}
+                {textValue(reference, 'relationType')}
+              </Typography>
+            ))}
+          </Stack>
+        </Box>
+      ) : (
+        <Typography color="text.secondary" variant="body2">
+          No import/export mediaReference trace is attached to this media item yet.
+        </Typography>
       )}
     </Stack>
   );
@@ -1883,6 +2155,12 @@ const recordWorkspaceFacetFilters: Readonly<
       value: (record) => textValue(record, 'ownerSchema'),
     },
     {
+      allLabel: 'All owner records',
+      key: 'ownerCode',
+      label: 'Owner record',
+      value: (record) => textValue(record, 'ownerCode'),
+    },
+    {
       allLabel: 'All relations',
       key: 'relationType',
       label: 'Relation',
@@ -1910,6 +2188,7 @@ export function MediaManagementRoutePage(props: MediaManagementRoutePageProps) {
   const [recordRowsPerPage, setRecordRowsPerPage] = useState(10);
   const [selectedRecordCode, setSelectedRecordCode] = useState<string>();
   const connection = selectModuleConnection(props.bootstrap, 'media');
+  const importConnection = selectModuleConnection(props.bootstrap, 'import');
   const usageMediaCode =
     new URLSearchParams(location.search).get('mediaCode')?.trim() ?? '';
   const configuration: WorkbenchClientConfiguration = useMemo(
@@ -2115,6 +2394,23 @@ export function MediaManagementRoutePage(props: MediaManagementRoutePageProps) {
         ),
       ),
   });
+  const selectedMediaImportHistory = useQuery({
+    enabled: Boolean(
+      currentItem?.id === 'media' && importConnection && selectedMediaCode !== '—',
+    ),
+    queryKey: [
+      'media-management',
+      'selected-media-import-history',
+      importConnection?.endpoint,
+      selectedMediaCode,
+    ],
+    queryFn: () =>
+      loadImportHistoryForMediaCode(
+        importConnection!,
+        configuration,
+        selectedMediaCode,
+      ),
+  });
   const mediaSetEntries = useQuery({
     enabled: Boolean(
       currentItem?.id === 'media-sets' &&
@@ -2153,6 +2449,16 @@ export function MediaManagementRoutePage(props: MediaManagementRoutePageProps) {
       configuration.enterpriseCode,
     ],
     queryFn: () => loadMediaFolderUploadPolicies(connection!, configuration),
+  });
+  const storageProviderSummary = useQuery({
+    enabled: Boolean(currentItem?.id === 'storage-delivery' && connection),
+    queryKey: [
+      'media-management',
+      'storage-provider-summary',
+      connection?.endpoint,
+      configuration.enterpriseCode,
+    ],
+    queryFn: () => loadMediaStorageProviderSummary(connection!, configuration),
   });
   const effectiveStoragePolicies = useMemo(
     () =>
@@ -2660,6 +2966,17 @@ export function MediaManagementRoutePage(props: MediaManagementRoutePageProps) {
                                 records={selectedMediaUsage.data?.records ?? []}
                               />
                             ) : null}
+                            {currentItem.id === 'media' && selectedMediaCode !== '—' ? (
+                              <MediaImportExportLinkagePanel
+                                error={selectedMediaImportHistory.error}
+                                importConnectionAvailable={Boolean(importConnection)}
+                                importHistory={selectedMediaImportHistory.data ?? []}
+                                loading={selectedMediaImportHistory.isLoading}
+                                mediaCode={selectedMediaCode}
+                                record={selectedRecord}
+                                usageRecords={selectedMediaUsage.data?.records ?? []}
+                              />
+                            ) : null}
                             {currentItem.id === 'media' && currentSchema ? (
                               <MediaLifecycleActionsPanel
                                 configuration={configuration}
@@ -2756,6 +3073,9 @@ export function MediaManagementRoutePage(props: MediaManagementRoutePageProps) {
             error={storagePolicyError}
             loading={storagePolicyLoading}
             policies={effectiveStoragePolicies}
+            providerSummary={storageProviderSummary.data}
+            providerSummaryError={storageProviderSummary.error}
+            providerSummaryLoading={storageProviderSummary.isLoading}
           />
         ) : null}
       </Stack>
