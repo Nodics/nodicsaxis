@@ -51,6 +51,18 @@ import {
   type MediaFolderUploadPolicy,
   type MediaUploadResult,
 } from './api/mediaStoragePolicyClient';
+import {
+  defaultFormatForSourceType,
+  governedMediaSourceTypes,
+  manualUploadSourceTypesForPolicies,
+  mediaFormatLabel,
+  mediaSourceType,
+  moduleForSourceType,
+  schemaForSourceType,
+  selectPreferredUploadPolicy,
+  sourceTypeStorageRouteLabel,
+  sourceTypeUploadPurpose,
+} from './mediaSourceContextPolicy';
 
 interface MediaManagementRoutePageProps {
   readonly accessToken: string;
@@ -265,102 +277,6 @@ function mediaSummary(record: WorkbenchRecord): string {
   const name = textValue(record, 'name');
   if (name !== '—') return name;
   return textValue(record, 'code');
-}
-
-const sourceTypeByFolderCode: Readonly<Record<string, string>> = Object.freeze({
-  cmsAssets: 'Content media',
-  contentMedia: 'Content media',
-  contentAssets: 'Content media',
-  dataExport: 'Data exports',
-  dataExports: 'Data exports',
-  dataImport: 'Data imports',
-  dataImports: 'Data imports',
-  default: 'Utility media',
-  exportFiles: 'Data exports',
-  exportResults: 'Data exports',
-  importSources: 'Data imports',
-  productMedia: 'Product media',
-  productAssets: 'Product media',
-  utilityFiles: 'Utility media',
-  utilityMedia: 'Utility media',
-});
-
-const governedMediaSourceTypes = Object.freeze([
-  'Data imports',
-  'Data exports',
-  'Product media',
-  'Content media',
-  'Utility media',
-]);
-
-const manualMediaUploadSourceTypes = Object.freeze([
-  'Data imports',
-  'Product media',
-  'Content media',
-  'Utility media',
-]);
-
-const preferredUploadFolderCodesBySourceType: Readonly<
-  Record<string, readonly string[]>
-> = Object.freeze({
-  'Content media': Object.freeze(['contentMedia', 'cmsAssets', 'contentAssets']),
-  'Data imports': Object.freeze(['dataImport', 'dataImports', 'importSources']),
-  'Product media': Object.freeze(['productMedia', 'productAssets']),
-  'Utility media': Object.freeze(['utilityMedia', 'utilityFiles', 'default']),
-});
-
-const formatLabelByCode: Readonly<Record<string, string>> = Object.freeze({
-  contentImage: 'Content image',
-  exportFile: 'Export file',
-  importFile: 'Import file',
-  original: 'Original media',
-  productGallery: 'Product gallery image',
-  productImage: 'Product image',
-  thumbnail: 'Thumbnail',
-  utilityFile: 'Utility file',
-});
-
-function normalizedPolicyCode(value: string): string {
-  return value.trim().toLowerCase();
-}
-
-function mediaSourceType(folderCode: string): string {
-  const normalized = folderCode.trim();
-  if (!normalized || normalized === '—') return 'Utility media';
-  const mappedSourceType = sourceTypeByFolderCode[normalized];
-  if (mappedSourceType) return mappedSourceType;
-  if (/import/i.test(normalized)) return 'Data imports';
-  if (/export/i.test(normalized)) return 'Data exports';
-  if (/product|catalog/i.test(normalized)) return 'Product media';
-  if (/content|cms|banner|page/i.test(normalized)) return 'Content media';
-  if (/document|kyc|process/i.test(normalized)) return 'Business documents';
-  return humanize(normalized);
-}
-
-function selectPreferredUploadPolicy(
-  policies: readonly MediaFolderUploadPolicy[],
-  sourceType: string,
-): MediaFolderUploadPolicy | undefined {
-  if (!sourceType) return undefined;
-  const preferredCodes = preferredUploadFolderCodesBySourceType[sourceType] ?? [];
-  const preferredPolicy = preferredCodes
-    .map((code) =>
-      policies.find(
-        (policy) =>
-          normalizedPolicyCode(policy.folderCode) === normalizedPolicyCode(code),
-      ),
-    )
-    .find((policy): policy is MediaFolderUploadPolicy => Boolean(policy));
-  return (
-    preferredPolicy ??
-    policies.find((policy) => mediaSourceType(policy.folderCode) === sourceType)
-  );
-}
-
-function mediaFormatLabel(formatCode: string): string {
-  const normalized = formatCode.trim();
-  if (!normalized || normalized === '—') return 'Unassigned format';
-  return formatLabelByCode[normalized] ?? humanize(normalized);
 }
 
 function uniqueSorted(values: readonly string[]): string[] {
@@ -869,47 +785,6 @@ function isTextPreviewFile(file: File): boolean {
   );
 }
 
-function defaultFormatForFolder(folderCode: string): string {
-  if (['dataImport', 'dataImports', 'importSources'].includes(folderCode)) {
-    return 'importFile';
-  }
-  if (
-    ['dataExport', 'dataExports', 'exportFiles', 'exportResults'].includes(folderCode)
-  ) {
-    return 'exportFile';
-  }
-  if (['cmsAssets', 'contentAssets', 'contentMedia'].includes(folderCode)) {
-    return 'contentImage';
-  }
-  if (['productAssets', 'productMedia'].includes(folderCode)) return 'productImage';
-  if (['default', 'utilityFiles', 'utilityMedia'].includes(folderCode))
-    return 'utilityFile';
-  return 'original';
-}
-
-function defaultFormatForSourceType(sourceType: string, folderCode: string): string {
-  if (sourceType === 'Data imports') return 'importFile';
-  if (sourceType === 'Data exports') return 'exportFile';
-  if (sourceType === 'Product media') return 'productImage';
-  if (sourceType === 'Content media') return 'contentImage';
-  if (sourceType === 'Utility media') return 'utilityFile';
-  return defaultFormatForFolder(folderCode);
-}
-
-function moduleForSourceType(sourceType: string): string | undefined {
-  if (sourceType === 'Content media') return 'cms';
-  if (sourceType === 'Product media') return 'product';
-  if (sourceType === 'Data imports') return 'import';
-  return undefined;
-}
-
-function schemaForSourceType(sourceType: string): string | undefined {
-  if (sourceType === 'Content media') return 'cmsComponent';
-  if (sourceType === 'Product media') return 'product';
-  if (sourceType === 'Data imports') return 'mediaImport';
-  return undefined;
-}
-
 function mediaReviewType(file: File): string {
   const extension = extensionFromFileName(file.name);
   if (isImageFile(file)) return 'Image preview';
@@ -919,41 +794,6 @@ function mediaReviewType(file: File): string {
   if (extension === 'json') return 'JSON document';
   if (isTextPreviewFile(file)) return 'Text file';
   return 'Metadata review';
-}
-
-function sourceTypeStorageRouteLabel(sourceType: string): string {
-  if (sourceType === 'Data imports') {
-    return 'data/import/{tenant}/{enterprise}/{schema}/{yyyy}/{mm}/{mediaCode}.{extension}';
-  }
-  if (sourceType === 'Data exports') {
-    return 'data/export/{tenant}/{enterprise}/{schema}/{yyyy}/{mm}/{mediaCode}.{extension}';
-  }
-  if (sourceType === 'Product media') {
-    return 'media/product/{tenant}/{enterprise}/{schema}/{yyyy}/{mm}/{mediaCode}.{extension}';
-  }
-  if (sourceType === 'Content media') {
-    return 'media/content/{tenant}/{enterprise}/{schema}/{yyyy}/{mm}/{mediaCode}.{extension}';
-  }
-  if (sourceType === 'Utility media') {
-    return 'media/utility/{tenant}/{enterprise}/{schema}/{yyyy}/{mm}/{mediaCode}.{extension}';
-  }
-  return 'Select a source type to see backend-routed storage.';
-}
-
-function sourceTypeUploadPurpose(sourceType: string): string {
-  if (sourceType === 'Data imports') {
-    return 'Upload governed files that will later be validated and processed by nImport.';
-  }
-  if (sourceType === 'Product media') {
-    return 'Upload product images, galleries, or product-owned media assets.';
-  }
-  if (sourceType === 'Content media') {
-    return 'Upload CMS and storefront content assets such as banners, icons, and page imagery.';
-  }
-  if (sourceType === 'Utility media') {
-    return 'Upload general governed files that are not owned by product, content, import, or export flows.';
-  }
-  return 'Choose a source type before selecting a file.';
 }
 
 function maxUploadSizeLabel(policy: MediaFolderUploadPolicy | undefined): string {
@@ -1139,10 +979,7 @@ function MediaUploadPanel(props: {
     [props.policies],
   );
   const uploadableSourceTypes = useMemo(
-    () =>
-      manualMediaUploadSourceTypes.filter((sourceType) =>
-        Boolean(selectPreferredUploadPolicy(uploadablePolicies, sourceType)),
-      ),
+    () => manualUploadSourceTypesForPolicies(uploadablePolicies),
     [uploadablePolicies],
   );
   const selectedPolicy = selectPreferredUploadPolicy(
