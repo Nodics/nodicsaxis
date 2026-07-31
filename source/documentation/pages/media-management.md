@@ -249,18 +249,21 @@ filters, but the backend folder configuration and key strategy remain the only
 authority for the actual storage key.
 
 Axis deliberately does not display backend-resolved full paths. If a file can be
-opened, the UI uses the nMedia delivery URL or the nMedia content endpoint, not
-a filesystem path. This keeps local storage, NAS, cloud storage, and future
+opened inline, the UI uses the nMedia content endpoint, not a filesystem path.
+If a file is downloaded, Axis uses the nMedia download endpoint
+`/download/{mediaCode}` so backend content-disposition and authorization policy
+remain in charge. This keeps local storage, NAS, cloud storage, and future
 signed URL providers behind the backend media contract.
 
 The **Media** record detail view follows the same rule. When a selected media
 record is a public image in a deliverable lifecycle state, Axis can render a
 small preview by calling the nMedia content delivery URL. For other file types,
-Axis offers an open or download action only when the backend record is public
-and in a deliverable state. Private and signed files are not opened directly
-from the browser until nMedia exposes the proper authorized or signed delivery
-contract. Axis must never convert `fullPath`, `relativePath`, bucket keys, or
-storage keys into browser links.
+Axis offers an open action through `/content/{mediaCode}` and a download action
+through `/download/{mediaCode}` only when the backend record is public and in a
+deliverable state. Private and signed files are not opened directly from the
+browser until nMedia exposes the proper authorized or signed delivery contract.
+Axis must never convert `fullPath`, `relativePath`, bucket keys, or storage keys
+into browser links.
 
 Provider diagnostics remain a separate capability slice. They must be
 implemented against nMedia-owned APIs instead of frontend path logic.

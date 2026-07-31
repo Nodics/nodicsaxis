@@ -302,6 +302,10 @@ describe('MediaManagementRoutePage', () => {
       'href',
       'http://localhost:3000/nodics/media/v0/content/home-banner',
     );
+    expect(screen.getByRole('link', { name: 'Download' })).toHaveAttribute(
+      'href',
+      'http://localhost:3000/nodics/media/v0/download/home-banner',
+    );
     expect(screen.queryByText('Storage key')).not.toBeInTheDocument();
     expect(
       screen.queryByText('private/internal/home-banner.png'),

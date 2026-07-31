@@ -230,6 +230,15 @@ function resolveDeliveryUrl(
   return `${connection.endpoint.replace(/\/$/, '')}/v0/content/${encodeURIComponent(code)}`;
 }
 
+function resolveDownloadUrl(
+  connection: ReturnType<typeof selectModuleConnection>,
+  record: WorkbenchRecord,
+): string | undefined {
+  const code = record.code;
+  if (typeof code !== 'string' || !code.trim() || !connection) return undefined;
+  return `${connection.endpoint.replace(/\/$/, '')}/v0/download/${encodeURIComponent(code)}`;
+}
+
 function isPublicImage(record: WorkbenchRecord): boolean {
   return (
     textValue(record, 'access') === 'PUBLIC' &&
@@ -765,12 +774,14 @@ function MediaDeliveryPreviewPanel(props: {
   readonly record: WorkbenchRecord;
 }) {
   const deliveryUrl = resolveDeliveryUrl(props.connection, props.record);
+  const downloadUrl = resolveDownloadUrl(props.connection, props.record);
   const originalFileName = mediaSummary(props.record);
   const access = textValue(props.record, 'access');
   const status = textValue(props.record, 'status');
   const mimeType = textValue(props.record, 'mimeType');
   const previewable = Boolean(deliveryUrl && isPublicImage(props.record));
   const deliverable = Boolean(deliveryUrl && isDeliverable(props.record));
+  const downloadable = Boolean(downloadUrl && isDeliverable(props.record));
 
   return (
     <Box
@@ -837,9 +848,9 @@ function MediaDeliveryPreviewPanel(props: {
           </Button>
           <Button
             component="a"
-            disabled={!deliverable}
+            disabled={!downloadable}
             download={originalFileName === '—' ? undefined : originalFileName}
-            href={deliverable ? deliveryUrl : undefined}
+            href={downloadable ? downloadUrl : undefined}
             rel="noreferrer"
             target="_blank"
             variant="text"
