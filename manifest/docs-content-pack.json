@@ -10,10 +10,10 @@
   "components": 15,
   "routes": 14,
   "migrationRegister": "source/documentation/migration-register.json",
-  "releaseChecksum": "67bbdf93dfe4594d5de58126b7f0e14ec70002ba105c446b9724691f5adbb3b5",
+  "releaseChecksum": "6f3d03a2b04280b509e575df98c65c2cfd11420b6f62aac551325819e552ec57",
   "generatedHashes": {
     "data/core/data/documentation/axisDocumentationCatalogData.js": "938e4379d249940c477955f6fdbee1f30e5eda6221a1e50802b3d60e8423a9bc",
-    "data/core/data/documentation/axisDocumentationComponentData.js": "703ce9819086226530963cbf2ac37f0e5038ad0bca2df6410bbf1514e29d7fed",
+    "data/core/data/documentation/axisDocumentationComponentData.js": "2daabca5d70e5f4f3c337c4f338f5e9a1cbf664e84661b47de5547e2c859ccaf",
     "data/core/data/documentation/axisDocumentationPageData.js": "3760c3c513acc554b62e652b221a9472f67eb61cb1b1bc05d96c98fce22dc21b",
     "data/core/data/documentation/axisDocumentationRendererData.js": "3ef39c5a47e8fd5291bf2afecb0eb266ec12e79d83fd68bf2dc98fbaa1fda5dd",
     "data/core/data/documentation/axisDocumentationRouteData.js": "8cb7953c0089663e7d2296e05b5626d84aa77a7f5d8998bfc8ff51cdf0b1551d",

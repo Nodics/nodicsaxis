@@ -39,6 +39,8 @@ function contextFolder(folderCode: string) {
 const backendContexts: readonly MediaSourceContext[] = Object.freeze([
   Object.freeze({
     code: 'dataImports',
+    sourceType: 'Data imports',
+    aliases: Object.freeze(['dataImport', 'dataImports', 'importSources']),
     label: 'Data imports',
     description: 'Backend import context',
     folderCodes: Object.freeze(['importSources']),
@@ -54,6 +56,8 @@ const backendContexts: readonly MediaSourceContext[] = Object.freeze([
   }),
   Object.freeze({
     code: 'dataExports',
+    sourceType: 'Data exports',
+    aliases: Object.freeze(['dataExport', 'dataExports', 'exportFiles']),
     label: 'Data exports',
     description: 'Backend export context',
     folderCodes: Object.freeze(['exportFiles']),
@@ -69,6 +73,8 @@ const backendContexts: readonly MediaSourceContext[] = Object.freeze([
   }),
   Object.freeze({
     code: 'contentMedia',
+    sourceType: 'Content media',
+    aliases: Object.freeze(['contentMedia', 'cmsAssets', 'contentAssets']),
     label: 'Content media',
     description: 'Backend content context',
     folderCodes: Object.freeze(['cmsAssets']),
@@ -159,6 +165,14 @@ describe('mediaSourceContextPolicy', () => {
       'Content media',
     ]);
     expect(folderCodesForSourceType('Content media', backendContexts)).toEqual([
+      'cmsAssets',
+    ]);
+  });
+
+  it('uses backend aliases instead of regex inference when contexts are available', () => {
+    expect(mediaSourceType('contentAssets', backendContexts)).toBe('Content media');
+    expect(mediaSourceType('cms-unknown', backendContexts)).toBe('Cms Unknown');
+    expect(folderCodesForSourceType('contentAssets', backendContexts)).toEqual([
       'cmsAssets',
     ]);
   });

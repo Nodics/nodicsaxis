@@ -35,6 +35,8 @@ describe('media storage policy client', () => {
           contexts: [
             {
               code: 'contentMedia',
+              sourceType: 'Content media',
+              aliases: ['contentMedia', 'cmsAssets', 'contentAssets'],
               label: 'Content media',
               description: 'CMS assets',
               folderCodes: ['cmsAssets'],
@@ -80,6 +82,8 @@ describe('media storage policy client', () => {
     expect(
       new Headers(fetchImplementation.mock.calls[0]?.[1]?.headers).get('Authorization'),
     ).toBe('Bearer employee-token');
+    expect(result[0]?.sourceType).toBe('Content media');
+    expect(result[0]?.aliases).toEqual(['contentMedia', 'cmsAssets', 'contentAssets']);
     expect(result[0]?.label).toBe('Content media');
     expect(result[0]?.allowedFolders[0]?.maxFileSizeBytes).toBe(52428800);
     expect(JSON.stringify(result)).not.toContain('must-not-be-used');

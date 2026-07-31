@@ -31,6 +31,8 @@ export interface MediaSourceContextFolderPolicy extends MediaFolderUploadPolicy 
 
 export interface MediaSourceContext {
   readonly code: string;
+  readonly sourceType: string | undefined;
+  readonly aliases: readonly string[];
   readonly label: string;
   readonly description: string | undefined;
   readonly folderCodes: readonly string[];
@@ -189,6 +191,8 @@ function parseMediaSourceContext(value: unknown): MediaSourceContext {
   if (!code) throw new Error('Media source context is missing code');
   return Object.freeze({
     code,
+    sourceType: optionalText(data.sourceType),
+    aliases: stringList(data.aliases),
     label: optionalText(data.label) ?? code,
     description: optionalText(data.description),
     folderCodes: stringList(data.folderCodes),

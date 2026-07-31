@@ -230,6 +230,8 @@ describe('MediaManagementRoutePage', () => {
               contexts: [
                 {
                   code: 'contentMedia',
+                  sourceType: 'Content media',
+                  aliases: ['contentMedia', 'cmsAssets', 'contentAssets'],
                   label: 'Content media',
                   description: 'Backend content media context',
                   folderCodes: ['cmsAssets'],

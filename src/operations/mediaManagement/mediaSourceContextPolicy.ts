@@ -126,7 +126,7 @@ export const governedMediaSourceTypes: readonly string[] = Object.freeze(
 );
 
 function contextSourceType(context: MediaSourceContext): string {
-  return context.label || humanize(context.code);
+  return context.sourceType || context.label || humanize(context.code);
 }
 
 function fallbackContextForSourceType(
@@ -139,9 +139,13 @@ function backendContextForSourceType(
   contexts: readonly MediaSourceContext[] | undefined,
   sourceType: string,
 ): MediaSourceContext | undefined {
+  const normalized = normalizedPolicyCode(sourceType);
   return contexts?.find(
     (context) =>
-      contextSourceType(context) === sourceType || context.code === sourceType,
+      normalizedPolicyCode(contextSourceType(context)) === normalized ||
+      normalizedPolicyCode(context.label) === normalized ||
+      normalizedPolicyCode(context.code) === normalized ||
+      context.aliases.some((alias) => normalizedPolicyCode(alias) === normalized),
   );
 }
 
@@ -187,10 +191,17 @@ export function mediaSourceType(
 ): string {
   const normalized = folderCode.trim();
   if (!normalized || normalized === '—') return 'Utility media';
-  const backendContext = contexts?.find((context) =>
-    context.folderCodes.includes(normalized),
+  const backendContext = contexts?.find(
+    (context) =>
+      context.folderCodes.some(
+        (code) => normalizedPolicyCode(code) === normalizedPolicyCode(normalized),
+      ) ||
+      context.aliases.some(
+        (alias) => normalizedPolicyCode(alias) === normalizedPolicyCode(normalized),
+      ),
   );
   if (backendContext) return contextSourceType(backendContext);
+  if (contexts?.length) return humanize(normalized);
   const mappedSourceType = mediaSourceTypeByFolderCode[normalized];
   if (mappedSourceType) return mappedSourceType;
   if (/import/i.test(normalized)) return 'Data imports';
