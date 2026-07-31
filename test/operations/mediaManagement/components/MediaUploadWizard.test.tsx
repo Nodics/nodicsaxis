@@ -122,6 +122,16 @@ function renderWizard(props?: {
   );
 }
 
+async function selectContentMediaAndUpload(file: File) {
+  const user = userEvent.setup();
+  await user.click(screen.getByRole('combobox', { name: 'Source type' }));
+  await user.click(await screen.findByRole('option', { name: 'Content media' }));
+  const fileInput = document.querySelector('input[type="file"]');
+  expect(fileInput).toBeInstanceOf(HTMLInputElement);
+  await user.upload(fileInput as HTMLInputElement, file);
+  return user;
+}
+
 afterEach(() => {
   vi.clearAllMocks();
 });
@@ -190,5 +200,53 @@ describe('MediaUploadWizard', () => {
     expect(
       await screen.findByText(/Media uploaded as media_content_001/i),
     ).toBeVisible();
+  });
+
+  it('blocks unsupported file extensions before calling nMedia', async () => {
+    const uploadMediaMock = vi.mocked(uploadMedia);
+    renderWizard();
+
+    await selectContentMediaAndUpload(
+      new File(['not-png'], 'hero.gif', { type: 'image/png' }),
+    );
+
+    expect(await screen.findAllByText(/\.gif files are not allowed/i)).not.toHaveLength(
+      0,
+    );
+    expect(screen.getByRole('button', { name: 'Upload to media' })).toBeDisabled();
+    expect(uploadMediaMock).not.toHaveBeenCalled();
+  });
+
+  it('blocks oversized files before calling nMedia', async () => {
+    const uploadMediaMock = vi.mocked(uploadMedia);
+    renderWizard();
+
+    await selectContentMediaAndUpload(
+      new File(['x'.repeat(1025)], 'hero.png', { type: 'image/png' }),
+    );
+
+    expect(
+      await screen.findAllByText(/larger than the 1\.0 KB backend upload limit/i),
+    ).not.toHaveLength(0);
+    expect(screen.getByRole('button', { name: 'Upload to media' })).toBeDisabled();
+    expect(uploadMediaMock).not.toHaveBeenCalled();
+  });
+
+  it('presents backend upload policy failures without service-name prefixes', async () => {
+    const uploadMediaMock = vi.mocked(uploadMedia);
+    uploadMediaMock.mockRejectedValue(
+      new Error('Media upload failed: Backend policy rejected this file.'),
+    );
+    renderWizard();
+
+    const user = await selectContentMediaAndUpload(
+      new File(['png-data'], 'hero.png', { type: 'image/png' }),
+    );
+    await user.click(screen.getByRole('button', { name: 'Upload to media' }));
+
+    expect(await screen.findByText('Backend policy rejected this file.')).toBeVisible();
+    expect(
+      screen.queryByText(/Media upload failed: Backend policy rejected this file/i),
+    ).not.toBeInTheDocument();
   });
 });
