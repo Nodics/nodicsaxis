@@ -4,8 +4,8 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import prettier from 'prettier';
 
-const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
-const sourceRoot = path.join(root, 'source/documentation');
+const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../..');
+const sourceRoot = path.join(root, 'content/documentation');
 const navigationPath = path.join(sourceRoot, 'navigation.json');
 const pageOutputPath = path.join(
   root,
@@ -21,7 +21,7 @@ const routeOutputPath = path.join(
 );
 const migrationRegisterPath = path.join(
   root,
-  'source/documentation/migration-register.json',
+  'content/documentation/migration-register.json',
 );
 const manifestPath = path.join(root, 'manifest/docs-content-pack.json');
 const checkOnly = process.argv.includes('--check');
@@ -406,7 +406,7 @@ const articleRecords = Object.fromEntries(
         searchText: navigationItems[index].searchText,
         source: {
           repository: 'nodicsaxis',
-          path: `source/documentation/${page.source}`,
+          path: `content/documentation/${page.source}`,
           evidence: page.evidence,
           hash: page.sourceHash,
           version: navigation.version,
@@ -468,7 +468,7 @@ const migrationRegister = {
       evidenceHash,
       evidenceWordCount,
       evidenceHeadings,
-      canonicalSource: `source/documentation/${page.source}`,
+      canonicalSource: `content/documentation/${page.source}`,
       destinationRoute: page.route,
       disposition: 'migrated',
       sourceHash: page.sourceHash,
@@ -530,13 +530,13 @@ const manifest = {
   version: navigation.version,
   contractVersion: navigation.contractVersion,
   sourceMode: 'canonical-structured-source',
-  sourceAuthority: 'source/documentation',
+  sourceAuthority: 'content/documentation',
   sites: ['axisDocumentationSite'],
   accessMode: 'AUTHENTICATED',
   pages: sourcePages.length,
   components: sourcePages.length + 1,
   routes: sourcePages.length,
-  migrationRegister: 'source/documentation/migration-register.json',
+  migrationRegister: 'content/documentation/migration-register.json',
   releaseChecksum,
   generatedHashes,
 };

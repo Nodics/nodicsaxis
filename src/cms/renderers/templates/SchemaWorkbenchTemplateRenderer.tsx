@@ -19,11 +19,11 @@ export function SchemaWorkbenchTemplateRenderer({
   slots,
 }: SchemaWorkbenchTemplateRendererProps) {
   return (
-    <WorkspaceContainer>
+    <WorkspaceContainer horizontalPadding="24px" verticalPadding="12px">
       <Stack
         component="section"
         aria-label={page.name ?? 'Schema Workbench'}
-        spacing={2.5}
+        spacing={1.5}
       >
         <Box>{slots.header}</Box>
         <Box sx={{ minWidth: 0 }}>{slots.content}</Box>

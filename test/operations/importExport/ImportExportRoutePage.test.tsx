@@ -24,6 +24,7 @@ const bootstrap: AxisAuthenticatedBootstrap = {
     contractVersion: 1,
     screenLockEnabled: true,
     idleTimeoutSeconds: 900,
+    recentNavigationLimit: 12,
     revision: 1,
     source: 'DEFAULT',
   },

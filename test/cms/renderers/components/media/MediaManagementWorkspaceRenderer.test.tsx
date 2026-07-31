@@ -9,8 +9,24 @@ import type { AxisRuntimeConfig } from '../../../../../src/runtime/runtimeConfig
 vi.mock(
   '../../../../../src/operations/mediaManagement/MediaManagementRoutePage',
   () => ({
-    MediaManagementRoutePage: () => (
-      <section aria-label="Mock Media Management">Media workspace</section>
+    MediaManagementRoutePage: (props: {
+      readonly mediaDetailPresentation?: {
+        readonly detailSections?: readonly string[];
+        readonly metadataFields?: readonly { readonly key: string }[];
+      };
+    }) => (
+      <section aria-label="Mock Media Management">
+        <span>Media workspace</span>
+        <span>
+          {props.mediaDetailPresentation?.detailSections?.join(',') ??
+            'default sections'}
+        </span>
+        <span>
+          {props.mediaDetailPresentation?.metadataFields
+            ?.map((field) => field.key)
+            .join(',') ?? 'default metadata'}
+        </span>
+      </section>
     ),
   }),
 );
@@ -27,6 +43,11 @@ const component: CmsComponentContract = {
     introduction: 'Use nMedia-owned contracts.',
     backendAuthority: 'nMedia owns media operations.',
     customizationBoundary: 'Customize presentation without moving backend authority.',
+    detailSections: ['actions', 'preview', 'metadata'],
+    metadataFields: [
+      { key: 'folderCode', label: 'Folder' },
+      { key: 'mimeType', label: 'MIME type' },
+    ],
   },
   slot: 'workspace',
   index: 10,
@@ -49,6 +70,7 @@ const bootstrap: AxisAuthenticatedBootstrap = {
     contractVersion: 1,
     screenLockEnabled: true,
     idleTimeoutSeconds: 900,
+    recentNavigationLimit: 12,
     revision: 1,
     source: 'DEFAULT',
   },
@@ -76,11 +98,36 @@ describe('MediaManagementWorkspaceRenderer', () => {
     );
 
     expect(screen.getByLabelText('Mock Media Management')).toBeVisible();
+    expect(screen.getByText('actions,preview,metadata')).toBeVisible();
+    expect(screen.getByText('folderCode,mimeType')).toBeVisible();
   });
 
   it('fails closed when rendered without its media controller', () => {
     expect(() =>
       render(<MediaManagementWorkspaceRenderer component={component} />),
     ).toThrow(/requires its presentation controller/);
+  });
+
+  it('rejects unsupported CMS-driven media detail sections', () => {
+    expect(() =>
+      render(
+        <MediaManagementWorkspaceRenderer
+          actions={{
+            mediaManagement: {
+              accessToken: 'token',
+              bootstrap,
+              runtime,
+            },
+          }}
+          component={{
+            ...component,
+            properties: {
+              ...component.properties,
+              detailSections: ['preview', 'unknown-section'],
+            },
+          }}
+        />,
+      ),
+    ).toThrow(/detailSections\[1\]/);
   });
 });

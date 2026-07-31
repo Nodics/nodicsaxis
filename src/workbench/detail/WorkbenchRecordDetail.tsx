@@ -1,6 +1,10 @@
 import { Box, Button, Divider, Stack, Typography } from '@mui/material';
 
 import type { WorkbenchRecord, WorkbenchSchema } from '../api/workbenchContracts';
+import {
+  containerFieldNames,
+  workbenchRecordValue,
+} from '../record/workbenchRecordPaths';
 
 interface WorkbenchRecordDetailProps {
   readonly closeLabel: string;
@@ -42,6 +46,7 @@ function displayValue(
 }
 
 export function WorkbenchRecordDetail(props: WorkbenchRecordDetailProps) {
+  const containerFields = containerFieldNames(props.schema.fields);
   return (
     <Stack spacing={2}>
       <Stack
@@ -51,7 +56,8 @@ export function WorkbenchRecordDetail(props: WorkbenchRecordDetailProps) {
       >
         <Typography component="h3" variant="h6">
           {displayValue(
-            props.record[props.schema.displayProperty] ?? props.schema.label,
+            workbenchRecordValue(props.record, props.schema.displayProperty) ??
+              props.schema.label,
             props.schema.fields.find(
               (field) => field.name === props.schema.displayProperty,
             )?.type,
@@ -81,14 +87,16 @@ export function WorkbenchRecordDetail(props: WorkbenchRecordDetailProps) {
           gridTemplateColumns: { xs: '1fr', md: 'repeat(2, minmax(0, 1fr))' },
         }}
       >
-        {props.schema.fields.map((field) => (
+        {props.schema.fields
+          .filter((field) => !containerFields.has(field.name))
+          .map((field) => (
           <Box key={field.name}>
             <Typography color="text.secondary" variant="caption">
               {field.label}
             </Typography>
             <Typography sx={{ overflowWrap: 'anywhere' }}>
               {displayValue(
-                props.record[field.name],
+                workbenchRecordValue(props.record, field.name),
                 field.type,
                 props.trueLabel,
                 props.falseLabel,

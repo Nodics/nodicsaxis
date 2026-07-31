@@ -15,8 +15,14 @@ const iconPaths: Readonly<Record<string, string>> = Object.freeze({
   cms: 'M4 5h12v12H4V5Zm2 2v8h8V7H6Zm2 2h4v2H8V9Zm9-1h3v12H8v-2h9V8Z',
   cronjob:
     'M12 2a10 10 0 1 0 10 10A10.01 10.01 0 0 0 12 2Zm0 18a8 8 0 1 1 8-8 8.01 8.01 0 0 1-8 8Zm1-13h-2v6l5 3 1-1.73-4-2.27V7Z',
+  'chevron-down': 'M7.41 8.59 12 13.17l4.59-4.58L18 10l-6 6-6-6 1.41-1.41Z',
+  'chevron-left': 'M15.41 7.41 10.83 12l4.58 4.59L14 18l-6-6 6-6 1.41 1.41Z',
+  'chevron-right': 'M8.59 16.59 13.17 12 8.59 7.41 10 6l6 6-6 6-1.41-1.41Z',
+  'chevron-up': 'M7.41 15.41 12 10.83l4.59 4.58L18 14l-6-6-6 6 1.41 1.41Z',
   dashboard:
     'M3 3h8v8H3V3Zm2 2v4h4V5H5Zm8-2h8v5h-8V3Zm2 2v1h4V5h-4Zm-2 5h8v11h-8V10Zm2 2v7h4v-7h-4ZM3 13h8v8H3v-8Zm2 2v4h4v-4H5Z',
+  download:
+    'M11 3h2v9.17l3.59-3.58L18 10l-6 6-6-6 1.41-1.41L11 12.17V3ZM5 19h14v2H5v-2Z',
   health:
     'M3 4h18v16H3V4Zm2 2v12h14V6H5Zm1 5h3l1.25-3 2.5 7 1.5-4H18v2h-2.35l-2.9 7-2.5-7L9 16H6v-5Z',
   hidden:
@@ -48,6 +54,8 @@ const iconPaths: Readonly<Record<string, string>> = Object.freeze({
     'M4 3h6v6H4V3Zm10 0h6v6h-6V3ZM4 15h6v6H4v-6Zm10 0h6v6h-6v-6ZM9 6h6v2H9V6Zm2 1h2v10h-2V7Zm-2 9h6v2H9v-2Z',
   reference:
     'M8 12a4 4 0 0 1 4-4h3V6h-3a6 6 0 0 0 0 12h3v-2h-3a4 4 0 0 1-4-4Zm3 1h6v-2h-6v2Zm1-5h3a4 4 0 0 1 0 8h-3v2h3a6 6 0 0 0 0-12h-3v2Z',
+  recent:
+    'M12 2a10 10 0 1 0 9.54 13h-2.12A8 8 0 1 1 20 12h-3l4 4 4-4h-3A10 10 0 0 0 12 2Zm1 5h-2v6l5 3 1-1.73-4-2.27V7Z',
   search:
     'M10.5 4a6.5 6.5 0 1 0 3.98 11.64L19.85 21 21 19.85l-5.36-5.37A6.5 6.5 0 0 0 10.5 4Zm0 2a4.5 4.5 0 1 1 0 9 4.5 4.5 0 0 1 0-9Z',
   schema:

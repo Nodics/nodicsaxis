@@ -285,6 +285,10 @@ describe('Axis application shell navigation', () => {
 
   it('provides bounded local favourites and recent destinations', async () => {
     const user = userEvent.setup();
+    window.localStorage.setItem(
+      'nodics-axis-navigation-preferences-v1',
+      JSON.stringify({ favourites: [], recents: ['cms:cms'] }),
+    );
     render(
       <AxisThemeProvider>
         <MemoryRouter>
@@ -308,11 +312,68 @@ describe('Axis application shell navigation', () => {
       </AxisThemeProvider>,
     );
 
+    await user.click(screen.getByRole('button', { name: 'Recent pages' }));
+    expect(screen.getByRole('menuitem', { name: /Content/ })).toBeVisible();
+    expect(screen.queryByText('/content')).not.toBeInTheDocument();
+    await user.keyboard('{Escape}');
+
     await user.click(screen.getByRole('button', { name: 'Open navigation' }));
     await user.click(screen.getByRole('button', { name: 'Add Content to favourites' }));
     expect(screen.getByText('Favourite: Content')).toBeVisible();
+    await user.click(screen.getByRole('button', { name: 'Content' }));
+    expect(screen.queryByText('Recent: Content')).not.toBeInTheDocument();
     expect(
       window.localStorage.getItem('nodics-axis-navigation-preferences-v1'),
     ).toContain('cms:cms');
+  });
+
+  it('limits rendered recent destinations from shell configuration', async () => {
+    const user = userEvent.setup();
+    window.localStorage.setItem(
+      'nodics-axis-navigation-preferences-v1',
+      JSON.stringify({
+        favourites: [],
+        recents: ['cms:content', 'media:media'],
+      }),
+    );
+
+    render(
+      <AxisThemeProvider>
+        <MemoryRouter>
+          <AppShell
+            recentNavigationLimit={1}
+            navigation={[
+              {
+                id: 'content',
+                label: 'Content',
+                route: '/content',
+                order: 10,
+                moduleName: 'cms',
+                category: 'content',
+                icon: 'cms',
+                availability: 'UP',
+              },
+              {
+                id: 'media',
+                label: 'Media',
+                route: '/media-management/media',
+                order: 20,
+                moduleName: 'media',
+                category: 'content',
+                icon: 'media',
+                availability: 'UP',
+              },
+            ]}
+          >
+            <div>Workspace</div>
+          </AppShell>
+        </MemoryRouter>
+      </AxisThemeProvider>,
+    );
+
+    await user.click(screen.getByRole('button', { name: 'Recent pages' }));
+
+    expect(screen.getByRole('menuitem', { name: /Content/ })).toBeVisible();
+    expect(screen.queryByRole('menuitem', { name: /Media/ })).not.toBeInTheDocument();
   });
 });

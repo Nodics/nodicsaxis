@@ -7,23 +7,22 @@ import {
   Checkbox,
   Chip,
   CircularProgress,
+  Collapse,
   Divider,
-  FormControlLabel,
   InputAdornment,
   List,
   ListItemButton,
   ListItemText,
-  MenuItem,
-  Pagination,
-  Paper,
   Stack,
-  TableSortLabel,
+  TablePagination,
   TextField,
   Typography,
 } from '@mui/material';
 import { useState } from 'react';
 
 import { ShellIcon } from '../../../../app/shell/ShellIcon';
+import { type AxisDataListingColumn } from '../../../../app/table/AxisDataListing';
+import { AxisSchemaDataListing } from '../../../../app/table/AxisSchemaDataListing';
 import type { WorkbenchRecord } from '../../../../workbench/api/workbenchContracts';
 import { WorkbenchRecordDetail } from '../../../../workbench/detail/WorkbenchRecordDetail';
 import { WorkbenchDeleteDialog } from '../../../../workbench/delete/WorkbenchDeleteDialog';
@@ -56,7 +55,7 @@ export function SchemaWorkbenchRenderer({
 }: CmsComponentRendererProps) {
   const controller = actions?.workbench;
   const [schemaQuery, setSchemaQuery] = useState('');
-  const [viewName, setViewName] = useState('');
+  const [advancedQueryOpen, setAdvancedQueryOpen] = useState(false);
   if (!controller) {
     throw new Error('Schema Workbench renderer requires its presentation controller');
   }
@@ -88,6 +87,95 @@ export function SchemaWorkbenchRenderer({
       controller.visibleColumns.includes(field.name),
     ) ?? [];
   const records = controller.records;
+  const leadingRecordColumns: readonly AxisDataListingColumn<WorkbenchRecord>[] =
+    selected
+      ? [
+          {
+            key: '__select',
+            label: (
+              <Checkbox
+                slotProps={{
+                  input: {
+                    'aria-label': stringProperty(
+                      component,
+                      'selectVisibleRecordsLabel',
+                    ),
+                  },
+                }}
+                checked={
+                  records.length > 0 &&
+                  records.every((record, index) =>
+                    controller.selectedRecordKeys.includes(recordKey(record, index)),
+                  )
+                }
+                indeterminate={
+                  records.some((record, index) =>
+                    controller.selectedRecordKeys.includes(recordKey(record, index)),
+                  ) &&
+                  !records.every((record, index) =>
+                    controller.selectedRecordKeys.includes(recordKey(record, index)),
+                  )
+                }
+                onChange={() => {
+                  const pageKeys = records.map(recordKey);
+                  const allSelected = pageKeys.every((key) =>
+                    controller.selectedRecordKeys.includes(key),
+                  );
+                  controller.setSelectedRecordKeys(
+                    allSelected
+                      ? controller.selectedRecordKeys.filter(
+                          (key) => !pageKeys.includes(key),
+                        )
+                      : [...new Set([...controller.selectedRecordKeys, ...pageKeys])],
+                  );
+                }}
+              />
+            ),
+            width: 52,
+            minWidth: 52,
+            exportable: false,
+            render: (record, index) => {
+              const key = recordKey(record, index);
+              return (
+                <Checkbox
+                  slotProps={{
+                    input: {
+                      'aria-label': `${stringProperty(component, 'selectRecordLabel')} ${key}`,
+                    },
+                  }}
+                  checked={controller.selectedRecordKeys.includes(key)}
+                  onChange={() => {
+                    controller.setSelectedRecordKeys(
+                      controller.selectedRecordKeys.includes(key)
+                        ? controller.selectedRecordKeys.filter(
+                            (candidate) => candidate !== key,
+                          )
+                        : [...controller.selectedRecordKeys, key],
+                    );
+                  }}
+                />
+              );
+            },
+          },
+        ]
+      : [];
+  const trailingRecordColumns: readonly AxisDataListingColumn<WorkbenchRecord>[] =
+    selected
+      ? [
+          {
+            key: '__actions',
+            label: stringProperty(component, 'actionsLabel'),
+            width: 120,
+            minWidth: 120,
+            exportable: false,
+            render: (record) => (
+              <Button size="small" onClick={() => controller.selectRecord(record)}>
+                {stringProperty(component, 'viewLabel')}
+              </Button>
+            ),
+          },
+        ]
+      : [];
   const pageCount = Math.max(
     1,
     Math.ceil(controller.recordTotalCount / controller.recordPageSize),
@@ -95,19 +183,11 @@ export function SchemaWorkbenchRenderer({
 
   return (
     <Stack spacing={2}>
-      <Box>
-        <Typography component="h1" variant="h4">
-          {stringProperty(component, 'title')}
-        </Typography>
-        <Typography color="text.secondary" sx={{ mt: 0.75 }}>
-          {stringProperty(component, 'introduction')}
-        </Typography>
-      </Box>
       <Box
         sx={{
           display: 'grid',
           gap: 2,
-          gridTemplateColumns: { xs: '1fr', lg: '300px minmax(0, 1fr)' },
+          gridTemplateColumns: { xs: '1fr', lg: '360px minmax(0, 1fr)' },
         }}
       >
         <Card component="aside" variant="outlined">
@@ -121,6 +201,12 @@ export function SchemaWorkbenchRenderer({
                 label={stringProperty(component, 'schemaSearchLabel')}
                 placeholder={stringProperty(component, 'schemaSearchPlaceholder')}
                 size="small"
+                sx={{
+                  '& .MuiInputBase-input': {
+                    minWidth: 0,
+                    textOverflow: 'ellipsis',
+                  },
+                }}
                 value={schemaQuery}
                 slotProps={{
                   input: {
@@ -223,20 +309,40 @@ export function SchemaWorkbenchRenderer({
                 </Typography>
               </Stack>
             ) : (
-              <Stack spacing={2}>
+              <Stack spacing={1.5}>
                 <Stack
                   direction={{ xs: 'column', sm: 'row' }}
                   spacing={1.5}
-                  sx={{ alignItems: { sm: 'center' }, justifyContent: 'space-between' }}
+                  sx={{
+                    alignItems: { sm: 'flex-start' },
+                    justifyContent: 'space-between',
+                  }}
                 >
-                  <Box>
-                    <Typography component="h2" variant="h5">
+                  <Stack spacing={0.75} sx={{ minWidth: 0 }}>
+                    <Typography component="h2" variant="h5" sx={{ fontWeight: 750 }}>
                       {selected.label}
                     </Typography>
-                    <Typography color="text.secondary" variant="body2">
-                      {stringProperty(component, 'moduleLabel')}: {selected.moduleName}
-                    </Typography>
-                  </Box>
+                    <Stack
+                      direction="row"
+                      spacing={0.75}
+                      sx={{ alignItems: 'center', flexWrap: 'wrap' }}
+                      useFlexGap
+                    >
+                      <Chip
+                        label={`${stringProperty(component, 'moduleLabel')}: ${selected.moduleName}`}
+                        size="small"
+                        variant="outlined"
+                      />
+                      {selected.operations.map((operation) => (
+                        <Chip
+                          key={operation}
+                          label={operation}
+                          size="small"
+                          sx={{ bgcolor: 'action.selected' }}
+                        />
+                      ))}
+                    </Stack>
+                  </Stack>
                   {selected.operations.includes('create') ? (
                     <Button
                       disabled={controller.createOpen}
@@ -247,19 +353,6 @@ export function SchemaWorkbenchRenderer({
                       {stringProperty(component, 'createLabel')} {selected.label}
                     </Button>
                   ) : null}
-                </Stack>
-                <Stack direction="row" spacing={0.75} sx={{ flexWrap: 'wrap' }}>
-                  <Typography color="text.secondary" variant="caption">
-                    {stringProperty(component, 'availableOperationsLabel')}:
-                  </Typography>
-                  {selected.operations.map((operation) => (
-                    <Chip
-                      key={operation}
-                      label={operation}
-                      size="small"
-                      variant="outlined"
-                    />
-                  ))}
                 </Stack>
                 <Divider />
                 {controller.selectedRecord ? (
@@ -365,85 +458,84 @@ export function SchemaWorkbenchRenderer({
                   </>
                 ) : null}
                 <Box hidden={controller.createOpen || controller.editOpen}>
-                  <TextField
-                    fullWidth
-                    label={stringProperty(component, 'searchRecordsLabel')}
-                    placeholder={stringProperty(component, 'searchRecordsPlaceholder')}
-                    size="small"
-                    value={controller.recordSearch}
-                    disabled={selected.queryCapabilities.searchableFields.length === 0}
-                    onChange={(event) => controller.setRecordSearch(event.target.value)}
-                  />
-                  <SchemaQueryBuilderRenderer actions={actions} component={component} />
-                  <Paper sx={{ p: 1.5 }} variant="outlined">
-                    <Stack spacing={1.25}>
-                      <Typography component="h3" variant="subtitle1">
-                        {stringProperty(component, 'gridSettingsLabel')}
-                      </Typography>
-                      <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap' }}>
-                        {selected.fields.slice(0, 20).map((field) => (
-                          <FormControlLabel
-                            key={field.name}
-                            control={
-                              <Checkbox
-                                checked={controller.visibleColumns.includes(field.name)}
-                                disabled={
-                                  controller.visibleColumns.length === 1 &&
-                                  controller.visibleColumns.includes(field.name)
-                                }
-                                onChange={() =>
-                                  controller.setVisibleColumns(
-                                    controller.visibleColumns.includes(field.name)
-                                      ? controller.visibleColumns.filter(
-                                          (name) => name !== field.name,
-                                        )
-                                      : [...controller.visibleColumns, field.name],
-                                  )
+                  <Stack spacing={1.25}>
+                    <Box
+                      sx={{
+                        bgcolor: 'background.default',
+                        border: 1,
+                        borderColor: 'divider',
+                        borderRadius: 2,
+                        p: 1,
+                      }}
+                    >
+                      <Stack spacing={1.25}>
+                        <Stack
+                          direction={{ xs: 'column', md: 'row' }}
+                          spacing={1}
+                          sx={{ alignItems: { md: 'center' } }}
+                        >
+                          <TextField
+                            fullWidth
+                            placeholder={stringProperty(
+                              component,
+                              'searchRecordsPlaceholder',
+                            )}
+                            size="small"
+                            value={controller.recordSearch}
+                            disabled={
+                              selected.queryCapabilities.searchableFields.length === 0
+                            }
+                            slotProps={{
+                              htmlInput: {
+                                'aria-label': stringProperty(
+                                  component,
+                                  'searchRecordsLabel',
+                                ),
+                              },
+                              input: {
+                                startAdornment: (
+                                  <InputAdornment position="start">
+                                    <ShellIcon fontSize="small" name="search" />
+                                  </InputAdornment>
+                                ),
+                              },
+                            }}
+                            onChange={(event) =>
+                              controller.setRecordSearch(event.target.value)
+                            }
+                          />
+                          <Button
+                            color="inherit"
+                            endIcon={
+                              <ShellIcon
+                                fontSize="small"
+                                name={
+                                  advancedQueryOpen
+                                    ? 'chevron-up'
+                                    : 'chevron-down'
                                 }
                               />
                             }
-                            label={field.label}
-                          />
-                        ))}
-                      </Stack>
-                      <Stack
-                        direction={{ xs: 'column', md: 'row' }}
-                        spacing={1}
-                        sx={{ alignItems: { md: 'center' } }}
-                      >
-                        <TextField
-                          label={stringProperty(component, 'savedViewNameLabel')}
-                          size="small"
-                          value={viewName}
-                          onChange={(event) => setViewName(event.target.value)}
-                        />
-                        <Button
-                          disabled={viewName.trim().length === 0}
-                          onClick={() => {
-                            controller.saveView({
-                              name: viewName.trim(),
-                              search: controller.recordSearch,
-                              filters: controller.recordFilters,
-                              pageSize: controller.recordPageSize,
-                              sort: controller.recordSort,
-                              visibleColumns: controller.visibleColumns,
-                            });
-                            setViewName('');
-                          }}
+                            sx={{ flex: { md: '0 0 auto' }, minHeight: 40 }}
+                            variant="outlined"
+                            onClick={() => setAdvancedQueryOpen((open) => !open)}
+                          >
+                            Advanced query
+                          </Button>
+                        </Stack>
+                        <Collapse
+                          in={advancedQueryOpen || Boolean(controller.recordFilters)}
+                          timeout="auto"
+                          unmountOnExit
                         >
-                          {stringProperty(component, 'saveViewLabel')}
-                        </Button>
-                        {controller.savedViews.map((view) => (
-                          <Chip
-                            key={view.name}
-                            label={view.name}
-                            onClick={() => controller.applyView(view)}
-                            onDelete={() => controller.deleteView(view.name)}
+                          <SchemaQueryBuilderRenderer
+                            actions={actions}
+                            component={component}
                           />
-                        ))}
+                        </Collapse>
                       </Stack>
-                    </Stack>
-                  </Paper>
+                    </Box>
+                  </Stack>
                   {controller.recordsLoading ? (
                     <Stack
                       direction="row"
@@ -468,183 +560,69 @@ export function SchemaWorkbenchRenderer({
                         </Button>
                       }
                       severity="error"
+                      sx={{ mt: 1.25 }}
                     >
                       {controller.recordsError}
                     </Alert>
                   ) : null}
-                  {!controller.recordsLoading &&
-                  !controller.recordsError &&
-                  records.length === 0 ? (
-                    <Typography
-                      color="text.secondary"
-                      sx={{ py: 4, textAlign: 'center' }}
-                    >
-                      {stringProperty(component, 'noRecordsLabel')}
-                    </Typography>
-                  ) : null}
-                  {records.length > 0 ? (
-                    <Box sx={{ overflowX: 'auto' }}>
-                      <Box
-                        role="table"
-                        aria-label={`${selected.label} ${stringProperty(component, 'recordsLabel')}`}
-                        sx={{ minWidth: 620 }}
-                      >
-                        <Box
-                          role="row"
-                          sx={{
-                            bgcolor: 'action.hover',
-                            display: 'grid',
-                            gap: 2,
-                            gridTemplateColumns: `44px repeat(${String(columns.length)}, minmax(120px, 1fr)) auto`,
-                            px: 1.5,
-                            py: 1.25,
-                          }}
-                        >
-                          <Box role="columnheader">
-                            <Checkbox
-                              slotProps={{
-                                input: {
-                                  'aria-label': stringProperty(
-                                    component,
-                                    'selectVisibleRecordsLabel',
-                                  ),
-                                },
-                              }}
-                              checked={
-                                records.length > 0 &&
-                                records.every((record, index) =>
-                                  controller.selectedRecordKeys.includes(
-                                    recordKey(record, index),
-                                  ),
-                                )
-                              }
-                              indeterminate={
-                                records.some((record, index) =>
-                                  controller.selectedRecordKeys.includes(
-                                    recordKey(record, index),
-                                  ),
-                                ) &&
-                                !records.every((record, index) =>
-                                  controller.selectedRecordKeys.includes(
-                                    recordKey(record, index),
-                                  ),
-                                )
-                              }
-                              onChange={() => {
-                                const pageKeys = records.map(recordKey);
-                                const allSelected = pageKeys.every((key) =>
-                                  controller.selectedRecordKeys.includes(key),
-                                );
-                                controller.setSelectedRecordKeys(
-                                  allSelected
-                                    ? controller.selectedRecordKeys.filter(
-                                        (key) => !pageKeys.includes(key),
-                                      )
-                                    : [
-                                        ...new Set([
-                                          ...controller.selectedRecordKeys,
-                                          ...pageKeys,
-                                        ]),
-                                      ],
-                                );
-                              }}
-                            />
-                          </Box>
-                          {columns.map((field) => (
-                            <Box key={field.name} role="columnheader">
-                              {selected.queryCapabilities.sortableFields.includes(
-                                field.name,
-                              ) ? (
-                                <TableSortLabel
-                                  active={controller.recordSort.field === field.name}
-                                  direction={
-                                    controller.recordSort.field === field.name
-                                      ? (controller.recordSort.direction.toLowerCase() as
-                                          | 'asc'
-                                          | 'desc')
-                                      : 'asc'
-                                  }
-                                  onClick={() =>
-                                    controller.setRecordSort({
-                                      field: field.name,
-                                      direction:
-                                        controller.recordSort.field === field.name &&
-                                        controller.recordSort.direction === 'ASC'
-                                          ? 'DESC'
-                                          : 'ASC',
-                                    })
-                                  }
-                                >
-                                  <Typography sx={{ fontWeight: 700 }} variant="body2">
-                                    {field.label}
-                                  </Typography>
-                                </TableSortLabel>
-                              ) : (
-                                <Typography sx={{ fontWeight: 700 }} variant="body2">
-                                  {field.label}
-                                </Typography>
-                              )}
-                            </Box>
-                          ))}
-                          <Typography
-                            role="columnheader"
-                            sx={{ fontWeight: 700 }}
-                            variant="body2"
-                          >
-                            {stringProperty(component, 'actionsLabel')}
-                          </Typography>
-                        </Box>
-                        {records.map((record, index) => (
-                          <Box
-                            key={recordKey(record, index)}
-                            role="row"
+                  {!controller.recordsLoading && !controller.recordsError ? (
+                    <AxisSchemaDataListing
+                      ariaLabel={`${selected.label} ${stringProperty(component, 'recordsLabel')}`}
+                      columnsLabel={stringProperty(
+                        component,
+                        'gridSettingsLabel',
+                        'Columns',
+                      )}
+                      defaultVisibleColumnKeys={columns.map((field) => field.name)}
+                      emptyMessage={stringProperty(component, 'noRecordsLabel')}
+                      exportFileName={`axis-${selected.moduleName}-${selected.schemaName}`}
+                      footer={
+                        controller.recordTotalCount > 0 ? (
+                          <TablePagination
+                            component="div"
+                            count={controller.recordTotalCount}
+                            page={Math.min(controller.recordPageNumber, pageCount) - 1}
+                            rowsPerPage={controller.recordPageSize}
+                            rowsPerPageOptions={
+                              selected.queryCapabilities.allowedPageSizes
+                            }
                             sx={{
-                              borderBottom: 1,
-                              borderColor: 'divider',
-                              display: 'grid',
-                              gap: 2,
-                              gridTemplateColumns: `44px repeat(${String(columns.length)}, minmax(120px, 1fr)) auto`,
-                              px: 1.5,
-                              py: 1.25,
+                              border: 0,
+                              bgcolor: 'background.paper',
+                              '& .MuiToolbar-root': {
+                                minHeight: 52,
+                                px: 1.5,
+                              },
                             }}
-                          >
-                            <Box role="cell">
-                              <Checkbox
-                                slotProps={{
-                                  input: {
-                                    'aria-label': `${stringProperty(component, 'selectRecordLabel')} ${recordKey(record, index)}`,
-                                  },
-                                }}
-                                checked={controller.selectedRecordKeys.includes(
-                                  recordKey(record, index),
-                                )}
-                                onChange={() => {
-                                  const key = recordKey(record, index);
-                                  controller.setSelectedRecordKeys(
-                                    controller.selectedRecordKeys.includes(key)
-                                      ? controller.selectedRecordKeys.filter(
-                                          (candidate) => candidate !== key,
-                                        )
-                                      : [...controller.selectedRecordKeys, key],
-                                  );
-                                }}
-                              />
-                            </Box>
-                            {columns.map((field) => (
-                              <Typography key={field.name} role="cell" variant="body2">
-                                {displayValue(record[field.name])}
-                              </Typography>
-                            ))}
-                            <Button
-                              size="small"
-                              onClick={() => controller.selectRecord(record)}
-                            >
-                              {stringProperty(component, 'viewLabel')}
-                            </Button>
-                          </Box>
-                        ))}
-                      </Box>
-                    </Box>
+                            onPageChange={(_event, page) =>
+                              controller.setRecordPageNumber(page + 1)
+                            }
+                            onRowsPerPageChange={(event) =>
+                              controller.setRecordPageSize(Number(event.target.value))
+                            }
+                          />
+                        ) : null
+                      }
+                      getRowKey={recordKey}
+                      leadingColumns={leadingRecordColumns}
+                      maxBodyHeight="100%"
+                      minTableWidth={Math.max(720, 220 + columns.length * 160)}
+                      records={records}
+                      schema={selected}
+                      sortOverride={controller.recordSortOverride}
+                      trailingColumns={trailingRecordColumns}
+                      toolbarStart={
+                        <Typography color="text.secondary" variant="body2">
+                          {controller.recordTotalCount}{' '}
+                          {stringProperty(component, 'resultsLabel')}
+                        </Typography>
+                      }
+                      onColumnKeysChange={(columnKeys) =>
+                        controller.setVisibleColumns(columnKeys)
+                      }
+                      onSortOverrideChange={controller.setRecordSortOverride}
+                      visibleColumnKeys={controller.visibleColumns}
+                    />
                   ) : null}
                   {controller.selectedRecordKeys.length > 0 ? (
                     <Alert
@@ -671,53 +649,6 @@ export function SchemaWorkbenchRenderer({
                           'selectedRecordsLabel',
                         )}`}
                     </Alert>
-                  ) : null}
-                  {!controller.recordsLoading &&
-                  !controller.recordsError &&
-                  controller.recordTotalCount > 0 ? (
-                    <Stack
-                      direction={{ xs: 'column', sm: 'row' }}
-                      spacing={2}
-                      sx={{
-                        alignItems: { sm: 'center' },
-                        justifyContent: 'space-between',
-                      }}
-                    >
-                      <Typography color="text.secondary" variant="body2">
-                        {controller.recordTotalCount}{' '}
-                        {stringProperty(component, 'resultsLabel')}
-                      </Typography>
-                      <Stack
-                        direction={{ xs: 'column', sm: 'row' }}
-                        spacing={1.5}
-                        sx={{ alignItems: { sm: 'center' } }}
-                      >
-                        <TextField
-                          select
-                          label={stringProperty(component, 'pageSizeLabel')}
-                          size="small"
-                          value={controller.recordPageSize}
-                          onChange={(event) =>
-                            controller.setRecordPageSize(Number(event.target.value))
-                          }
-                        >
-                          {selected.queryCapabilities.allowedPageSizes.map((size) => (
-                            <MenuItem key={size} value={size}>
-                              {size}
-                            </MenuItem>
-                          ))}
-                        </TextField>
-                        <Pagination
-                          aria-label={stringProperty(component, 'paginationLabel')}
-                          count={pageCount}
-                          page={Math.min(controller.recordPageNumber, pageCount)}
-                          shape="rounded"
-                          onChange={(_event, page) =>
-                            controller.setRecordPageNumber(page)
-                          }
-                        />
-                      </Stack>
-                    </Stack>
                   ) : null}
                 </Box>
               </Stack>

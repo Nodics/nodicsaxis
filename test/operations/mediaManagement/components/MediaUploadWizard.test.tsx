@@ -121,8 +121,11 @@ const sourceContexts: readonly MediaSourceContext[] = Object.freeze([
 ]);
 
 function renderWizard(props?: {
+  readonly enterpriseCode?: string;
+  readonly onEnterpriseCodeChange?: (enterpriseCode: string) => void;
   readonly onUploaded?: (media: MediaUploadResult) => void;
   readonly sourceContexts?: readonly MediaSourceContext[];
+  readonly tenantCode?: string;
 }) {
   const queryClient = new QueryClient({
     defaultOptions: {
@@ -135,12 +138,15 @@ function renderWizard(props?: {
       <MediaUploadWizard
         connection={connection}
         configuration={configuration}
+        enterpriseCode={props?.enterpriseCode ?? configuration.enterpriseCode}
         error={undefined}
         formatBytes={formatBytes}
         loading={false}
+        onEnterpriseCodeChange={props?.onEnterpriseCodeChange ?? vi.fn()}
         onUploaded={props?.onUploaded ?? vi.fn()}
         policies={[policy('importSources'), policy('cmsAssets'), policy('exportFiles')]}
         sourceContexts={props?.sourceContexts ?? sourceContexts}
+        tenantCode={props?.tenantCode ?? 'default'}
       />
     </QueryClientProvider>,
   );
@@ -165,13 +171,26 @@ afterEach(() => {
 });
 
 describe('MediaUploadWizard', () => {
+  it('shows governed upload scope before media selection', async () => {
+    renderWizard({
+      enterpriseCode: 'enterprise-a',
+      tenantCode: 'tenant-a',
+    });
+
+    expect(screen.getByRole('textbox', { name: 'Target enterprise' })).toHaveValue(
+      'enterprise-a',
+    );
+    expect(screen.getByText('tenant-a')).toBeVisible();
+  });
+
   it('offers only backend contexts that allow manual upload', async () => {
     const user = userEvent.setup();
     renderWizard();
 
-    expect(
-      screen.queryByRole('button', { name: 'Choose media' }),
-    ).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Choose file' })).toHaveAttribute(
+      'aria-disabled',
+      'true',
+    );
 
     await user.click(screen.getByRole('combobox', { name: 'Source type' }));
 
@@ -231,7 +250,7 @@ describe('MediaUploadWizard', () => {
     ).toBeVisible();
   });
 
-  it('shows backend-resolved target context when a source type requires it', async () => {
+  it('keeps backend target context out of the upload policy display', async () => {
     renderWizard();
 
     await selectSourceTypeAndUpload(
@@ -239,13 +258,14 @@ describe('MediaUploadWizard', () => {
       new File(['code,name\np1,Product 1'], 'products.csv', { type: 'text/csv' }),
     );
 
-    expect(screen.getByText('Target module: import')).toBeVisible();
-    expect(screen.getByText('Target schema: mediaImport')).toBeVisible();
+    expect(screen.getByText('Allowed: .csv, .json')).toBeVisible();
+    expect(screen.getByText('Max size: 4.0 KB')).toBeVisible();
+    expect(screen.queryByText(/Target route:/i)).not.toBeInTheDocument();
+    expect(screen.queryByText('Target module: import')).not.toBeInTheDocument();
+    expect(screen.queryByText('Target schema: mediaImport')).not.toBeInTheDocument();
     expect(
-      screen.getByText(
-        /Backend context requires a target, and nMedia published import\/mediaImport/i,
-      ),
-    ).toBeVisible();
+      screen.queryByText(/Backend context requires a target/i),
+    ).not.toBeInTheDocument();
   });
 
   it('blocks file selection when a required target is not published by backend context', async () => {
@@ -267,7 +287,7 @@ describe('MediaUploadWizard', () => {
         'This source type requires a backend target module and schema before Axis can accept a file.',
       ),
     ).toBeVisible();
-    expect(screen.getByRole('button', { name: 'Choose media' })).toHaveAttribute(
+    expect(screen.getByRole('button', { name: 'Choose file' })).toHaveAttribute(
       'aria-disabled',
       'true',
     );
@@ -297,10 +317,10 @@ describe('MediaUploadWizard', () => {
 
       expect(await screen.findByText('Image summary: 640 × 480 px.')).toBeVisible();
       expect(
-        screen.getByText(
+        screen.queryByText(
           /Image preview is available before upload\. Backend policy still performs final validation/i,
         ),
-      ).toBeVisible();
+      ).not.toBeInTheDocument();
     } finally {
       vi.stubGlobal('Image', originalImage);
     }
@@ -374,10 +394,10 @@ describe('MediaUploadWizard', () => {
       ),
     ).toBeVisible();
     expect(
-      screen.getByText(
+      screen.queryByText(
         /Backend import\/export processes perform governed content validation/i,
       ),
-    ).toBeVisible();
+    ).not.toBeInTheDocument();
   });
 
   it('summarizes JSON import files before upload without treating the preview as validation', async () => {
@@ -400,9 +420,9 @@ describe('MediaUploadWizard', () => {
       ),
     ).toBeVisible();
     expect(
-      screen.getByText(
+      screen.queryByText(
         /Backend import\/export processes perform governed content validation/i,
       ),
-    ).toBeVisible();
+    ).not.toBeInTheDocument();
   });
 });

@@ -108,9 +108,14 @@ only the out-of-the-box screen or workflow is incomplete.
 ## Canonical Source and Generated Data
 
 Axis documentation is authored as granular, reviewable pages under
-`source/documentation`. The deterministic documentation generator creates CMS
+`content/documentation`. The deterministic documentation generator creates CMS
 page, component, navigation, route, search, and immutable manifest data under
 `data/core` and `manifest/docs-content-pack.json`.
+
+The generator is executable repository tooling and lives beside the authored
+content at `content/documentation/tooling/generate-documentation-content.js`.
+It must not be placed under `config`, because configuration files remain
+declarative values only.
 
 Do not hand-edit generated CMS article records. Do not maintain a shorter
 generated summary beside a richer project guide. Every implemented feature
@@ -137,7 +142,7 @@ only after the migration register records their hashes, word counts, headings,
 canonical destinations, and the generated and rendered verification gates pass.
 After retirement, do not recreate a parallel `docs/` directory. The project
 keeps one concise `README.md`; detailed permanent guidance belongs only under
-`source/documentation` and its generated `data/core` projection.
+`content/documentation` and its generated `data/core` projection.
 
 ## Required Examples
 

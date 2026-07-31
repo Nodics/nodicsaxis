@@ -2,6 +2,11 @@ import { Alert, Box, Button, Stack, Typography } from '@mui/material';
 import { useMemo, useState, type FormEvent } from 'react';
 
 import type { WorkbenchSchema } from '../api/workbenchContracts';
+import {
+  compactWorkbenchDraft,
+  containerFieldNames,
+  workbenchRecordValue,
+} from '../record/workbenchRecordPaths';
 import { WorkbenchFieldRenderer } from './WorkbenchFieldRenderer';
 import { RelationshipFieldRenderer } from './RelationshipFieldRenderer';
 import type {
@@ -37,11 +42,14 @@ function initialDraft(
       .filter(
         (field) =>
           !field.readOnly &&
-          (model?.[field.name] !== undefined || field.default !== undefined),
+          (workbenchRecordValue(model, field.name) !== undefined ||
+            field.default !== undefined),
       )
       .map((field) => [
         field.name,
-        model?.[field.name] !== undefined ? model[field.name] : field.default,
+        workbenchRecordValue(model, field.name) !== undefined
+          ? workbenchRecordValue(model, field.name)
+          : field.default,
       ]),
   );
 }
@@ -52,16 +60,17 @@ function initialRelationshipDrafts(
 ): Record<string, WorkbenchRelationshipDraft> {
   return Object.fromEntries(
     schema.relationships.map((relationship) => {
-      const value = model?.[relationship.field];
+      const value = workbenchRecordValue(model, relationship.field);
       const values = Array.isArray(value) ? value : value === undefined ? [] : [value];
       const references = values.flatMap((item) => {
         if (typeof item === 'string' || typeof item === 'number') {
           return [String(item)];
         }
         if (typeof item === 'object' && item !== null) {
-          const reference = (item as Record<string, unknown>)[
-            relationship.referenceProperty
-          ];
+          const reference = workbenchRecordValue(
+            item as Record<string, unknown>,
+            relationship.referenceProperty,
+          );
           return typeof reference === 'string' || typeof reference === 'number'
             ? [String(reference)]
             : [];
@@ -115,12 +124,19 @@ export function WorkbenchRecordForm(props: WorkbenchRecordFormProps) {
   );
   const relationshipCopy = props.relationshipCopy;
   const relationshipRuntime = props.relationshipRuntime;
+  const containerFields = useMemo(
+    () => containerFieldNames(props.schema.fields),
+    [props.schema.fields],
+  );
   const editableFields = useMemo(
     () =>
       props.schema.fields.filter(
-        (field) => !field.readOnly && !relationshipFields.has(field.name),
+        (field) =>
+          !field.readOnly &&
+          !relationshipFields.has(field.name) &&
+          !containerFields.has(field.name),
       ),
-    [props.schema.fields, relationshipFields],
+    [containerFields, props.schema.fields, relationshipFields],
   );
   const relationshipValidationErrors = Object.fromEntries(
     props.schema.relationships
@@ -144,7 +160,8 @@ export function WorkbenchRecordForm(props: WorkbenchRecordFormProps) {
       {
         ...props.schema,
         fields: props.schema.fields.filter(
-          (field) => !relationshipFields.has(field.name),
+          (field) =>
+            !relationshipFields.has(field.name) && !containerFields.has(field.name),
         ),
       },
       draft,
@@ -158,7 +175,7 @@ export function WorkbenchRecordForm(props: WorkbenchRecordFormProps) {
     if (Object.keys(validationErrors).length > 0) return;
     setRelationshipError(undefined);
     setResolvingRelationships(true);
-    const model = { ...draft };
+    const model = compactWorkbenchDraft(draft);
     const resolvedDrafts = { ...relationshipDrafts };
     try {
       for (const relationship of props.schema.relationships) {
@@ -196,19 +213,11 @@ export function WorkbenchRecordForm(props: WorkbenchRecordFormProps) {
           }
         }
         if (references.length > 0 || relationship.required) {
-          model[relationship.field] =
+          (model as Record<string, unknown>)[relationship.field] =
             relationship.cardinality === 'ONE' ? references[0] : references;
         }
       }
-      await props.onSubmit(
-        Object.freeze(
-          Object.fromEntries(
-            Object.entries(model).filter(
-              ([, value]) => value !== undefined && value !== '',
-            ),
-          ),
-        ),
-      );
+      await props.onSubmit(Object.freeze(model));
     } catch (error: unknown) {
       setRelationshipError(
         error instanceof Error

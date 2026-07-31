@@ -147,6 +147,7 @@ describe('SchemaWorkbenchRenderer', () => {
     const selectSchema = vi.fn();
     const selectRecord = vi.fn();
     const setRecordFilters = vi.fn();
+    const setRecordSortOverride = vi.fn();
     const { rerender } = render(
       <SchemaWorkbenchRenderer
         actions={{
@@ -180,6 +181,7 @@ describe('SchemaWorkbenchRenderer', () => {
             setRecordPageNumber: vi.fn(),
             setRecordPageSize: vi.fn(),
             setRecordSort: vi.fn(),
+            setRecordSortOverride,
             setVisibleColumns: vi.fn(),
             toggleFavoriteSchema: vi.fn(),
             setSelectedRecordKeys: vi.fn(),
@@ -242,6 +244,7 @@ describe('SchemaWorkbenchRenderer', () => {
             setRecordPageNumber: vi.fn(),
             setRecordPageSize: vi.fn(),
             setRecordSort: vi.fn(),
+            setRecordSortOverride,
             setVisibleColumns: vi.fn(),
             toggleFavoriteSchema: vi.fn(),
             setSelectedRecordKeys: vi.fn(),
@@ -270,6 +273,12 @@ describe('SchemaWorkbenchRenderer', () => {
     expect(screen.getByRole('cell', { name: 'DXB-OFFICE' })).toBeVisible();
     expect(screen.getByRole('cell', { name: 'Dubai' })).toBeVisible();
     expect(screen.getByRole('button', { name: 'Create Address' })).toBeEnabled();
+    await user.click(screen.getByRole('button', { name: 'Code' }));
+    expect(setRecordSortOverride).toHaveBeenCalledWith({
+      field: 'code',
+      direction: 'ASC',
+    });
+    await user.click(screen.getByRole('button', { name: 'Advanced query' }));
     await user.click(screen.getByRole('button', { name: 'Add condition' }));
     expect(setRecordFilters).not.toHaveBeenCalled();
     await user.type(screen.getByLabelText('Value'), 'Dubai');
@@ -320,6 +329,7 @@ describe('SchemaWorkbenchRenderer', () => {
             setRecordPageNumber: vi.fn(),
             setRecordPageSize: vi.fn(),
             setRecordSort: vi.fn(),
+            setRecordSortOverride: vi.fn(),
             setVisibleColumns: vi.fn(),
             toggleFavoriteSchema: vi.fn(),
             setSelectedRecordKeys: vi.fn(),

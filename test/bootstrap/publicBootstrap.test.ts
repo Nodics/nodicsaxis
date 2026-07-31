@@ -109,6 +109,7 @@ const authenticatedData = {
     contractVersion: 1,
     screenLockEnabled: true,
     idleTimeoutSeconds: 900,
+    recentNavigationLimit: 12,
     revision: 0,
     source: 'DEFAULT',
   },
@@ -348,8 +349,35 @@ describe('Axis bootstrap clients', () => {
               contractVersion: 1,
               screenLockEnabled: true,
               idleTimeoutSeconds: 30,
+              recentNavigationLimit: 12,
               revision: 0,
               source: 'DEFAULT',
+            },
+          },
+        }),
+        { status: 200 },
+      ),
+    );
+    await expect(
+      loadAuthenticatedBootstrap(
+        'https://backoffice.example.com',
+        1,
+        'employee-access',
+        10_000,
+        request,
+      ),
+    ).rejects.toThrow(/policy is incompatible/i);
+  });
+
+  it('rejects unsafe or incompatible recent navigation limits', async () => {
+    const request = vi.fn<typeof fetch>().mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          data: {
+            ...authenticatedData,
+            axisPolicy: {
+              ...authenticatedData.axisPolicy,
+              recentNavigationLimit: 25,
             },
           },
         }),

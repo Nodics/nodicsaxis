@@ -17,13 +17,16 @@ import { useState, type MouseEvent } from 'react';
 
 import type { AxisNavigationItem } from '../../bootstrap/publicBootstrap';
 import { AxisMark } from './AxisMark';
+import { RecentPagesMenu } from './RecentPagesMenu';
 import { ShellIcon } from './ShellIcon';
+import type { ShellNavigationItem } from './shellNavigation';
 
 interface TopNavigationProps {
   readonly assistant?: AxisNavigationItem | undefined;
   readonly contextItems: readonly string[];
   readonly employeeId?: string | undefined;
   readonly navigationToggleLabel: string;
+  readonly recentItems: readonly ShellNavigationItem[];
   readonly colorMode: PaletteMode;
   readonly query: string;
   readonly onQueryChange: (value: string) => void;
@@ -70,6 +73,7 @@ export function TopNavigation({
   onToggleColorMode,
   onQueryChange,
   query,
+  recentItems,
 }: TopNavigationProps) {
   const [profileAnchor, setProfileAnchor] = useState<HTMLElement | null>(null);
   const initials = employeeId?.slice(0, 2).toLocaleUpperCase() ?? 'AX';
@@ -187,6 +191,7 @@ export function TopNavigation({
             </Badge>
           </IconButton>
         </Tooltip>
+        <RecentPagesMenu items={recentItems} onNavigate={onNavigate} />
         <Tooltip
           arrow
           enterDelay={200}

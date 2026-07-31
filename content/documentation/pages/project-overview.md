@@ -4,7 +4,7 @@ Nodics Axis is the reusable Back Office frontend for a single Nodics-based
 customer project deployment.
 
 Canonical user and contributor documentation is authored as granular pages
-under `source/documentation` and deterministically generated into the committed
+under `content/documentation` and deterministically generated into the committed
 CMS import release under `data/core`. The retired legacy `docs/` files remain
 accounted for in the migration register after coverage, detail-preservation,
 generated-pack, and rendered-content gates approved their replacement.

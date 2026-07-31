@@ -69,7 +69,7 @@ describe('Axis distributed implementation documentation', () => {
 
   it('generates every granular Axis page from canonical source without losing README or docs detail', () => {
     const navigation = JSON.parse(
-      fs.readFileSync(path.join(root, 'source/documentation/navigation.json'), 'utf8'),
+      fs.readFileSync(path.join(root, 'content/documentation/navigation.json'), 'utf8'),
     ) as {
       readonly pages: readonly {
         readonly title: string;
@@ -80,7 +80,7 @@ describe('Axis distributed implementation documentation', () => {
     };
     const register = JSON.parse(
       fs.readFileSync(
-        path.join(root, 'source/documentation/migration-register.json'),
+        path.join(root, 'content/documentation/migration-register.json'),
         'utf8',
       ),
     ) as {
@@ -122,7 +122,7 @@ describe('Axis distributed implementation documentation', () => {
       expect(migration?.destinationRoute).toBe(page.route);
 
       const canonical = fs.readFileSync(
-        path.join(root, 'source/documentation', page.source),
+        path.join(root, 'content/documentation', page.source),
         'utf8',
       );
       expect(markdownWordCount(canonical)).toBeGreaterThanOrEqual(
@@ -138,7 +138,7 @@ describe('Axis distributed implementation documentation', () => {
       expect(migration?.wordCount).toBe(markdownWordCount(canonical));
       expect(migration?.headings).toEqual(markdownHeadings(canonical));
       expect(generatedComponents).toContain(page.title);
-      expect(generatedComponents).toContain(`source/documentation/${page.source}`);
+      expect(generatedComponents).toContain(`content/documentation/${page.source}`);
     }
   });
 
@@ -154,7 +154,7 @@ describe('Axis distributed implementation documentation', () => {
       'Every project and module keeps a concise README',
     ]);
     requireClauses(
-      'source/documentation/pages/implementation-and-documentation-contract.md',
+      'content/documentation/pages/implementation-and-documentation-contract.md',
       [
         '## Local Discovery Chain',
         '## Repository Ownership',
@@ -171,7 +171,7 @@ describe('Axis distributed implementation documentation', () => {
         '## Acceptance',
       ],
     );
-    requireClauses('source/documentation/pages/feature-delivery-checklist.md', [
+    requireClauses('content/documentation/pages/feature-delivery-checklist.md', [
       '## 7. Partial-discovery and use-case proof',
       'successful, unauthorized/invalid, boundary/responsive',
       'Link Nodics-owned business and backend guidance',
@@ -181,13 +181,13 @@ describe('Axis distributed implementation documentation', () => {
 
   it('gives every canonical feature page a safe customization path', () => {
     const navigation = JSON.parse(
-      fs.readFileSync(path.join(root, 'source/documentation/navigation.json'), 'utf8'),
+      fs.readFileSync(path.join(root, 'content/documentation/navigation.json'), 'utf8'),
     ) as {
       readonly pages: readonly { readonly source: string }[];
     };
     for (const page of navigation.pages) {
       const canonical = fs.readFileSync(
-        path.join(root, 'source', 'documentation', page.source),
+        path.join(root, 'content', 'documentation', page.source),
         'utf8',
       );
       expect(canonical, page.source).toContain('## Customize and extend safely');

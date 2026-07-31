@@ -3,6 +3,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useLocation } from 'react-router';
 
 import { CmsRoutePage } from '../app/CmsRoutePage';
+import type { AxisSort } from '../app/table/axisTableSorting';
 import {
   selectModuleConnection,
   type AxisAuthenticatedBootstrap,
@@ -78,6 +79,60 @@ export function resolveWorkbenchDeepLinkTarget(
   });
 }
 
+export function schemaFieldNames(schema: WorkbenchSchema): ReadonlySet<string> {
+  return new Set(schema.fields.map((field) => field.name));
+}
+
+export function validWorkbenchSortFields(schema: WorkbenchSchema): readonly string[] {
+  const fieldNames = schemaFieldNames(schema);
+  return Object.freeze(
+    schema.queryCapabilities.sortableFields.filter((field) => fieldNames.has(field)),
+  );
+}
+
+export function resolveWorkbenchRecordSort(
+  schema: WorkbenchSchema | undefined,
+  preferred: AxisSort | undefined,
+): AxisSort {
+  if (!schema) return Object.freeze({ field: 'code', direction: 'ASC' });
+  const fieldNames = schemaFieldNames(schema);
+  const sortableFields = validWorkbenchSortFields(schema);
+  if (
+    preferred &&
+    fieldNames.has(preferred.field) &&
+    sortableFields.includes(preferred.field)
+  ) {
+    return preferred;
+  }
+  const defaultSort = schema.queryCapabilities.defaultSort;
+  if (fieldNames.has(defaultSort.field) && sortableFields.includes(defaultSort.field)) {
+    return defaultSort;
+  }
+  const fallback =
+    sortableFields[0] ??
+    schema.displayProperties.find((field) => fieldNames.has(field)) ??
+    (fieldNames.has(schema.displayProperty) ? schema.displayProperty : undefined) ??
+    schema.fields.find((field) => field.primary)?.name ??
+    schema.fields[0]?.name ??
+    defaultSort.field;
+  return Object.freeze({ field: fallback, direction: defaultSort.direction });
+}
+
+export function schemaWithValidQueryCapabilities(
+  schema: WorkbenchSchema,
+): WorkbenchSchema {
+  const sortableFields = validWorkbenchSortFields(schema);
+  const defaultSort = resolveWorkbenchRecordSort(schema, undefined);
+  return Object.freeze({
+    ...schema,
+    queryCapabilities: Object.freeze({
+      ...schema.queryCapabilities,
+      sortableFields,
+      defaultSort,
+    }),
+  });
+}
+
 export function WorkbenchRoutePage(props: WorkbenchRoutePageProps) {
   const location = useLocation();
   const [selectedSchema, setSelectedSchema] = useState<WorkbenchSchema>();
@@ -91,10 +146,7 @@ export function WorkbenchRoutePage(props: WorkbenchRoutePageProps) {
   const [recordFilters, setRecordFilters] = useState<WorkbenchFilterGroup>();
   const [recordPageNumber, setRecordPageNumber] = useState(1);
   const [recordPageSize, setRecordPageSize] = useState(25);
-  const [recordSort, setRecordSort] = useState<{
-    readonly field: string;
-    readonly direction: 'ASC' | 'DESC';
-  }>({ field: 'code', direction: 'ASC' });
+  const [recordSortOverride, setRecordSortOverride] = useState<AxisSort>();
   const preferenceScope = useMemo(
     () => ({
       employeeId: props.employeeId,
@@ -133,8 +185,11 @@ export function WorkbenchRoutePage(props: WorkbenchRoutePageProps) {
     queryKey: ['schema-workbench', 'schemas', props.runtime.enterpriseCode],
     queryFn: () => loadWorkbenchSchemas(connections, configuration),
   });
-  const recordConnection = selectedSchema
-    ? selectModuleConnection(props.bootstrap, selectedSchema.moduleName)
+  const normalizedSelectedSchema = selectedSchema
+    ? schemaWithValidQueryCapabilities(selectedSchema)
+    : undefined;
+  const recordConnection = normalizedSelectedSchema
+    ? selectModuleConnection(props.bootstrap, normalizedSelectedSchema.moduleName)
     : undefined;
   useEffect(() => {
     const timeout = globalThis.setTimeout(() => {
@@ -143,35 +198,41 @@ export function WorkbenchRoutePage(props: WorkbenchRoutePageProps) {
     }, 300);
     return () => globalThis.clearTimeout(timeout);
   }, [recordSearchInput]);
+  const effectiveRecordSort = resolveWorkbenchRecordSort(
+    normalizedSelectedSchema,
+    recordSortOverride,
+  );
   const records = useQuery({
-    enabled: Boolean(selectedSchema && recordConnection && !createOpen && !editOpen),
+    enabled: Boolean(
+      normalizedSelectedSchema && recordConnection && !createOpen && !editOpen,
+    ),
     queryKey: [
       'schema-workbench',
       'records',
       props.runtime.enterpriseCode,
-      selectedSchema?.moduleName,
-      selectedSchema?.schemaName,
+      normalizedSelectedSchema?.moduleName,
+      normalizedSelectedSchema?.schemaName,
       recordSearch,
       JSON.stringify(recordFilters ?? null),
       recordPageNumber,
       recordPageSize,
-      recordSort.field,
-      recordSort.direction,
+      effectiveRecordSort.field,
+      effectiveRecordSort.direction,
     ],
     queryFn: ({ signal }) => {
-      if (!selectedSchema || !recordConnection) {
+      if (!normalizedSelectedSchema || !recordConnection) {
         throw new Error('The selected schema module is unavailable');
       }
       return loadWorkbenchRecords(
         recordConnection,
-        selectedSchema,
+        normalizedSelectedSchema,
         configuration,
         {
           search: recordSearch,
           ...(recordFilters ? { filters: recordFilters } : {}),
           pageNumber: recordPageNumber,
           pageSize: recordPageSize,
-          sort: recordSort,
+          sort: effectiveRecordSort,
         },
         fetch,
         signal,
@@ -180,12 +241,12 @@ export function WorkbenchRoutePage(props: WorkbenchRoutePageProps) {
   });
   const createRecord = useMutation({
     mutationFn: (model: Readonly<Record<string, unknown>>) => {
-      if (!selectedSchema || !recordConnection) {
+      if (!normalizedSelectedSchema || !recordConnection) {
         throw new Error('The selected schema module is unavailable');
       }
       return createWorkbenchRecord(
         recordConnection,
-        selectedSchema,
+        normalizedSelectedSchema,
         model,
         configuration,
       );
@@ -197,20 +258,20 @@ export function WorkbenchRoutePage(props: WorkbenchRoutePageProps) {
           'schema-workbench',
           'records',
           props.runtime.enterpriseCode,
-          selectedSchema?.moduleName,
-          selectedSchema?.schemaName,
+          normalizedSelectedSchema?.moduleName,
+          normalizedSelectedSchema?.schemaName,
         ],
       });
     },
   });
   const updateRecord = useMutation({
     mutationFn: (model: Readonly<Record<string, unknown>>) => {
-      if (!selectedSchema || !recordConnection || !selectedRecord) {
+      if (!normalizedSelectedSchema || !recordConnection || !selectedRecord) {
         throw new Error('The selected schema module is unavailable');
       }
       return updateWorkbenchRecord(
         recordConnection,
-        selectedSchema,
+        normalizedSelectedSchema,
         selectedRecord,
         model,
         configuration,
@@ -224,20 +285,20 @@ export function WorkbenchRoutePage(props: WorkbenchRoutePageProps) {
           'schema-workbench',
           'records',
           props.runtime.enterpriseCode,
-          selectedSchema?.moduleName,
-          selectedSchema?.schemaName,
+          normalizedSelectedSchema?.moduleName,
+          normalizedSelectedSchema?.schemaName,
         ],
       });
     },
   });
   const deleteRecord = useMutation({
     mutationFn: () => {
-      if (!selectedSchema || !recordConnection || !selectedRecord) {
+      if (!normalizedSelectedSchema || !recordConnection || !selectedRecord) {
         throw new Error('The selected schema module is unavailable');
       }
       return deleteWorkbenchRecord(
         recordConnection,
-        selectedSchema,
+        normalizedSelectedSchema,
         selectedRecord,
         configuration,
       );
@@ -251,20 +312,20 @@ export function WorkbenchRoutePage(props: WorkbenchRoutePageProps) {
           'schema-workbench',
           'records',
           props.runtime.enterpriseCode,
-          selectedSchema?.moduleName,
-          selectedSchema?.schemaName,
+          normalizedSelectedSchema?.moduleName,
+          normalizedSelectedSchema?.schemaName,
         ],
       });
     },
   });
   const deleteImpact = useMutation({
     mutationFn: () => {
-      if (!selectedSchema || !recordConnection || !selectedRecord) {
+      if (!normalizedSelectedSchema || !recordConnection || !selectedRecord) {
         throw new Error('The selected schema module is unavailable');
       }
       return previewWorkbenchDeleteImpact(
         recordConnection,
-        selectedSchema,
+        normalizedSelectedSchema,
         selectedRecord,
         configuration,
       );
@@ -273,7 +334,7 @@ export function WorkbenchRoutePage(props: WorkbenchRoutePageProps) {
   });
   const bulkDelete = useMutation({
     mutationFn: () => {
-      if (!selectedSchema || !recordConnection) {
+      if (!normalizedSelectedSchema || !recordConnection) {
         throw new Error('The selected schema module is unavailable');
       }
       const selected = (records.data?.records ?? []).filter((record, index) =>
@@ -281,7 +342,7 @@ export function WorkbenchRoutePage(props: WorkbenchRoutePageProps) {
       );
       return bulkDeleteWorkbenchRecords(
         recordConnection,
-        selectedSchema,
+        normalizedSelectedSchema,
         selected,
         configuration,
         `axis-${crypto.randomUUID()}`,
@@ -294,14 +355,15 @@ export function WorkbenchRoutePage(props: WorkbenchRoutePageProps) {
           'schema-workbench',
           'records',
           props.runtime.enterpriseCode,
-          selectedSchema?.moduleName,
-          selectedSchema?.schemaName,
+          normalizedSelectedSchema?.moduleName,
+          normalizedSelectedSchema?.schemaName,
         ],
       });
     },
   });
   const selectWorkbenchSchema = useCallback(
     (schema: WorkbenchSchema, options: { readonly openCreate?: boolean } = {}) => {
+      const normalizedSchema = schemaWithValidQueryCapabilities(schema);
       createRecord.reset();
       updateRecord.reset();
       deleteRecord.reset();
@@ -315,11 +377,14 @@ export function WorkbenchRoutePage(props: WorkbenchRoutePageProps) {
       setRecordSearch('');
       setRecordFilters(undefined);
       setRecordPageNumber(1);
-      setRecordPageSize(schema.queryCapabilities.defaultPageSize);
-      setRecordSort(schema.queryCapabilities.defaultSort);
-      const key = schemaPreferenceKey(schema.moduleName, schema.schemaName);
+      setRecordPageSize(normalizedSchema.queryCapabilities.defaultPageSize);
+      setRecordSortOverride(undefined);
+      const key = schemaPreferenceKey(
+        normalizedSchema.moduleName,
+        normalizedSchema.schemaName,
+      );
       const schemaPreference = preferences.schemaPreferences[key];
-      const defaultColumns = schema.fields
+      const defaultColumns = normalizedSchema.fields
         .filter((field) => field.primary || field.searchable)
         .slice(0, 5)
         .map((field) => field.name);
@@ -328,7 +393,7 @@ export function WorkbenchRoutePage(props: WorkbenchRoutePageProps) {
           ? schemaPreference.visibleColumns
           : defaultColumns.length
             ? defaultColumns
-            : schema.fields.slice(0, 5).map((field) => field.name),
+            : normalizedSchema.fields.slice(0, 5).map((field) => field.name),
       );
       setSelectedRecordKeys([]);
       updatePreferences({
@@ -340,7 +405,7 @@ export function WorkbenchRoutePage(props: WorkbenchRoutePageProps) {
           ),
         ),
       });
-      setSelectedSchema(schema);
+      setSelectedSchema(normalizedSchema);
     },
     [bulkDelete, createRecord, deleteImpact, deleteRecord, preferences, updateRecord],
   );
@@ -363,22 +428,30 @@ export function WorkbenchRoutePage(props: WorkbenchRoutePageProps) {
         schema: WorkbenchSchema,
         model: Readonly<Record<string, unknown>>,
       ) => {
-        const connection = selectModuleConnection(props.bootstrap, schema.moduleName);
+        const normalizedSchema = schemaWithValidQueryCapabilities(schema);
+        const connection = selectModuleConnection(
+          props.bootstrap,
+          normalizedSchema.moduleName,
+        );
         if (!connection) {
           return Promise.reject(new Error('The related schema module is unavailable'));
         }
-        return createWorkbenchRecord(connection, schema, model, configuration);
+        return createWorkbenchRecord(connection, normalizedSchema, model, configuration);
       },
       loadRecords: (schema: WorkbenchSchema) => {
-        const connection = selectModuleConnection(props.bootstrap, schema.moduleName);
+        const normalizedSchema = schemaWithValidQueryCapabilities(schema);
+        const connection = selectModuleConnection(
+          props.bootstrap,
+          normalizedSchema.moduleName,
+        );
         if (!connection) {
           return Promise.reject(new Error('The related schema module is unavailable'));
         }
-        return loadWorkbenchRecords(connection, schema, configuration, {
+        return loadWorkbenchRecords(connection, normalizedSchema, configuration, {
           search: '',
           pageNumber: 1,
-          pageSize: schema.queryCapabilities.defaultPageSize,
-          sort: schema.queryCapabilities.defaultSort,
+          pageSize: normalizedSchema.queryCapabilities.defaultPageSize,
+          sort: resolveWorkbenchRecordSort(normalizedSchema, undefined),
         }).then((page) => page.records);
       },
       updateRecord: (
@@ -386,13 +459,17 @@ export function WorkbenchRoutePage(props: WorkbenchRoutePageProps) {
         original: Readonly<Record<string, unknown>>,
         model: Readonly<Record<string, unknown>>,
       ) => {
-        const connection = selectModuleConnection(props.bootstrap, schema.moduleName);
+        const normalizedSchema = schemaWithValidQueryCapabilities(schema);
+        const connection = selectModuleConnection(
+          props.bootstrap,
+          normalizedSchema.moduleName,
+        );
         if (!connection) {
           return Promise.reject(new Error('The related schema module is unavailable'));
         }
         return updateWorkbenchRecord(
           connection,
-          schema,
+          normalizedSchema,
           original,
           model,
           configuration,
@@ -410,14 +487,15 @@ export function WorkbenchRoutePage(props: WorkbenchRoutePageProps) {
           schemas: schemas.data ?? [],
           schemasError: schemas.error?.message,
           schemasLoading: schemas.isLoading,
-          selectedSchema,
+          selectedSchema: normalizedSelectedSchema,
           records: records.data?.records ?? [],
           recordSearch: recordSearchInput,
           recordFilters,
           recordPageNumber,
           recordPageSize,
           recordTotalCount: records.data?.totalCount ?? 0,
-          recordSort,
+          recordSort: effectiveRecordSort,
+          recordSortOverride,
           visibleColumns,
           favoriteSchemas: preferences.favoriteSchemas,
           recentSchemas: preferences.recentSchemas,
@@ -462,7 +540,11 @@ export function WorkbenchRoutePage(props: WorkbenchRoutePageProps) {
           },
           setRecordSort: (sort) => {
             setRecordPageNumber(1);
-            setRecordSort(sort);
+            setRecordSortOverride(sort);
+          },
+          setRecordSortOverride: (sort) => {
+            setRecordPageNumber(1);
+            setRecordSortOverride(sort);
           },
           setVisibleColumns: (columns) => {
             if (!selectedSchema) return;
@@ -550,7 +632,7 @@ export function WorkbenchRoutePage(props: WorkbenchRoutePageProps) {
             setRecordFilters(view.filters);
             setRecordPageNumber(1);
             setRecordPageSize(view.pageSize);
-            setRecordSort(view.sort);
+            setRecordSortOverride(view.sort);
             setVisibleColumns(view.visibleColumns);
             setSelectedRecordKeys([]);
           },

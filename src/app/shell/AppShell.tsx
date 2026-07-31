@@ -33,6 +33,7 @@ interface AppShellProps extends PropsWithChildren {
   readonly navigation?: readonly AxisNavigationItem[] | undefined;
   readonly onLock?: (() => void) | undefined;
   readonly onLogout?: (() => void) | undefined;
+  readonly recentNavigationLimit?: number | undefined;
 }
 
 export function AppShell({
@@ -45,6 +46,7 @@ export function AppShell({
   navigation = [],
   onLock,
   onLogout,
+  recentNavigationLimit,
   site,
 }: AppShellProps) {
   const theme = useTheme();
@@ -56,8 +58,12 @@ export function AppShell({
   const [navigationCompact, setNavigationCompact] = useState(false);
   const [notification, setNotification] = useState<string | null>(null);
   const [query, setQuery] = useState('');
+  const navigationPreferenceLimits = useMemo(
+    () => Object.freeze({ recentItems: recentNavigationLimit }),
+    [recentNavigationLimit],
+  );
   const [navigationPreferences, setNavigationPreferences] = useState(() =>
-    loadNavigationPreferences(),
+    loadNavigationPreferences(window.localStorage, navigationPreferenceLimits),
   );
   const baseGroups = useMemo(() => composeShellNavigation(navigation), [navigation]);
   const navigationByKey = useMemo(
@@ -69,6 +75,15 @@ export function AppShell({
           .map((item) => [navigationItemKey(item.moduleName, item.id), item]),
       ),
     [baseGroups],
+  );
+  const recentNavigationItems = useMemo(
+    () =>
+      Object.freeze(
+        navigationPreferences.recents
+          .map((key) => navigationByKey.get(key))
+          .filter((item): item is ShellNavigationItem => item !== undefined),
+      ),
+    [navigationByKey, navigationPreferences.recents],
   );
   const groups = useMemo(() => {
     const quickGroup = (
@@ -91,25 +106,12 @@ export function AppShell({
       50,
       navigationPreferences.favourites,
     );
-    const favouriteKeys = new Set(navigationPreferences.favourites);
-    const recents = quickGroup(
-      'recents',
-      'Recent Items',
-      75,
-      navigationPreferences.recents.filter((key) => !favouriteKeys.has(key)),
-    );
     const workspaceItems = [
       ...(baseGroups.find((group) => group.id === 'workspace')?.items ?? []),
       ...(favourites?.items.map((item) => ({
         ...item,
         id: `favourite-${item.id}`,
         label: `Favourite: ${item.label}`,
-        local: true,
-      })) ?? []),
-      ...(recents?.items.map((item) => ({
-        ...item,
-        id: `recent-${item.id}`,
-        label: `Recent: ${item.label}`,
         local: true,
       })) ?? []),
     ];
@@ -119,7 +121,7 @@ export function AppShell({
         : group,
     );
     return Object.freeze(mergedGroups);
-  }, [baseGroups, navigationByKey, navigationPreferences]);
+  }, [baseGroups, navigationByKey, navigationPreferences.favourites]);
   const assistant = useMemo(
     () =>
       navigation.find(
@@ -162,8 +164,12 @@ export function AppShell({
   }, []);
 
   useEffect(() => {
-    saveNavigationPreferences(navigationPreferences);
-  }, [navigationPreferences]);
+    saveNavigationPreferences(
+      navigationPreferences,
+      window.localStorage,
+      navigationPreferenceLimits,
+    );
+  }, [navigationPreferenceLimits, navigationPreferences]);
 
   useEffect(() => {
     if (location.hash) return;
@@ -174,7 +180,11 @@ export function AppShell({
     const item = navigation.find((candidate) => candidate.route === route);
     if (item) {
       setNavigationPreferences((current) =>
-        recordRecentNavigation(current, navigationItemKey(item.moduleName, item.id)),
+        recordRecentNavigation(
+          current,
+          navigationItemKey(item.moduleName, item.id),
+          navigationPreferenceLimits,
+        ),
       );
     }
     setNavigationOpen(false);
@@ -226,6 +236,7 @@ export function AppShell({
             onLogout={onLogout}
             onNavigate={navigateTo}
             onNotify={setNotification}
+            recentItems={recentNavigationItems}
             onToggleNavigation={() => {
               if (desktop) {
                 setNavigationCompact((current) => !current);
@@ -273,7 +284,7 @@ export function AppShell({
           onQueryChange={setQuery}
           onToggleFavourite={(key) => {
             setNavigationPreferences((current) =>
-              toggleNavigationFavourite(current, key),
+              toggleNavigationFavourite(current, key, navigationPreferenceLimits),
             );
           }}
         />

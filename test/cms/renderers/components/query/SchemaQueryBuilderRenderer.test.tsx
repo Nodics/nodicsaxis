@@ -117,6 +117,7 @@ function workbenchController(
     setRecordPageSize: vi.fn(),
     setRecordSearch: vi.fn(),
     setRecordSort: vi.fn(),
+    setRecordSortOverride: vi.fn(),
     setSelectedRecordKeys: vi.fn(),
     setVisibleColumns: vi.fn(),
     tenantCode: 'default',
@@ -174,6 +175,7 @@ describe('SchemaQueryBuilderRenderer', () => {
             selectedSchema: undefined,
             setRecordFilters: vi.fn(),
             setRecordSort: vi.fn(),
+            setRecordSortOverride: vi.fn(),
           }),
         }}
         component={component}

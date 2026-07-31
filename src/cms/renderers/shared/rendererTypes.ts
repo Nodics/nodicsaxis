@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react';
 
+import type { AxisSort } from '../../../app/table/axisTableSorting';
 import type { AssistantPresentationState } from '../../../assistant/presentation/assistantPresentationContracts';
 import type { AxisAuthenticatedBootstrap } from '../../../bootstrap/publicBootstrap';
 import type { AxisRuntimeConfig } from '../../../runtime/runtimeConfig';
@@ -37,10 +38,8 @@ export interface WorkbenchRendererController {
   readonly recordPageNumber: number;
   readonly recordPageSize: number;
   readonly recordTotalCount: number;
-  readonly recordSort: {
-    readonly field: string;
-    readonly direction: 'ASC' | 'DESC';
-  };
+  readonly recordSort: AxisSort;
+  readonly recordSortOverride?: AxisSort | undefined;
   readonly visibleColumns: readonly string[];
   readonly favoriteSchemas: readonly string[];
   readonly recentSchemas: readonly string[];
@@ -70,10 +69,8 @@ export interface WorkbenchRendererController {
   readonly setRecordFilters: (filters?: WorkbenchFilterGroup) => void;
   readonly setRecordPageNumber: (pageNumber: number) => void;
   readonly setRecordPageSize: (pageSize: number) => void;
-  readonly setRecordSort: (sort: {
-    readonly field: string;
-    readonly direction: 'ASC' | 'DESC';
-  }) => void;
+  readonly setRecordSort: (sort: AxisSort) => void;
+  readonly setRecordSortOverride: (sort: AxisSort | undefined) => void;
   readonly setVisibleColumns: (columns: readonly string[]) => void;
   readonly toggleFavoriteSchema: (schema: WorkbenchSchema) => void;
   readonly setSelectedRecordKeys: (keys: readonly string[]) => void;

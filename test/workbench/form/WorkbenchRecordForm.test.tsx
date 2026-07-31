@@ -131,6 +131,81 @@ const address: WorkbenchSchema = {
   ],
 };
 
+const employee: WorkbenchSchema = {
+  moduleName: 'profile',
+  schemaName: 'employee',
+  label: 'Employee',
+  description: '',
+  displayProperty: 'loginId',
+  displayProperties: ['loginId', 'name.firstName', 'name.lastName'],
+  queryCapabilities: {
+    searchableFields: ['loginId', 'name.firstName', 'name.lastName'],
+    sortableFields: ['loginId'],
+    filterFields: [],
+    groupOperators: ['AND', 'OR'],
+    textOperator: 'CONTAINS',
+    allowedPageSizes: [10, 25, 50],
+    defaultPageSize: 25,
+    maximumPageSize: 50,
+    defaultSort: { field: 'loginId', direction: 'ASC' },
+  },
+  mutationMode: 'GENERATED_CRUD',
+  operations: ['search', 'read', 'create', 'update'],
+  fields: [
+    {
+      name: 'loginId',
+      label: 'Login',
+      type: 'string',
+      required: true,
+      readOnly: false,
+      primary: true,
+      description: '',
+      searchable: true,
+    },
+    {
+      name: 'name',
+      label: 'Name',
+      type: 'object',
+      required: true,
+      readOnly: false,
+      primary: false,
+      description: '',
+      searchable: false,
+    },
+    {
+      name: 'name.firstName',
+      label: 'First name',
+      type: 'string',
+      required: true,
+      readOnly: false,
+      primary: false,
+      description: '',
+      searchable: true,
+    },
+    {
+      name: 'name.middleName',
+      label: 'Middle name',
+      type: 'string',
+      required: false,
+      readOnly: false,
+      primary: false,
+      description: '',
+      searchable: true,
+    },
+    {
+      name: 'name.lastName',
+      label: 'Last name',
+      type: 'string',
+      required: true,
+      readOnly: false,
+      primary: false,
+      description: '',
+      searchable: true,
+    },
+  ],
+  relationships: [],
+};
+
 const relationshipCopy = {
   addToDraftLabel: 'Add to draft',
   cancelLabel: 'Cancel',
@@ -219,6 +294,37 @@ describe('WorkbenchRecordForm', () => {
       code: 'DXB-EMAIL',
       type: 'EMAIL',
       priority: 2,
+    });
+  });
+
+  it('edits inline nested fields and submits nested model objects', async () => {
+    const user = userEvent.setup();
+    const submit = vi.fn();
+    render(
+      <WorkbenchRecordForm
+        cancelLabel="Cancel"
+        initialModel={{
+          loginId: 'admin',
+          name: { firstName: 'Admin', lastName: 'User' },
+        }}
+        saving={false}
+        savingLabel="Updating"
+        schema={employee}
+        submitLabel="Update"
+        onCancel={vi.fn()}
+        onSubmit={submit}
+      />,
+    );
+
+    expect(screen.queryByLabelText(/^Name$/)).not.toBeInTheDocument();
+    expect(screen.getByLabelText(/First name/)).toHaveValue('Admin');
+    await user.clear(screen.getByLabelText(/Middle name/));
+    await user.type(screen.getByLabelText(/Middle name/), 'Ops');
+    await user.click(screen.getByRole('button', { name: 'Update' }));
+
+    expect(submit).toHaveBeenCalledWith({
+      loginId: 'admin',
+      name: { firstName: 'Admin', middleName: 'Ops', lastName: 'User' },
     });
   });
 

@@ -110,4 +110,76 @@ describe('WorkbenchRecordDetail', () => {
     expect(screen.getByText(/2026/)).toBeVisible();
     expect(screen.queryByText('2026-07-25T10:00:00.000Z')).not.toBeInTheDocument();
   });
+
+  it('renders inline nested fields without showing the parent object as related data', () => {
+    const employeeSchema: WorkbenchSchema = {
+      ...schema,
+      label: 'Employee',
+      displayProperty: 'loginId',
+      displayProperties: ['loginId', 'name.firstName', 'name.lastName'],
+      fields: [
+        {
+          name: 'loginId',
+          label: 'Login',
+          type: 'string',
+          required: true,
+          readOnly: false,
+          primary: true,
+          description: '',
+          searchable: true,
+        },
+        {
+          name: 'name',
+          label: 'Name',
+          type: 'object',
+          required: true,
+          readOnly: false,
+          primary: false,
+          description: '',
+          searchable: false,
+        },
+        {
+          name: 'name.firstName',
+          label: 'First name',
+          type: 'string',
+          required: true,
+          readOnly: false,
+          primary: false,
+          description: '',
+          searchable: true,
+        },
+        {
+          name: 'name.lastName',
+          label: 'Last name',
+          type: 'string',
+          required: true,
+          readOnly: false,
+          primary: false,
+          description: '',
+          searchable: true,
+        },
+      ],
+    };
+    render(
+      <WorkbenchRecordDetail
+        closeLabel="Close"
+        deleteLabel="Delete"
+        editLabel="Edit"
+        falseLabel="No"
+        record={{
+          loginId: 'admin',
+          name: { firstName: 'Admin', lastName: 'User' },
+        }}
+        schema={employeeSchema}
+        trueLabel="Yes"
+        onClose={vi.fn()}
+        onDelete={vi.fn()}
+        onEdit={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByText('Admin')).toBeVisible();
+    expect(screen.getByText('User')).toBeVisible();
+    expect(screen.queryByText('Related data')).not.toBeInTheDocument();
+  });
 });

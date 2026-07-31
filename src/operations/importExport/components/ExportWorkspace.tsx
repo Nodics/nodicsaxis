@@ -11,12 +11,7 @@ import {
   MenuItem,
   Paper,
   Stack,
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
   TablePagination,
-  TableRow,
   TextField,
   Typography,
   alpha,
@@ -29,6 +24,7 @@ import {
   loadWorkbenchSchemas,
   type WorkbenchClientConfiguration,
 } from '../../../workbench/api/workbenchClient';
+import { AxisSchemaDataListing } from '../../../app/table/AxisSchemaDataListing';
 import type {
   WorkbenchFilterGroup,
   WorkbenchRecord,
@@ -72,14 +68,6 @@ function schemaLabel(schema: WorkbenchSchema): string {
   return `${schema.label} - ${titleCase(schema.moduleName)}`;
 }
 
-function textValue(record: WorkbenchRecord, property: string): string {
-  const value = record[property];
-  if (value === undefined || value === null) return '—';
-  if (typeof value === 'string') return value;
-  if (typeof value === 'number' || typeof value === 'boolean') return String(value);
-  return JSON.stringify(value);
-}
-
 function recordKey(record: WorkbenchRecord, index: number): string {
   for (const candidate of [record.code, record.id, record._id]) {
     if (
@@ -119,6 +107,9 @@ export function ExportWorkspace(props: ExportWorkspaceProps) {
   const [search, setSearch] = useState('');
   const [filters, setFilters] = useState<WorkbenchFilterGroup | undefined>(undefined);
   const [sort, setSort] = useState<WorkbenchRecordQuery['sort'] | undefined>(undefined);
+  const [previewColumnKeys, setPreviewColumnKeys] = useState<readonly string[]>(
+    Object.freeze([]),
+  );
   const [format, setFormat] = useState<DataExportFileFormat>('csv');
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(10);
@@ -155,6 +146,7 @@ export function ExportWorkspace(props: ExportWorkspaceProps) {
     setSearch('');
     setFilters(undefined);
     setSort(undefined);
+    setPreviewColumnKeys(Object.freeze([]));
     setPreviewResult(undefined);
   }, [workspaceEnterpriseCode]);
   const hasEnterprise = selectedEnterpriseCode.length > 0;
@@ -391,6 +383,7 @@ export function ExportWorkspace(props: ExportWorkspaceProps) {
                     setSearch('');
                     setFilters(undefined);
                     setSort(schema?.queryCapabilities.defaultSort);
+                    setPreviewColumnKeys(Object.freeze([]));
                     setPreviewResult(undefined);
                     preview.reset();
                     generate.reset();
@@ -686,49 +679,56 @@ export function ExportWorkspace(props: ExportWorkspaceProps) {
               label={`${previewResult.totalCount.toLocaleString()} match${previewResult.totalCount === 1 ? '' : 'es'}`}
             />
           </Stack>
-          <Table>
-            <TableHead>
-              <TableRow>
-                {columns.map((column) => (
-                  <TableCell key={column}>{titleCase(column)}</TableCell>
-                ))}
-              </TableRow>
-            </TableHead>
-            <TableBody>
-              {previewResult.records.map((record, index) => (
-                <TableRow key={recordKey(record, index)}>
-                  {columns.map((column) => (
-                    <TableCell key={column}>{textValue(record, column)}</TableCell>
-                  ))}
-                </TableRow>
-              ))}
-              {previewResult.records.length === 0 ? (
-                <TableRow>
-                  <TableCell colSpan={Math.max(columns.length, 1)}>
-                    <Alert severity="info">No records matched this export query.</Alert>
-                  </TableCell>
-                </TableRow>
-              ) : null}
-            </TableBody>
-          </Table>
-          <TablePagination
-            component="div"
-            count={previewResult.totalCount}
-            page={page}
-            rowsPerPage={rowsPerPage}
-            rowsPerPageOptions={[10, 25, 50]}
-            onPageChange={(_event, nextPage) => {
-              setPage(nextPage);
-              setPreviewResult(undefined);
-              preview.reset();
-            }}
-            onRowsPerPageChange={(event) => {
-              setRowsPerPage(Number(event.target.value));
-              setPage(0);
-              setPreviewResult(undefined);
-              preview.reset();
-            }}
-          />
+          {selectedSchema ? (
+            <AxisSchemaDataListing
+              ariaLabel={`${selectedSchema.label} export preview`}
+              columnsLabel="Columns"
+              defaultVisibleColumnKeys={columns}
+              emptyMessage="No records matched this export query."
+              exportFileName={`axis-export-preview-${selectedSchema.schemaName}`}
+              footer={
+                <TablePagination
+                  component="div"
+                  count={previewResult.totalCount}
+                  page={page}
+                  rowsPerPage={rowsPerPage}
+                  rowsPerPageOptions={[10, 25, 50]}
+                  onPageChange={(_event, nextPage) => {
+                    setPage(nextPage);
+                    setPreviewResult(undefined);
+                    preview.reset();
+                  }}
+                  onRowsPerPageChange={(event) => {
+                    setRowsPerPage(Number(event.target.value));
+                    setPage(0);
+                    setPreviewResult(undefined);
+                    preview.reset();
+                  }}
+                />
+              }
+              getRowKey={recordKey}
+              maxBodyHeight={420}
+              minTableWidth={900}
+              records={previewResult.records}
+              schema={selectedSchema}
+              sortOverride={sort}
+              toolbarStart={
+                <Typography color="text.secondary" variant="body2">
+                  Preview is rendered from the selected backend schema fields.
+                </Typography>
+              }
+              visibleColumnKeys={previewColumnKeys}
+              onColumnKeysChange={(columnKeys) =>
+                setPreviewColumnKeys(Object.freeze([...columnKeys]))
+              }
+              onSortOverrideChange={(nextSort) => {
+                setSort(nextSort);
+                setPage(0);
+                setPreviewResult(undefined);
+                preview.reset();
+              }}
+            />
+          ) : null}
         </Paper>
       ) : null}
     </Stack>

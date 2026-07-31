@@ -27,6 +27,12 @@ import { Link as RouterLink, useLocation } from 'react-router';
 
 import { WorkspaceContainer } from '../../app/shell/ShellPrimitives';
 import { ShellIcon } from '../../app/shell/ShellIcon';
+import { type AxisDataListingColumn } from '../../app/table/AxisDataListing';
+import {
+  AxisSchemaDataListing,
+  type AxisSchemaFieldRenderer,
+} from '../../app/table/AxisSchemaDataListing';
+import type { AxisSort } from '../../app/table/axisTableSorting';
 import {
   selectModuleConnection,
   type AxisAuthenticatedBootstrap,
@@ -34,6 +40,8 @@ import {
 } from '../../bootstrap/publicBootstrap';
 import type { AxisRuntimeConfig } from '../../runtime/runtimeConfig';
 import {
+  createWorkbenchRecord,
+  deleteWorkbenchRecord,
   loadWorkbenchRecords,
   loadWorkbenchSchemas,
   updateWorkbenchRecord,
@@ -46,6 +54,7 @@ import type {
   WorkbenchRecordQuery,
   WorkbenchSchema,
 } from '../../workbench/api/workbenchContracts';
+import { WorkbenchRecordForm } from '../../workbench/form/WorkbenchRecordForm';
 import {
   loadMediaSourceContexts,
   loadMediaFolderUploadPolicies,
@@ -53,7 +62,6 @@ import {
   removeMediaSetEntry,
   reorderMediaSetEntries,
   setPrimaryMediaSetEntry,
-  updateMediaFolderPolicy,
   type MediaFolderUploadPolicy,
   type MediaStorageProviderSummary,
   type MediaSourceContext,
@@ -61,9 +69,27 @@ import {
 } from './api/mediaStoragePolicyClient';
 import { loadImportHistoryForMediaCode } from '../importExport/api/dataReleaseClient';
 import type { ImportRunSummary } from '../importExport/api/dataReleaseContracts';
+import { MediaFolderPolicyActionsPanel } from './components/folders/MediaFolderPolicyActionsPanel';
+import { MediaFolderPolicyImpactPanel } from './components/folders/MediaFolderPolicyImpactPanel';
+import {
+  formatRetentionDays,
+  mediaFolderSummary,
+} from './components/folders/mediaFolderDetails';
+import {
+  MediaMetadataViewer,
+  type MediaMetadataField,
+} from './components/MediaMetadataViewer';
+import { MediaPreview } from './components/MediaPreview';
 import { MediaUploadWizard } from './components/MediaUploadWizard';
 import {
-  defaultFormatForSourceType,
+  displayValue,
+  formatBytes,
+  humanize,
+  numberValue,
+  recordNameOrCodeSummary,
+  textValue,
+} from './mediaRecordValues';
+import {
   folderCodesForSourceType,
   folderUploadPoliciesFromContexts,
   governedMediaSourceTypes,
@@ -75,21 +101,44 @@ import {
 export interface MediaManagementRoutePageProps {
   readonly accessToken: string;
   readonly bootstrap: AxisAuthenticatedBootstrap;
+  readonly mediaDetailPresentation?: MediaDetailPresentation | undefined;
   readonly runtime: AxisRuntimeConfig;
 }
 
+export type MediaDetailSection =
+  | 'actions'
+  | 'preview'
+  | 'usage'
+  | 'importExport'
+  | 'metadata';
+
+export interface MediaDetailPresentation {
+  readonly detailSections?: readonly MediaDetailSection[] | undefined;
+  readonly metadataFields?: readonly MediaMetadataField[] | undefined;
+}
+
+type MediaRecordCrudMode = 'create' | 'delete' | 'edit' | 'none';
+
+const defaultMediaDetailSections: readonly MediaDetailSection[] = Object.freeze([
+  'actions',
+  'preview',
+  'usage',
+  'importExport',
+  'metadata',
+]);
+
 interface MediaRecordColumn {
   readonly label: string;
+  readonly field: string;
+  readonly minWidth?: number | undefined;
   readonly render: (
     record: WorkbenchRecord,
     contexts?: readonly MediaSourceContext[],
   ) => ReactNode;
-}
-
-interface MediaRecordDetail {
-  readonly label: string;
-  readonly key: string;
-  readonly render?: (record: WorkbenchRecord) => string;
+  readonly exportValue?: (
+    record: WorkbenchRecord,
+    contexts?: readonly MediaSourceContext[],
+  ) => string;
 }
 
 interface MediaRecordWorkspaceConfiguration {
@@ -103,7 +152,7 @@ interface MediaRecordWorkspaceConfiguration {
   readonly hiddenPathNotice?: string;
   readonly searchKeys: readonly string[];
   readonly columns: readonly MediaRecordColumn[];
-  readonly details: readonly MediaRecordDetail[];
+  readonly details: readonly MediaMetadataField[];
   readonly summary: (record: WorkbenchRecord) => string;
 }
 
@@ -136,11 +185,8 @@ const sectionSummaries: Readonly<Record<string, string>> = Object.freeze({
     'Inspect backend-published folder upload policy and delivery behavior for the active runtime.',
 });
 
-function humanize(value: string): string {
-  return value
-    .replace(/([a-z0-9])([A-Z])/g, '$1 $2')
-    .replace(/[-_]+/g, ' ')
-    .replace(/\b\w/g, (character) => character.toUpperCase());
+function validEnterpriseCode(value: string): boolean {
+  return /^[A-Za-z][A-Za-z0-9_-]{0,127}$/.test(value.trim());
 }
 
 function findCurrentItem(
@@ -154,45 +200,6 @@ function findCurrentItem(
         (item) => pathname === item.route || pathname.startsWith(`${item.route}/`),
       ) ?? items[0]
   );
-}
-
-function displayValue(value: unknown): string {
-  if (typeof value === 'string' && value.trim()) return value.trim();
-  if (typeof value === 'number' && Number.isFinite(value)) return String(value);
-  if (typeof value === 'boolean') return value ? 'Yes' : 'No';
-  if (Array.isArray(value)) {
-    const values = value
-      .map((item) => displayValue(item))
-      .filter((item) => item !== '—');
-    return values.length ? values.join(', ') : '—';
-  }
-  if (value && typeof value === 'object') {
-    try {
-      return JSON.stringify(value);
-    } catch {
-      return '—';
-    }
-  }
-  return '—';
-}
-
-function textValue(record: WorkbenchRecord | undefined, key: string): string {
-  return displayValue(record?.[key]);
-}
-
-function numberValue(
-  record: WorkbenchRecord | undefined,
-  key: string,
-): number | undefined {
-  const value = record?.[key];
-  return typeof value === 'number' && Number.isFinite(value) ? value : undefined;
-}
-
-function formatBytes(value: number | undefined): string {
-  if (value === undefined) return '—';
-  if (value < 1024) return `${value} B`;
-  if (value < 1024 * 1024) return `${(value / 1024).toFixed(1)} KB`;
-  return `${(value / (1024 * 1024)).toFixed(1)} MB`;
 }
 
 function resolveDeliveryUrl(
@@ -222,19 +229,71 @@ function resolveDownloadUrl(
   return `${connection.endpoint.replace(/\/$/, '')}/v0/download/${encodeURIComponent(code)}`;
 }
 
-function isPublicImage(record: WorkbenchRecord): boolean {
-  return (
-    textValue(record, 'access') === 'PUBLIC' &&
-    textValue(record, 'status') === 'READY' &&
-    textValue(record, 'mimeType').toLowerCase().startsWith('image/')
-  );
+function contentDispositionFileName(value: string | null): string | undefined {
+  if (!value) return undefined;
+  const utf8 = /filename\*=UTF-8''([^;]+)/i.exec(value);
+  if (utf8?.[1]) {
+    try {
+      return decodeURIComponent(utf8[1].trim().replace(/^"|"$/g, ''));
+    } catch {
+      return utf8[1].trim().replace(/^"|"$/g, '');
+    }
+  }
+  return /filename="?([^";]+)"?/i.exec(value)?.[1]?.trim();
 }
 
-function isDeliverable(record: WorkbenchRecord): boolean {
-  return (
-    ['READY', 'CONSUMED'].includes(textValue(record, 'status')) &&
-    textValue(record, 'access') === 'PUBLIC'
+function saveBlob(blob: Blob, fileName: string): void {
+  const objectUrl = URL.createObjectURL(blob);
+  try {
+    const anchor = document.createElement('a');
+    anchor.href = objectUrl;
+    anchor.download = fileName;
+    anchor.rel = 'noreferrer';
+    document.body.append(anchor);
+    anchor.click();
+    anchor.remove();
+  } finally {
+    URL.revokeObjectURL(objectUrl);
+  }
+}
+
+async function downloadMediaRecord(
+  connection: ReturnType<typeof selectModuleConnection>,
+  configuration: WorkbenchClientConfiguration,
+  record: WorkbenchRecord,
+): Promise<string> {
+  const downloadUrl = resolveDownloadUrl(connection, record);
+  if (!downloadUrl) throw new Error('Media download service is unavailable');
+  const controller = new AbortController();
+  const timeout = globalThis.setTimeout(
+    () => controller.abort(),
+    configuration.timeoutMs,
   );
+  try {
+    const response = await fetch(downloadUrl, {
+      method: 'GET',
+      cache: 'no-store',
+      credentials: 'omit',
+      redirect: 'error',
+      signal: controller.signal,
+      headers: {
+        Accept: '*/*',
+        Authorization: `Bearer ${configuration.accessToken}`,
+        'x-enterprise-code': configuration.enterpriseCode,
+      },
+    });
+    if (!response.ok) throw new Error('Media download is unavailable currently');
+    const fileName =
+      contentDispositionFileName(response.headers.get('content-disposition')) ??
+      mediaSummary(record);
+    saveBlob(await response.blob(), fileName);
+    return fileName;
+  } catch (error: unknown) {
+    if (controller.signal.aborted) throw new Error('Media download timed out');
+    throw error instanceof Error ? error : new Error('Media download failed');
+  } finally {
+    globalThis.clearTimeout(timeout);
+  }
 }
 
 function buildRecordQuery(
@@ -243,6 +302,7 @@ function buildRecordQuery(
   filters?: WorkbenchFilterGroup,
   pageNumber = 1,
   pageSize = schema.queryCapabilities.defaultPageSize,
+  sort: WorkbenchRecordQuery['sort'] = schema.queryCapabilities.defaultSort,
 ): WorkbenchRecordQuery {
   const normalizedPageSize = Math.min(
     Math.max(1, pageSize),
@@ -253,7 +313,7 @@ function buildRecordQuery(
     ...(filters ? { filters } : {}),
     pageNumber: Math.max(1, pageNumber),
     pageSize: normalizedPageSize,
-    sort: schema.queryCapabilities.defaultSort,
+    sort,
   });
 }
 
@@ -415,233 +475,6 @@ function uniqueSorted(values: readonly string[]): string[] {
   );
 }
 
-function folderSummary(record: WorkbenchRecord): string {
-  const name = textValue(record, 'name');
-  if (name !== '—') return name;
-  return textValue(record, 'code');
-}
-
-function formatRetentionDays(record: WorkbenchRecord): string {
-  const value = numberValue(record, 'retentionDays');
-  if (value === undefined) return '—';
-  return `${value} day${value === 1 ? '' : 's'}`;
-}
-
-function MediaFolderPolicyImpactPanel(props: { readonly record: WorkbenchRecord }) {
-  const folderCode = textValue(props.record, 'code');
-  const access = humanize(textValue(props.record, 'access'));
-  const maxSize = formatBytes(numberValue(props.record, 'maximumFileSizeBytes'));
-  const retention = formatRetentionDays(props.record);
-  return (
-    <Alert severity="warning">
-      <Stack spacing={0.75}>
-        <Typography sx={{ fontWeight: 700 }}>
-          Folder policy affects future uploads for {folderCode}.
-        </Typography>
-        <Typography variant="body2">
-          nMedia uses this folder policy for upload validation, default visibility,
-          retention, and provider-relative routing. Current policy: visibility {access},
-          max size {maxSize}, retention {retention}.
-        </Typography>
-        <Typography variant="body2">
-          Change folder rules only through backend-authorized media configuration or
-          schema mutations. Axis must not expose provider secrets, raw storage paths, or
-          alternate browser-side upload policy.
-        </Typography>
-      </Stack>
-    </Alert>
-  );
-}
-
-function numericInputValue(record: WorkbenchRecord, key: string): string {
-  const value = numberValue(record, key);
-  return value === undefined ? '' : String(value);
-}
-
-function parseOptionalNonNegativeInteger(value: string): number | undefined {
-  const trimmed = value.trim();
-  if (!trimmed) return undefined;
-  const parsed = Number.parseInt(trimmed, 10);
-  return Number.isSafeInteger(parsed) && parsed >= 0 && String(parsed) === trimmed
-    ? parsed
-    : undefined;
-}
-
-function MediaFolderPolicyActionsPanel(props: {
-  readonly configuration: WorkbenchClientConfiguration;
-  readonly connection: ReturnType<typeof selectModuleConnection>;
-  readonly folderSchema: WorkbenchSchema;
-  readonly onChanged: () => void;
-  readonly record: WorkbenchRecord;
-}) {
-  const [access, setAccess] = useState(textValue(props.record, 'access'));
-  const [maximumFileSizeBytes, setMaximumFileSizeBytes] = useState(
-    numericInputValue(props.record, 'maximumFileSizeBytes'),
-  );
-  const [retentionDays, setRetentionDays] = useState(
-    numericInputValue(props.record, 'retentionDays'),
-  );
-  useEffect(() => {
-    setAccess(textValue(props.record, 'access'));
-    setMaximumFileSizeBytes(numericInputValue(props.record, 'maximumFileSizeBytes'));
-    setRetentionDays(numericInputValue(props.record, 'retentionDays'));
-  }, [props.record]);
-
-  const mutation = useMutation({
-    mutationFn: (model: {
-      readonly access: string;
-      readonly maximumFileSizeBytes?: number | undefined;
-      readonly retentionDays?: number | undefined;
-    }) =>
-      updateMediaFolderPolicy(props.connection!, props.configuration, {
-        folderCode: textValue(props.record, 'code'),
-        ...model,
-      }),
-    onSuccess: () => props.onChanged(),
-  });
-  const canUpdate =
-    Boolean(props.connection) &&
-    props.folderSchema.mutationMode === 'GENERATED_CRUD' &&
-    props.folderSchema.operations.includes('update');
-  const canCreate =
-    Boolean(props.connection) &&
-    props.folderSchema.mutationMode === 'GENERATED_CRUD' &&
-    props.folderSchema.operations.includes('create');
-  const parsedMaximumFileSizeBytes =
-    parseOptionalNonNegativeInteger(maximumFileSizeBytes);
-  const parsedRetentionDays = parseOptionalNonNegativeInteger(retentionDays);
-  const maximumFileSizeInvalid =
-    maximumFileSizeBytes.trim().length > 0 && parsedMaximumFileSizeBytes === undefined;
-  const retentionInvalid =
-    retentionDays.trim().length > 0 && parsedRetentionDays === undefined;
-  const model: {
-    readonly access: string;
-    readonly maximumFileSizeBytes?: number | undefined;
-    readonly retentionDays?: number | undefined;
-  } = {
-    access,
-    maximumFileSizeBytes: parsedMaximumFileSizeBytes,
-    retentionDays: parsedRetentionDays,
-  };
-  const unchanged =
-    access === textValue(props.record, 'access') &&
-    maximumFileSizeBytes === numericInputValue(props.record, 'maximumFileSizeBytes') &&
-    retentionDays === numericInputValue(props.record, 'retentionDays');
-  const saveDisabled =
-    !canUpdate ||
-    unchanged ||
-    mutation.isPending ||
-    maximumFileSizeInvalid ||
-    retentionInvalid;
-
-  return (
-    <Stack spacing={1.5}>
-      <Divider />
-      <Typography component="h4" variant="h6">
-        Folder policy actions
-      </Typography>
-      {!canUpdate ? (
-        <Alert severity="info">
-          Editing is unavailable until nMedia exposes mediaFolder update permission for
-          this employee session. Use backend configuration approved for this deployment.
-        </Alert>
-      ) : (
-        <Alert severity="info">
-          Axis submits folder policy changes through the nMedia folder policy operation.
-          nMedia remains responsible for validation, upload policy, storage routing,
-          provider configuration, and tenant policy.
-        </Alert>
-      )}
-      <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5}>
-        <TextField
-          fullWidth
-          disabled={!canUpdate || mutation.isPending}
-          label="Visibility"
-          select
-          size="small"
-          value={access === '—' ? 'PRIVATE' : access}
-          onChange={(event) => setAccess(event.target.value)}
-        >
-          {['PRIVATE', 'PUBLIC', 'SIGNED'].map((option) => (
-            <MenuItem key={option} value={option}>
-              {humanize(option)}
-            </MenuItem>
-          ))}
-        </TextField>
-        <TextField
-          fullWidth
-          disabled={!canUpdate || mutation.isPending}
-          error={maximumFileSizeInvalid}
-          helperText={
-            maximumFileSizeInvalid
-              ? 'Enter a whole number of bytes or leave blank.'
-              : 'Maximum upload size in bytes.'
-          }
-          label="Maximum file size"
-          size="small"
-          slotProps={{ htmlInput: { min: 0 } }}
-          type="number"
-          value={maximumFileSizeBytes}
-          onChange={(event) => setMaximumFileSizeBytes(event.target.value)}
-        />
-        <TextField
-          fullWidth
-          disabled={!canUpdate || mutation.isPending}
-          error={retentionInvalid}
-          helperText={
-            retentionInvalid
-              ? 'Enter whole retention days or leave blank.'
-              : 'Use 0 for no automatic retention expiry.'
-          }
-          label="Retention days"
-          size="small"
-          slotProps={{ htmlInput: { min: 0 } }}
-          type="number"
-          value={retentionDays}
-          onChange={(event) => setRetentionDays(event.target.value)}
-        />
-      </Stack>
-      <Button
-        disabled={saveDisabled}
-        onClick={() => mutation.mutate(model)}
-        variant="outlined"
-      >
-        Save folder policy
-      </Button>
-      <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1}>
-        <Button
-          component={RouterLink}
-          to="/schema-workbench?module=media&schema=mediaFolder"
-          variant="text"
-        >
-          Open full folder record in Schema Workbench
-        </Button>
-        {canCreate ? (
-          <Button
-            component={RouterLink}
-            to="/schema-workbench?module=media&schema=mediaFolder&mode=create"
-            variant="text"
-          >
-            Create folder in Schema Workbench
-          </Button>
-        ) : null}
-      </Stack>
-      {mutation.error ? (
-        <Alert severity="error">
-          {mutation.error instanceof Error
-            ? mutation.error.message
-            : 'Folder policy update failed.'}
-        </Alert>
-      ) : null}
-      {mutation.data ? (
-        <Alert severity="success">
-          Folder policy was submitted to nMedia and will affect future upload policy.
-        </Alert>
-      ) : null}
-    </Stack>
-  );
-}
-
 function formatDimensions(record: WorkbenchRecord): string {
   const width = numberValue(record, 'width');
   const height = numberValue(record, 'height');
@@ -744,9 +577,12 @@ function MediaSetEntriesPanel(props: {
   readonly error: unknown;
   readonly loading: boolean;
   readonly onChanged: () => void;
-  readonly schemaAvailable: boolean;
+  readonly schema: WorkbenchSchema | undefined;
   readonly setCode: string;
 }) {
+  const [entryColumnKeys, setEntryColumnKeys] = useState<readonly string[]>(
+    Object.freeze([]),
+  );
   const sortedEntries = useMemo(
     () =>
       [...props.entries].sort((left, right) => {
@@ -789,7 +625,7 @@ function MediaSetEntriesPanel(props: {
     onSuccess: () => props.onChanged(),
   });
   const canOperate =
-    Boolean(props.connection) && props.schemaAvailable && props.setCode !== '—';
+    Boolean(props.connection) && Boolean(props.schema) && props.setCode !== '—';
   const busy =
     reorderMutation.isPending || primaryMutation.isPending || removeMutation.isPending;
   const operationError =
@@ -806,6 +642,111 @@ function MediaSetEntriesPanel(props: {
     entryCodes.splice(nextIndex, 0, entry);
     reorderMutation.mutate(entryCodes);
   };
+  const entryFieldRenderers = useMemo<
+    Readonly<Record<string, AxisSchemaFieldRenderer>>
+  >(
+    () =>
+      Object.freeze({
+        deviceCode: Object.freeze({
+          label: 'Device',
+          render: (entry: WorkbenchRecord) => (
+            <>
+              {textValue(entry, 'deviceCode')}
+              {textValue(entry, 'breakpointCode') !== '—'
+                ? ` / ${textValue(entry, 'breakpointCode')}`
+                : ''}
+            </>
+          ),
+          exportValue: (entry: WorkbenchRecord) => {
+            const device = textValue(entry, 'deviceCode');
+            const breakpoint = textValue(entry, 'breakpointCode');
+            return breakpoint === '—' ? device : `${device} / ${breakpoint}`;
+          },
+        }),
+        status: Object.freeze({
+          render: (entry: WorkbenchRecord) => (
+            <Stack direction="row" spacing={0.5} sx={{ flexWrap: 'wrap' }}>
+              <Chip
+                color={textValue(entry, 'status') === 'ACTIVE' ? 'success' : 'default'}
+                label={textValue(entry, 'status')}
+                size="small"
+              />
+              {entry.primary === true ? (
+                <Chip color="primary" label="Primary" size="small" />
+              ) : null}
+            </Stack>
+          ),
+          exportValue: (entry: WorkbenchRecord) =>
+            entry.primary === true
+              ? `${textValue(entry, 'status')} Primary`
+              : textValue(entry, 'status'),
+        }),
+      }),
+    [],
+  );
+  const entryActionColumns = useMemo<readonly AxisDataListingColumn<WorkbenchRecord>[]>(
+    () =>
+      Object.freeze([
+        {
+          key: '__actions',
+          label: 'Actions',
+          exportable: false,
+          minWidth: 260,
+          render: (entry, index) => {
+            const code = textValue(entry, 'code');
+            return (
+              <Stack direction="row" spacing={0.5} sx={{ flexWrap: 'wrap' }}>
+                <Button
+                  disabled={!canOperate || busy || index === 0}
+                  size="small"
+                  onClick={() => moveEntry(code, -1)}
+                >
+                  Up
+                </Button>
+                <Button
+                  disabled={!canOperate || busy || index === sortedEntries.length - 1}
+                  size="small"
+                  onClick={() => moveEntry(code, 1)}
+                >
+                  Down
+                </Button>
+                <Button
+                  disabled={!canOperate || busy || entry.primary === true}
+                  size="small"
+                  onClick={() => primaryMutation.mutate(code)}
+                >
+                  Set primary
+                </Button>
+                <Button
+                  color="warning"
+                  disabled={!canOperate || busy}
+                  size="small"
+                  onClick={() => removeMutation.mutate(code)}
+                >
+                  Remove
+                </Button>
+              </Stack>
+            );
+          },
+        },
+      ]),
+    [busy, canOperate, sortedEntries.length],
+  );
+  const defaultEntryColumnKeys = useMemo(
+    () =>
+      Object.freeze([
+        'position',
+        'mediaCode',
+        'formatCode',
+        'variantRole',
+        'localeCode',
+        'channelCode',
+        'deviceCode',
+        'fallbackEntryCode',
+        'status',
+      ]),
+    [],
+  );
 
   return (
     <Stack spacing={1.5}>
@@ -830,7 +771,7 @@ function MediaSetEntriesPanel(props: {
         metadata. Product and CMS modules decide where a media set is used.
       </Alert>
 
-      {!props.schemaAvailable ? (
+      {!props.schema ? (
         <Alert severity="warning">
           The authorized media set-entry schema is not available for this employee
           session.
@@ -848,113 +789,34 @@ function MediaSetEntriesPanel(props: {
             ? props.error.message
             : 'Media set variants are unavailable.'}
         </Alert>
-      ) : sortedEntries.length === 0 ? (
-        <Alert severity="info">
-          No variants are currently linked to this media set.
-        </Alert>
       ) : (
-        <Box
-          sx={{
-            border: 1,
-            borderColor: 'divider',
-            borderRadius: 2,
-            overflowX: 'auto',
+        <AxisSchemaDataListing
+          ariaLabel="Media set variants"
+          columnsLabel="Columns"
+          defaultVisibleColumnKeys={defaultEntryColumnKeys}
+          emptyMessage="No variants are currently linked to this media set."
+          exportFileName={`axis-media-set-${props.setCode}-variants`}
+          fieldRenderers={entryFieldRenderers}
+          getRowKey={(entry, index) => {
+            const code = textValue(entry, 'code');
+            return code === '—' ? `media-set-entry-${String(index)}` : code;
           }}
-        >
-          <Table size="small">
-            <TableHead>
-              <TableRow>
-                <TableCell>Position</TableCell>
-                <TableCell>Media</TableCell>
-                <TableCell>Format</TableCell>
-                <TableCell>Role</TableCell>
-                <TableCell>Locale</TableCell>
-                <TableCell>Channel</TableCell>
-                <TableCell>Device</TableCell>
-                <TableCell>Fallback</TableCell>
-                <TableCell>Dimensions</TableCell>
-                <TableCell>Status</TableCell>
-                <TableCell>Actions</TableCell>
-              </TableRow>
-            </TableHead>
-            <TableBody>
-              {sortedEntries.map((entry, index) => {
-                const code = textValue(entry, 'code');
-                return (
-                  <TableRow key={code}>
-                    <TableCell>{textValue(entry, 'position')}</TableCell>
-                    <TableCell sx={{ overflowWrap: 'anywhere' }}>
-                      {textValue(entry, 'mediaCode')}
-                    </TableCell>
-                    <TableCell>{textValue(entry, 'formatCode')}</TableCell>
-                    <TableCell>{textValue(entry, 'variantRole')}</TableCell>
-                    <TableCell>{textValue(entry, 'localeCode')}</TableCell>
-                    <TableCell>{textValue(entry, 'channelCode')}</TableCell>
-                    <TableCell>
-                      {textValue(entry, 'deviceCode')}
-                      {textValue(entry, 'breakpointCode') !== '—'
-                        ? ` / ${textValue(entry, 'breakpointCode')}`
-                        : ''}
-                    </TableCell>
-                    <TableCell>{textValue(entry, 'fallbackEntryCode')}</TableCell>
-                    <TableCell>{formatDimensions(entry)}</TableCell>
-                    <TableCell>
-                      <Stack direction="row" spacing={0.5} sx={{ flexWrap: 'wrap' }}>
-                        <Chip
-                          color={
-                            textValue(entry, 'status') === 'ACTIVE'
-                              ? 'success'
-                              : 'default'
-                          }
-                          label={textValue(entry, 'status')}
-                          size="small"
-                        />
-                        {entry.primary === true ? (
-                          <Chip color="primary" label="Primary" size="small" />
-                        ) : null}
-                      </Stack>
-                    </TableCell>
-                    <TableCell>
-                      <Stack direction="row" spacing={0.5} sx={{ flexWrap: 'wrap' }}>
-                        <Button
-                          disabled={!canOperate || busy || index === 0}
-                          size="small"
-                          onClick={() => moveEntry(code, -1)}
-                        >
-                          Up
-                        </Button>
-                        <Button
-                          disabled={
-                            !canOperate || busy || index === sortedEntries.length - 1
-                          }
-                          size="small"
-                          onClick={() => moveEntry(code, 1)}
-                        >
-                          Down
-                        </Button>
-                        <Button
-                          disabled={!canOperate || busy || entry.primary === true}
-                          size="small"
-                          onClick={() => primaryMutation.mutate(code)}
-                        >
-                          Set primary
-                        </Button>
-                        <Button
-                          color="warning"
-                          disabled={!canOperate || busy}
-                          size="small"
-                          onClick={() => removeMutation.mutate(code)}
-                        >
-                          Remove
-                        </Button>
-                      </Stack>
-                    </TableCell>
-                  </TableRow>
-                );
-              })}
-            </TableBody>
-          </Table>
-        </Box>
+          maxBodyHeight={420}
+          minTableWidth={1100}
+          records={sortedEntries}
+          schema={props.schema}
+          size="small"
+          toolbarStart={
+            <Typography color="text.secondary" variant="body2">
+              Variant fields come from the media set-entry backend schema.
+            </Typography>
+          }
+          trailingColumns={entryActionColumns}
+          visibleColumnKeys={entryColumnKeys}
+          onColumnKeysChange={(columnKeys) =>
+            setEntryColumnKeys(Object.freeze([...columnKeys]))
+          }
+        />
       )}
       <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1}>
         <Button
@@ -1012,7 +874,7 @@ function StorageDeliveryPolicyPanel(props: {
                 Storage and delivery policy
               </Typography>
               <Typography color="text.secondary">
-                Read-only view of media upload constraints and delivery entry points.
+                Review upload limits, providers, and delivery endpoint.
               </Typography>
             </Box>
             <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap' }}>
@@ -1024,16 +886,8 @@ function StorageDeliveryPolicyPanel(props: {
                     : 'Media service unavailable'
                 }
               />
-              <Chip label="Paths hidden" />
-              <Chip label="Provider secrets hidden" />
             </Stack>
           </Stack>
-
-          <Alert severity="info">
-            Axis does not resolve storage locations on this screen. The media service
-            owns provider selection, key generation, absolute paths, upload validation,
-            and delivery authorization.
-          </Alert>
 
           {props.providerSummaryLoading ? (
             <Stack direction="row" spacing={1.5} sx={{ alignItems: 'center' }}>
@@ -1065,11 +919,7 @@ function StorageDeliveryPolicyPanel(props: {
                 >
                   <Box>
                     <Typography component="h3" variant="h6">
-                      Provider operations
-                    </Typography>
-                    <Typography color="text.secondary" variant="body2">
-                      Safe provider metadata published by nMedia. Paths, buckets,
-                      certificates, and credentials remain hidden.
+                      Providers
                     </Typography>
                   </Box>
                   <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap' }}>
@@ -1143,10 +993,6 @@ function StorageDeliveryPolicyPanel(props: {
                     </Grid>
                   ))}
                 </Grid>
-                <Alert severity="success">
-                  Hidden values confirmed: provider summaries set secret and raw path
-                  hiding flags. Axis does not offer provider credential controls.
-                </Alert>
               </Stack>
             </Box>
           ) : null}
@@ -1267,27 +1113,13 @@ function StorageDeliveryPolicyPanel(props: {
                         }}
                         variant="caption"
                       >
-                        What is intentionally hidden
+                        Backend controlled
                       </Typography>
-                      <Stack component="ul" spacing={1} sx={{ mb: 0, mt: 1, pl: 2.5 }}>
-                        <Typography component="li" variant="body2">
-                          Local, NAS, or cloud absolute storage paths.
-                        </Typography>
-                        <Typography component="li" variant="body2">
-                          Provider credentials, buckets, certificates, and signed URL
-                          secrets.
-                        </Typography>
-                        <Typography component="li" variant="body2">
-                          Resolved write locations, because they belong to upload
-                          execution.
-                        </Typography>
-                      </Stack>
+                      <Typography color="text.secondary" variant="body2">
+                        nMedia owns storage paths, provider credentials, key generation,
+                        and delivery authorization.
+                      </Typography>
                     </Box>
-                    <Alert severity="success">
-                      Partners customize storage in media service configuration and
-                      provider services. Axis updates automatically when the media
-                      service publishes safe policy metadata.
-                    </Alert>
                   </Stack>
                 </Box>
               </Grid>
@@ -1300,18 +1132,13 @@ function StorageDeliveryPolicyPanel(props: {
 }
 
 function MediaDeliveryPreviewPanel(props: {
+  readonly accessToken: string;
   readonly connection: ReturnType<typeof selectModuleConnection>;
   readonly record: WorkbenchRecord;
 }) {
   const deliveryUrl = resolveDeliveryUrl(props.connection, props.record);
   const downloadUrl = resolveDownloadUrl(props.connection, props.record);
   const originalFileName = mediaSummary(props.record);
-  const access = textValue(props.record, 'access');
-  const status = textValue(props.record, 'status');
-  const mimeType = textValue(props.record, 'mimeType');
-  const previewable = Boolean(deliveryUrl && isPublicImage(props.record));
-  const deliverable = Boolean(deliveryUrl && isDeliverable(props.record));
-  const downloadable = Boolean(downloadUrl && isDeliverable(props.record));
 
   return (
     <Box
@@ -1320,82 +1147,24 @@ function MediaDeliveryPreviewPanel(props: {
         borderColor: 'divider',
         borderRadius: 2,
         overflow: 'hidden',
+        p: 2,
       }}
     >
-      {previewable ? (
-        <Box
-          component="img"
-          src={deliveryUrl}
-          alt={originalFileName === '—' ? 'Media preview' : originalFileName}
-          sx={{
-            bgcolor: 'action.hover',
-            display: 'block',
-            maxHeight: 260,
-            objectFit: 'contain',
-            width: '100%',
-          }}
-        />
-      ) : (
-        <Box
-          sx={{
-            bgcolor: 'action.hover',
-            p: 3,
-            textAlign: 'center',
-          }}
-        >
-          <ShellIcon
-            color="action"
-            name={mimeType.startsWith('image/') ? 'media' : 'content'}
-          />
-          <Typography sx={{ mt: 1, fontWeight: 700 }}>
-            {mimeType.startsWith('image/')
-              ? 'Preview is not available'
-              : 'No inline preview for this file type'}
-          </Typography>
-          <Typography color="text.secondary" variant="body2">
-            {access === 'PUBLIC'
-              ? 'Use the media delivery action below.'
-              : 'This media item is not public. The media service will require signed or private delivery support before Axis can open it directly.'}
-          </Typography>
-        </Box>
-      )}
-      <Stack spacing={1.5} sx={{ p: 2 }}>
-        <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap' }}>
-          <Chip label={`Visibility: ${humanize(access)}`} size="small" />
-          <Chip label={`Status: ${status}`} size="small" />
-          <Chip label={`MIME: ${mimeType}`} size="small" />
-        </Stack>
-        <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1}>
-          <Button
-            component="a"
-            disabled={!deliverable}
-            href={deliverable ? deliveryUrl : undefined}
-            rel="noreferrer"
-            target="_blank"
-            variant="outlined"
-          >
-            Open through media delivery
-          </Button>
-          <Button
-            component="a"
-            disabled={!downloadable}
-            download={originalFileName === '—' ? undefined : originalFileName}
-            href={downloadable ? downloadUrl : undefined}
-            rel="noreferrer"
-            target="_blank"
-            variant="text"
-          >
-            Download
-          </Button>
-        </Stack>
-        {!deliverable ? (
-          <Alert severity="info">
-            This media item is not currently available for direct browser delivery. The
-            media service will reject direct delivery until backend access and lifecycle
-            policy allows it.
-          </Alert>
-        ) : null}
-      </Stack>
+      <MediaPreview
+        access={textValue(props.record, 'access')}
+        accessToken={props.accessToken}
+        deliveryUrl={deliveryUrl}
+        downloadUrl={downloadUrl}
+        extension={textValue(props.record, 'extension')}
+        fileName={
+          originalFileName === '—' ? textValue(props.record, 'code') : originalFileName
+        }
+        formatBytes={formatBytes}
+        mimeType={textValue(props.record, 'mimeType')}
+        sizeBytes={numberValue(props.record, 'sizeBytes')}
+        source="record"
+        status={textValue(props.record, 'status')}
+      />
     </Box>
   );
 }
@@ -1410,7 +1179,7 @@ function MediaUsageSummaryPanel(props: {
     (record) => textValue(record, 'status') === 'ACTIVE',
   ).length;
   return (
-    <Stack spacing={1.5}>
+    <Stack spacing={1.25}>
       <Divider />
       <Stack
         direction={{ xs: 'column', sm: 'row' }}
@@ -1420,9 +1189,6 @@ function MediaUsageSummaryPanel(props: {
         <Box>
           <Typography component="h4" variant="h6">
             Usage
-          </Typography>
-          <Typography color="text.secondary" variant="body2">
-            References recorded by the media service for this media code.
           </Typography>
         </Box>
         <Button
@@ -1453,9 +1219,21 @@ function MediaUsageSummaryPanel(props: {
           {activeCount === 1 ? '' : 's'}. Review usage before retiring or replacing it.
         </Alert>
       ) : (
-        <Alert severity="success">
-          No active usage references were found for this media item.
-        </Alert>
+        <Stack
+          direction="row"
+          spacing={1.25}
+          sx={{
+            alignItems: 'center',
+            bgcolor: 'rgba(20, 121, 75, 0.08)',
+            borderRadius: 1.5,
+            color: 'success.dark',
+            px: 1.5,
+            py: 1.25,
+          }}
+        >
+          <ShellIcon color="success" name="health" />
+          <Typography variant="body2">No active usage references found.</Typography>
+        </Stack>
       )}
     </Stack>
   );
@@ -1470,70 +1248,28 @@ function MediaImportExportLinkagePanel(props: {
   readonly record: WorkbenchRecord;
   readonly usageRecords: readonly WorkbenchRecord[];
 }) {
-  const folderCode = textValue(props.record, 'folderCode');
-  const formatCode = textValue(props.record, 'formatCode');
   const importExportReferences = props.usageRecords.filter((record) =>
     ['import', 'export', 'nImport', 'nExport'].includes(
       textValue(record, 'ownerModule'),
     ),
   );
+  const hasImportHistory = props.importHistory.length > 0;
+  const hasReferences = importExportReferences.length > 0;
+  const shouldShow =
+    hasImportHistory || hasReferences || props.loading || Boolean(props.error);
+  if (!shouldShow) return null;
   return (
     <Stack spacing={1.5}>
       <Divider />
-      <Stack
-        direction={{ xs: 'column', sm: 'row' }}
-        spacing={1}
-        sx={{ alignItems: { sm: 'center' }, justifyContent: 'space-between' }}
-      >
-        <Box>
-          <Typography component="h4" variant="h6">
-            Import/export linkage
-          </Typography>
-          <Typography color="text.secondary" variant="body2">
-            Read-only linkage between this media record, nImport run history, and media
-            reference traces.
-          </Typography>
-        </Box>
-        <Button
-          component={RouterLink}
-          size="small"
-          to="/import-export?area=history"
-          variant="outlined"
-        >
-          Open import/export
-        </Button>
-      </Stack>
-      <Alert severity="info">
-        Media Management does not mutate owner records. Product, CMS, import, and export
-        modules remain authoritative for their own business state.
-      </Alert>
-      <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap' }}>
-        <Chip label={`Folder: ${folderCode}`} size="small" />
-        <Chip label={`Format: ${formatCode}`} size="small" />
-        <Chip
-          color={folderCode === 'importSources' ? 'primary' : 'default'}
-          label={
-            folderCode === 'importSources'
-              ? 'Import source candidate'
-              : 'Not an import source folder'
-          }
-          size="small"
-        />
-        <Chip
-          color={folderCode === 'exportFiles' ? 'primary' : 'default'}
-          label={
-            folderCode === 'exportFiles'
-              ? 'Export file candidate'
-              : 'Not an export output folder'
-          }
-          size="small"
-        />
-      </Stack>
+      <Typography component="h4" variant="h6">
+        Import/export linkage
+      </Typography>
       {!props.importConnectionAvailable ? (
-        <Alert severity="warning">
-          nImport is not available in the current BackOffice registry response, so
-          import run history cannot be checked for {props.mediaCode}.
-        </Alert>
+        hasImportHistory || hasReferences ? (
+          <Typography color="text.secondary" variant="body2">
+            Import history is not available from the current BackOffice registry.
+          </Typography>
+        ) : null
       ) : props.loading ? (
         <Stack direction="row" spacing={1.5} sx={{ alignItems: 'center' }}>
           <CircularProgress size={20} />
@@ -1575,11 +1311,7 @@ function MediaImportExportLinkagePanel(props: {
             </Box>
           ))}
         </Stack>
-      ) : (
-        <Alert severity="success">
-          No nImport run history was found for media code {props.mediaCode}.
-        </Alert>
-      )}
+      ) : null}
       {importExportReferences.length > 0 ? (
         <Box>
           <Typography sx={{ fontWeight: 700 }} variant="body2">
@@ -1600,18 +1332,20 @@ function MediaImportExportLinkagePanel(props: {
             ))}
           </Stack>
         </Box>
-      ) : (
+      ) : !hasImportHistory && !props.loading && !props.error ? (
         <Typography color="text.secondary" variant="body2">
-          No import/export mediaReference trace is attached to this media item yet.
+          No import/export linkage found for this media item.
         </Typography>
-      )}
+      ) : null}
     </Stack>
   );
 }
 
-function MediaLifecycleActionsPanel(props: {
+function SelectedMediaHeaderActions(props: {
   readonly configuration: WorkbenchClientConfiguration;
   readonly connection: ReturnType<typeof selectModuleConnection>;
+  readonly importHistory: readonly ImportRunSummary[];
+  readonly importHistoryLoading: boolean;
   readonly mediaSchema: WorkbenchSchema;
   readonly onChanged: () => void;
   readonly record: WorkbenchRecord;
@@ -1621,7 +1355,7 @@ function MediaLifecycleActionsPanel(props: {
   const activeUsageCount = props.usageRecords.filter(
     (record) => textValue(record, 'status') === 'ACTIVE',
   ).length;
-  const mutation = useMutation({
+  const lifecycleMutation = useMutation({
     mutationFn: (nextStatus: string) =>
       updateWorkbenchRecord(
         props.connection!,
@@ -1632,62 +1366,268 @@ function MediaLifecycleActionsPanel(props: {
       ),
     onSuccess: () => props.onChanged(),
   });
+  const download = useMutation({
+    mutationFn: () =>
+      downloadMediaRecord(props.connection, props.configuration, props.record),
+  });
   const canUpdate =
     Boolean(props.connection) &&
     props.mediaSchema.mutationMode === 'GENERATED_CRUD' &&
     props.mediaSchema.operations.includes('update');
+  const isExportFile = textValue(props.record, 'folderCode') === 'exportFiles';
+  const hasImportExportHistory = props.importHistory.length > 0;
+  const showHistory =
+    isExportFile || hasImportExportHistory || props.importHistoryLoading;
   const retireDisabled =
     !canUpdate ||
-    mutation.isPending ||
+    lifecycleMutation.isPending ||
     activeUsageCount > 0 ||
     ['RETIRED', 'EXPIRED', 'FAILED'].includes(status);
   const restoreDisabled =
     !canUpdate ||
-    mutation.isPending ||
+    lifecycleMutation.isPending ||
     !['RETIRED', 'EXPIRED', 'FAILED'].includes(status);
+
+  return (
+    <Stack spacing={1}>
+      <Stack
+        direction="row"
+        spacing={1}
+        sx={{ alignItems: 'center', flexWrap: 'wrap', justifyContent: 'flex-end' }}
+      >
+        <Button
+          disabled={download.isPending}
+          onClick={() => download.mutate()}
+          size="small"
+          variant="contained"
+        >
+          {download.isPending ? 'Downloading…' : 'Download'}
+        </Button>
+        {showHistory ? (
+          <Button
+            component={RouterLink}
+            size="small"
+            to="/operations/imports-exports?area=history"
+            variant="outlined"
+          >
+            History
+          </Button>
+        ) : null}
+        <Button
+          color="warning"
+          disabled={retireDisabled}
+          onClick={() => lifecycleMutation.mutate('RETIRED')}
+          size="small"
+          variant="outlined"
+        >
+          Retire
+        </Button>
+        {status !== 'READY' ? (
+          <Button
+            disabled={restoreDisabled}
+            onClick={() => lifecycleMutation.mutate('READY')}
+            size="small"
+            variant="outlined"
+          >
+            Restore
+          </Button>
+        ) : null}
+      </Stack>
+      {download.error ? (
+        <Alert severity="warning">
+          {download.error instanceof Error
+            ? download.error.message
+            : 'Media download is unavailable currently'}
+        </Alert>
+      ) : null}
+      {lifecycleMutation.error ? (
+        <Alert severity="error">
+          {lifecycleMutation.error instanceof Error
+            ? lifecycleMutation.error.message
+            : 'Media lifecycle update failed.'}
+        </Alert>
+      ) : null}
+      {activeUsageCount > 0 && canUpdate ? (
+        <Typography color="text.secondary" variant="caption">
+          Retire is disabled while this media is actively referenced.
+        </Typography>
+      ) : null}
+      {lifecycleMutation.data ? (
+        <Alert severity="success">Media lifecycle status was updated.</Alert>
+      ) : null}
+    </Stack>
+  );
+}
+
+function schemaRecordLabel(configuration: MediaRecordWorkspaceConfiguration): string {
+  return configuration.title.replace(/^Media\s+/i, '').replace(/s$/i, '');
+}
+
+function SchemaRecordManagementPanel(props: {
+  readonly configuration: WorkbenchClientConfiguration;
+  readonly connection: ReturnType<typeof selectModuleConnection>;
+  readonly mode: MediaRecordCrudMode;
+  readonly onChanged: (record?: WorkbenchRecord | undefined) => void;
+  readonly onModeChange: (mode: MediaRecordCrudMode) => void;
+  readonly record?: WorkbenchRecord | undefined;
+  readonly schema: WorkbenchSchema;
+  readonly workspaceConfiguration: MediaRecordWorkspaceConfiguration;
+}) {
+  const label = schemaRecordLabel(props.workspaceConfiguration);
+  const createMutation = useMutation({
+    mutationFn: (model: Readonly<Record<string, unknown>>) =>
+      createWorkbenchRecord(
+        props.connection!,
+        props.schema,
+        model,
+        props.configuration,
+      ),
+    onSuccess: (created) => {
+      props.onModeChange('none');
+      props.onChanged(created);
+    },
+  });
+  const updateMutation = useMutation({
+    mutationFn: (model: Readonly<Record<string, unknown>>) =>
+      updateWorkbenchRecord(
+        props.connection!,
+        props.schema,
+        props.record!,
+        model,
+        props.configuration,
+      ),
+    onSuccess: (updated) => {
+      props.onModeChange('none');
+      props.onChanged(updated);
+    },
+  });
+  const deleteMutation = useMutation({
+    mutationFn: () =>
+      deleteWorkbenchRecord(
+        props.connection!,
+        props.schema,
+        props.record!,
+        props.configuration,
+      ),
+    onSuccess: () => {
+      props.onModeChange('none');
+      props.onChanged(undefined);
+    },
+  });
+  const canCrud =
+    Boolean(props.connection) && props.schema.mutationMode === 'GENERATED_CRUD';
+  const canCreate = canCrud && props.schema.operations.includes('create');
+  const canUpdate =
+    canCrud && Boolean(props.record) && props.schema.operations.includes('update');
+  const canDelete =
+    canCrud && Boolean(props.record) && props.schema.operations.includes('delete');
+  const hasActions = canCreate || canUpdate || canDelete;
+
+  if (!hasActions) return null;
 
   return (
     <Stack spacing={1.5}>
       <Divider />
-      <Typography component="h4" variant="h6">
-        Lifecycle actions
-      </Typography>
-      {!canUpdate ? (
-        <Alert severity="info">
-          This employee session does not expose generated update permission for media
-          lifecycle changes.
-        </Alert>
-      ) : activeUsageCount > 0 ? (
-        <Alert severity="warning">
-          Retire is disabled while this media item has active usage references.
-        </Alert>
-      ) : null}
-      <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1}>
-        <Button
-          color="warning"
-          disabled={retireDisabled}
-          onClick={() => mutation.mutate('RETIRED')}
-          variant="outlined"
-        >
-          Retire media
-        </Button>
-        <Button
-          disabled={restoreDisabled}
-          onClick={() => mutation.mutate('READY')}
-          variant="outlined"
-        >
-          Restore to ready
-        </Button>
+      <Stack
+        direction={{ xs: 'column', md: 'row' }}
+        spacing={1}
+        sx={{ alignItems: { xs: 'stretch', md: 'center' } }}
+      >
+        <Typography component="h4" sx={{ flex: 1, fontWeight: 700 }} variant="h6">
+          {props.workspaceConfiguration.title} management
+        </Typography>
+        {canCreate ? (
+          <Button
+            variant={props.mode === 'create' ? 'contained' : 'outlined'}
+            onClick={() =>
+              props.onModeChange(props.mode === 'create' ? 'none' : 'create')
+            }
+          >
+            Create {label}
+          </Button>
+        ) : null}
+        {canUpdate ? (
+          <Button
+            variant={props.mode === 'edit' ? 'contained' : 'outlined'}
+            onClick={() => props.onModeChange(props.mode === 'edit' ? 'none' : 'edit')}
+          >
+            Edit {label}
+          </Button>
+        ) : null}
+        {canDelete ? (
+          <Button
+            color="error"
+            variant={props.mode === 'delete' ? 'contained' : 'outlined'}
+            onClick={() =>
+              props.onModeChange(props.mode === 'delete' ? 'none' : 'delete')
+            }
+          >
+            Delete {label}
+          </Button>
+        ) : null}
       </Stack>
-      {mutation.error ? (
-        <Alert severity="error">
-          {mutation.error instanceof Error
-            ? mutation.error.message
-            : 'Media lifecycle update failed.'}
+      {props.mode === 'create' && canCreate ? (
+        <WorkbenchRecordForm
+          embedded
+          cancelLabel="Cancel"
+          error={createMutation.error?.message}
+          saving={createMutation.isPending}
+          savingLabel={`Creating ${label}…`}
+          schema={props.schema}
+          submitLabel={`Create ${label}`}
+          title={`Create ${props.workspaceConfiguration.title.toLowerCase()}`}
+          onCancel={() => props.onModeChange('none')}
+          onSubmit={(model) => createMutation.mutate(model)}
+        />
+      ) : null}
+      {props.mode === 'edit' && props.record && canUpdate ? (
+        <WorkbenchRecordForm
+          embedded
+          cancelLabel="Cancel"
+          error={updateMutation.error?.message}
+          initialModel={props.record}
+          saving={updateMutation.isPending}
+          savingLabel={`Saving ${label}…`}
+          schema={props.schema}
+          submitLabel={`Save ${label}`}
+          title={`Edit ${textValue(props.record, 'code')}`}
+          onCancel={() => props.onModeChange('none')}
+          onSubmit={(model) => updateMutation.mutate(model)}
+        />
+      ) : null}
+      {props.mode === 'delete' && props.record && canDelete ? (
+        <Alert
+          action={
+            <Stack direction="row" spacing={1}>
+              <Button
+                color="inherit"
+                disabled={deleteMutation.isPending}
+                onClick={() => props.onModeChange('none')}
+              >
+                Cancel
+              </Button>
+              <Button
+                color="error"
+                disabled={deleteMutation.isPending}
+                variant="contained"
+                onClick={() => deleteMutation.mutate()}
+              >
+                Delete
+              </Button>
+            </Stack>
+          }
+          severity="warning"
+        >
+          Delete {label} {textValue(props.record, 'code')}? The backend remains
+          responsible for rejecting unsafe deletes.
         </Alert>
       ) : null}
-      {mutation.data ? (
-        <Alert severity="success">Media lifecycle status was updated.</Alert>
+      {deleteMutation.error ? (
+        <Alert severity="error">
+          {deleteMutation.error instanceof Error
+            ? deleteMutation.error.message
+            : `${label} deletion failed.`}
+        </Alert>
       ) : null}
     </Stack>
   );
@@ -1723,6 +1663,8 @@ const recordWorkspaceConfigurations: Readonly<
     columns: [
       {
         label: 'Media',
+        field: 'code',
+        minWidth: 280,
         render: (record) => (
           <Box>
             <Typography sx={{ fontWeight: 700 }}>{mediaSummary(record)}</Typography>
@@ -1734,21 +1676,25 @@ const recordWorkspaceConfigurations: Readonly<
       },
       {
         label: 'Source type',
+        field: 'folderCode',
         render: (record, contexts) =>
           mediaSourceType(textValue(record, 'folderCode'), contexts),
       },
       {
         label: 'Format',
+        field: 'formatCode',
         render: (record) => mediaFormatLabel(textValue(record, 'formatCode')),
       },
       {
         label: 'Visibility',
+        field: 'access',
         render: (record) => (
           <Chip label={humanize(textValue(record, 'access'))} size="small" />
         ),
       },
       {
         label: 'Status',
+        field: 'status',
         render: (record) => (
           <Chip
             color={textValue(record, 'status') === 'READY' ? 'success' : 'default'}
@@ -1759,6 +1705,7 @@ const recordWorkspaceConfigurations: Readonly<
       },
       {
         label: 'Size',
+        field: 'sizeBytes',
         render: (record) => formatBytes(numberValue(record, 'sizeBytes')),
       },
     ],
@@ -1775,13 +1722,11 @@ const recordWorkspaceConfigurations: Readonly<
   'media-folders': {
     schemaName: 'mediaFolder',
     title: 'Media folders',
-    description:
-      'Review purpose-based folder policy through the media service. Axis shows folder rules but does not decide storage routing.',
+    description: 'Create and manage purpose-based folders for governed media.',
     recordCountLabel: 'folders',
-    searchPlaceholder:
-      'Search by folder code, name, storage prefix, visibility, extension, or MIME policy',
-    emptyMessage: 'No media folders match the current search.',
-    detailEmptyMessage: 'Select a media folder to review governed folder policy.',
+    searchPlaceholder: 'Search folders',
+    emptyMessage: 'No folders found.',
+    detailEmptyMessage: 'Select a folder or create a new one.',
     hiddenPathNotice:
       'Folder storage policy remains backend-owned. Axis shows configured rules, not resolved absolute file locations.',
     searchKeys: [
@@ -1793,13 +1738,16 @@ const recordWorkspaceConfigurations: Readonly<
       'allowedExtensions',
       'allowedMimeTypes',
     ],
-    summary: folderSummary,
+    summary: recordNameOrCodeSummary,
     columns: [
       {
         label: 'Folder',
+        field: 'code',
         render: (record) => (
           <Box>
-            <Typography sx={{ fontWeight: 700 }}>{folderSummary(record)}</Typography>
+            <Typography sx={{ fontWeight: 700 }}>
+              {recordNameOrCodeSummary(record)}
+            </Typography>
             <Typography color="text.secondary" variant="body2">
               {textValue(record, 'code')}
             </Typography>
@@ -1808,19 +1756,22 @@ const recordWorkspaceConfigurations: Readonly<
       },
       {
         label: 'Storage prefix',
+        field: 'storagePrefix',
         render: (record) => textValue(record, 'storagePrefix'),
       },
       {
         label: 'Visibility',
+        field: 'access',
         render: (record) => (
           <Chip label={humanize(textValue(record, 'access'))} size="small" />
         ),
       },
       {
         label: 'Max size',
+        field: 'maximumFileSizeBytes',
         render: (record) => formatBytes(numberValue(record, 'maximumFileSizeBytes')),
       },
-      { label: 'Retention', render: formatRetentionDays },
+      { label: 'Retention', field: 'retentionDays', render: formatRetentionDays },
     ],
     details: [
       { label: 'Code', key: 'code' },
@@ -1845,13 +1796,11 @@ const recordWorkspaceConfigurations: Readonly<
   'media-formats': {
     schemaName: 'mediaFormat',
     title: 'Media formats',
-    description:
-      'Review reusable media presentation and processing formats through the media service, such as original, thumbnail, desktop, mobile, zoom, or import file.',
+    description: 'Manage reusable media formats and presentation variants.',
     recordCountLabel: 'formats',
-    searchPlaceholder:
-      'Search by format code, name, purpose, description, or dimensions',
-    emptyMessage: 'No media formats match the current search.',
-    detailEmptyMessage: 'Select a media format to review governed format policy.',
+    searchPlaceholder: 'Search formats',
+    emptyMessage: 'No formats found.',
+    detailEmptyMessage: 'Select a format to review details.',
     hiddenPathNotice:
       'Formats describe how media may be presented or processed. They do not store files and do not replace frontend rendering rules.',
     searchKeys: [
@@ -1864,29 +1813,38 @@ const recordWorkspaceConfigurations: Readonly<
       'width',
       'height',
     ],
-    summary: folderSummary,
+    summary: recordNameOrCodeSummary,
     columns: [
       {
         label: 'Format',
+        field: 'code',
         render: (record) => (
           <Box>
-            <Typography sx={{ fontWeight: 700 }}>{folderSummary(record)}</Typography>
+            <Typography sx={{ fontWeight: 700 }}>
+              {recordNameOrCodeSummary(record)}
+            </Typography>
             <Typography color="text.secondary" variant="body2">
               {textValue(record, 'code')}
             </Typography>
           </Box>
         ),
       },
-      { label: 'Purpose', render: (record) => textValue(record, 'purpose') },
+      {
+        label: 'Purpose',
+        field: 'purpose',
+        render: (record) => textValue(record, 'purpose'),
+      },
       {
         label: 'Family',
+        field: 'formatFamily',
         render: (record) => (
           <Chip label={humanize(textValue(record, 'formatFamily'))} size="small" />
         ),
       },
-      { label: 'Dimensions', render: formatDimensions },
+      { label: 'Dimensions', field: 'width', render: formatDimensions },
       {
         label: 'Status',
+        field: 'status',
         render: (record) => (
           <Chip
             color={textValue(record, 'status') === 'ACTIVE' ? 'success' : 'default'}
@@ -1915,13 +1873,11 @@ const recordWorkspaceConfigurations: Readonly<
   'media-sets': {
     schemaName: 'mediaSet',
     title: 'Media sets',
-    description:
-      'Review logical media groups through the media service, such as product galleries, CMS image groups, documentation assets, or mixed file bundles.',
+    description: 'Manage logical groups such as galleries and responsive image sets.',
     recordCountLabel: 'sets',
-    searchPlaceholder:
-      'Search by set code, name, media type, business purpose, description, or status',
-    emptyMessage: 'No media sets match the current search.',
-    detailEmptyMessage: 'Select a media set to review governed set metadata.',
+    searchPlaceholder: 'Search media sets',
+    emptyMessage: 'No media sets found.',
+    detailEmptyMessage: 'Select a media set to review details.',
     hiddenPathNotice:
       'A media set is a logical grouping record. Variant files are owned by mediaSetEntry records and media items, not by Axis.',
     searchKeys: [
@@ -1932,26 +1888,35 @@ const recordWorkspaceConfigurations: Readonly<
       'businessPurpose',
       'status',
     ],
-    summary: folderSummary,
+    summary: recordNameOrCodeSummary,
     columns: [
       {
         label: 'Media set',
+        field: 'code',
         render: (record) => (
           <Box>
-            <Typography sx={{ fontWeight: 700 }}>{folderSummary(record)}</Typography>
+            <Typography sx={{ fontWeight: 700 }}>
+              {recordNameOrCodeSummary(record)}
+            </Typography>
             <Typography color="text.secondary" variant="body2">
               {textValue(record, 'code')}
             </Typography>
           </Box>
         ),
       },
-      { label: 'Type', render: (record) => textValue(record, 'mediaType') },
+      {
+        label: 'Type',
+        field: 'mediaType',
+        render: (record) => textValue(record, 'mediaType'),
+      },
       {
         label: 'Business purpose',
+        field: 'businessPurpose',
         render: (record) => textValue(record, 'businessPurpose'),
       },
       {
         label: 'Status',
+        field: 'status',
         render: (record) => (
           <Chip
             color={textValue(record, 'status') === 'ACTIVE' ? 'success' : 'default'}
@@ -1973,14 +1938,11 @@ const recordWorkspaceConfigurations: Readonly<
   'media-usage': {
     schemaName: 'mediaReference',
     title: 'Media usage references',
-    description:
-      'Search which backend-owned business records reference a media item or media set. The media service records the reference; the owning module keeps business authority.',
+    description: 'Review where media items and sets are used.',
     recordCountLabel: 'references',
-    searchPlaceholder:
-      'Search by owner module, owner schema, owner record, media, media set, relation, or status',
-    emptyMessage: 'No media usage references match the current search.',
-    detailEmptyMessage:
-      'Select a usage reference to review the owning business object.',
+    searchPlaceholder: 'Search usage',
+    emptyMessage: 'No usage references found.',
+    detailEmptyMessage: 'Select a usage reference to review details.',
     hiddenPathNotice:
       'Usage references are trace records, not ownership transfer. Product, CMS, import, and partner modules remain authoritative for their own records.',
     searchKeys: [
@@ -2005,6 +1967,7 @@ const recordWorkspaceConfigurations: Readonly<
     columns: [
       {
         label: 'Owner',
+        field: 'ownerCode',
         render: (record) => (
           <Box>
             <Typography sx={{ fontWeight: 700 }}>
@@ -2016,17 +1979,27 @@ const recordWorkspaceConfigurations: Readonly<
           </Box>
         ),
       },
-      { label: 'Relation', render: (record) => textValue(record, 'relationType') },
+      {
+        label: 'Relation',
+        field: 'relationType',
+        render: (record) => textValue(record, 'relationType'),
+      },
       {
         label: 'Media',
+        field: 'mediaCode',
         render: (record) => {
           const mediaCode = textValue(record, 'mediaCode');
           return mediaCode === '—' ? textValue(record, 'mediaSetCode') : mediaCode;
         },
       },
-      { label: 'Position', render: (record) => textValue(record, 'position') },
+      {
+        label: 'Position',
+        field: 'position',
+        render: (record) => textValue(record, 'position'),
+      },
       {
         label: 'Status',
+        field: 'status',
         render: (record) => (
           <Chip
             color={textValue(record, 'status') === 'ACTIVE' ? 'success' : 'default'}
@@ -2186,19 +2159,25 @@ export function MediaManagementRoutePage(props: MediaManagementRoutePageProps) {
   );
   const [recordPage, setRecordPage] = useState(0);
   const [recordRowsPerPage, setRecordRowsPerPage] = useState(10);
+  const [recordSortOverride, setRecordSortOverride] = useState<AxisSort>();
+  const [recordColumnKeysByWorkspace, setRecordColumnKeysByWorkspace] = useState<
+    Record<string, readonly string[]>
+  >({});
   const [selectedRecordCode, setSelectedRecordCode] = useState<string>();
+  const [mediaFolderCrudMode, setMediaFolderCrudMode] =
+    useState<MediaRecordCrudMode>('none');
+  const [schemaRecordCrudMode, setSchemaRecordCrudMode] =
+    useState<MediaRecordCrudMode>('none');
+  const [mediaWorkspaceSection, setMediaWorkspaceSection] = useState<
+    'upload' | 'records'
+  >('records');
+  const [mediaEnterpriseCode, setMediaEnterpriseCode] = useState(
+    props.runtime.enterpriseCode,
+  );
   const connection = selectModuleConnection(props.bootstrap, 'media');
   const importConnection = selectModuleConnection(props.bootstrap, 'import');
   const usageMediaCode =
     new URLSearchParams(location.search).get('mediaCode')?.trim() ?? '';
-  const configuration: WorkbenchClientConfiguration = useMemo(
-    () => ({
-      accessToken: props.accessToken,
-      enterpriseCode: props.runtime.enterpriseCode,
-      timeoutMs: props.runtime.requestTimeoutMs,
-    }),
-    [props.accessToken, props.runtime.enterpriseCode, props.runtime.requestTimeoutMs],
-  );
   const mediaNavigation = useMemo(
     () =>
       props.bootstrap.navigation
@@ -2208,19 +2187,59 @@ export function MediaManagementRoutePage(props: MediaManagementRoutePageProps) {
     [props.bootstrap.navigation],
   );
   const currentItem = findCurrentItem(mediaNavigation, location.pathname);
+  const currentItemId = currentItem?.id;
+  useEffect(() => {
+    setRecordSortOverride(undefined);
+    setMediaFolderCrudMode('none');
+    setSchemaRecordCrudMode('none');
+  }, [currentItemId]);
+  const configuration: WorkbenchClientConfiguration = useMemo(
+    () => ({
+      accessToken: props.accessToken,
+      enterpriseCode:
+        currentItemId === 'media' && validEnterpriseCode(mediaEnterpriseCode)
+          ? mediaEnterpriseCode.trim() || props.runtime.enterpriseCode
+          : props.runtime.enterpriseCode,
+      timeoutMs: props.runtime.requestTimeoutMs,
+    }),
+    [
+      currentItemId,
+      mediaEnterpriseCode,
+      props.accessToken,
+      props.runtime.enterpriseCode,
+      props.runtime.requestTimeoutMs,
+    ],
+  );
   const childItems = mediaNavigation.filter(
     (item) => item.parentId === 'media-management',
   );
   const recordWorkspaceConfiguration = currentItem
     ? recordWorkspaceConfigurations[currentItem.id]
     : undefined;
+  const mediaRecordWorkspaceConfiguration = recordWorkspaceConfigurations.media;
+  if (!mediaRecordWorkspaceConfiguration) {
+    throw new Error('Media Management requires the media record workspace');
+  }
   const currentFacetFilters = currentItem
     ? (recordWorkspaceFacetFilters[currentItem.id] ?? emptyFacetFilters)
     : emptyFacetFilters;
+  const mediaDetailSections = props.mediaDetailPresentation?.detailSections?.length
+    ? props.mediaDetailPresentation.detailSections
+    : defaultMediaDetailSections;
+  const mediaMetadataFields = props.mediaDetailPresentation?.metadataFields?.length
+    ? props.mediaDetailPresentation.metadataFields
+    : mediaRecordWorkspaceConfiguration.details;
+  const mediaDetailSectionEnabled = (section: MediaDetailSection): boolean =>
+    mediaDetailSections.includes(section);
   const facetStateKey = (key: string) => `${currentItem?.id ?? 'none'}:${key}`;
   const schemas = useQuery({
     enabled: Boolean(recordWorkspaceConfiguration && connection),
-    queryKey: ['media-management', 'schemas', connection?.endpoint],
+    queryKey: [
+      'media-management',
+      'schemas',
+      connection?.endpoint,
+      configuration.enterpriseCode,
+    ],
     queryFn: () => loadWorkbenchSchemas(connection ? [connection] : [], configuration),
   });
   const currentSchema = useMemo(
@@ -2291,6 +2310,8 @@ export function MediaManagementRoutePage(props: MediaManagementRoutePageProps) {
   )
     ? recordRowsPerPage
     : (recordRowsPerPageOptions[0] ?? 10);
+  const effectiveRecordSort =
+    recordSortOverride ?? currentSchema?.queryCapabilities.defaultSort;
   const records = useQuery({
     enabled: Boolean(recordWorkspaceConfiguration && connection && currentSchema),
     queryKey: [
@@ -2298,9 +2319,12 @@ export function MediaManagementRoutePage(props: MediaManagementRoutePageProps) {
       recordWorkspaceConfiguration?.schemaName,
       connection?.endpoint,
       currentSchema?.schemaName,
+      configuration.enterpriseCode,
       recordSearch.trim(),
       recordPage,
       effectiveRecordRowsPerPage,
+      effectiveRecordSort?.field,
+      effectiveRecordSort?.direction,
       recordFacetFilters,
       mediaContexts.data?.map((context) => context.folderCodes.join(',')).join('|'),
       usageMediaCode,
@@ -2316,6 +2340,7 @@ export function MediaManagementRoutePage(props: MediaManagementRoutePageProps) {
           activeRecordFilter,
           recordPage + 1,
           effectiveRecordRowsPerPage,
+          effectiveRecordSort,
         ),
       ),
   });
@@ -2357,14 +2382,42 @@ export function MediaManagementRoutePage(props: MediaManagementRoutePageProps) {
   const totalRecordCount = records.data?.totalCount ?? visibleRecords.length;
   const effectiveRecordPage = recordPage;
   const pagedRecords = visibleRecords;
-  const selectedRecord = useMemo(
-    () =>
+  const selectedRecord = useMemo(() => {
+    if (currentItemId === 'media' && !selectedRecordCode) return undefined;
+    return (
       visibleRecords.find(
         (record) =>
           typeof record.code === 'string' && record.code === selectedRecordCode,
-      ) ?? visibleRecords[0],
-    [visibleRecords, selectedRecordCode],
+      ) ?? (currentItemId === 'media' ? undefined : visibleRecords[0])
+    );
+  }, [currentItemId, visibleRecords, selectedRecordCode]);
+  const recordColumnStateKey = currentItemId ?? 'none';
+  const defaultRecordColumnKeys =
+    recordWorkspaceConfiguration?.columns.map((column) => column.field) ?? [];
+  const recordFieldRenderers = useMemo<
+    Readonly<Record<string, AxisSchemaFieldRenderer>>
+  >(
+    () =>
+      Object.freeze(
+        Object.fromEntries(
+          (recordWorkspaceConfiguration?.columns ?? []).map((column) => [
+            column.field,
+            {
+              label: column.label,
+              minWidth: column.minWidth,
+              render: (record: WorkbenchRecord) =>
+                column.render(record, mediaContexts.data),
+              exportValue: (record: WorkbenchRecord) =>
+                column.exportValue
+                  ? column.exportValue(record, mediaContexts.data)
+                  : textValue(record, column.field),
+            } satisfies AxisSchemaFieldRenderer,
+          ]),
+        ),
+      ),
+    [mediaContexts.data, recordWorkspaceConfiguration],
   );
+  const configuredRecordColumnKeys = recordColumnKeysByWorkspace[recordColumnStateKey];
   const selectedMediaSetCode =
     currentItem?.id === 'media-sets' ? textValue(selectedRecord, 'code') : '—';
   const selectedMediaCode =
@@ -2380,6 +2433,7 @@ export function MediaManagementRoutePage(props: MediaManagementRoutePageProps) {
       'media-management',
       'selected-media-usage',
       connection?.endpoint,
+      configuration.enterpriseCode,
       selectedMediaCode,
     ],
     queryFn: () =>
@@ -2402,6 +2456,7 @@ export function MediaManagementRoutePage(props: MediaManagementRoutePageProps) {
       'media-management',
       'selected-media-import-history',
       importConnection?.endpoint,
+      configuration.enterpriseCode,
       selectedMediaCode,
     ],
     queryFn: () =>
@@ -2422,6 +2477,7 @@ export function MediaManagementRoutePage(props: MediaManagementRoutePageProps) {
       'media-management',
       'media-set-entries',
       connection?.endpoint,
+      configuration.enterpriseCode,
       selectedMediaSetCode,
     ],
     queryFn: () =>
@@ -2509,8 +2565,7 @@ export function MediaManagementRoutePage(props: MediaManagementRoutePageProps) {
                 Media Management
               </Typography>
               <Typography color="text.secondary" variant="body1">
-                Manage media lifecycle, references, formats, and storage delivery
-                through backend-owned media contracts.
+                Govern media lifecycle, folders, usage, and delivery.
               </Typography>
             </Box>
             <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap' }}>
@@ -2518,7 +2573,7 @@ export function MediaManagementRoutePage(props: MediaManagementRoutePageProps) {
                 color={connection ? 'success' : 'default'}
                 label={connection ? connection.state : 'Unavailable'}
               />
-              <Chip label={`Enterprise: ${humanize(props.runtime.enterpriseCode)}`} />
+              <Chip label={`Enterprise: ${humanize(configuration.enterpriseCode)}`} />
             </Stack>
           </Stack>
         </Box>
@@ -2585,6 +2640,100 @@ export function MediaManagementRoutePage(props: MediaManagementRoutePageProps) {
           </Grid>
         ) : null}
 
+        {currentItem.id === 'media' ? (
+          <Card variant="outlined">
+            <CardContent>
+              <Stack spacing={2}>
+                <Stack
+                  direction={{ xs: 'column', md: 'row' }}
+                  spacing={2}
+                  sx={{
+                    alignItems: { md: 'center' },
+                    justifyContent: 'space-between',
+                  }}
+                >
+                  <Box sx={{ minWidth: 0 }}>
+                    <Typography component="h2" variant="h4">
+                      Upload media
+                    </Typography>
+                    <Typography color="text.secondary">
+                      Add governed media through nMedia upload policies before reviewing
+                      or selecting media records.
+                    </Typography>
+                  </Box>
+                  <IconButton
+                    aria-label={
+                      mediaWorkspaceSection === 'upload'
+                        ? 'Collapse upload media'
+                        : 'Expand upload media'
+                    }
+                    aria-expanded={mediaWorkspaceSection === 'upload'}
+                    onClick={() => {
+                      setMediaWorkspaceSection(
+                        mediaWorkspaceSection === 'upload' ? 'records' : 'upload',
+                      );
+                    }}
+                    sx={{
+                      border: 1,
+                      borderColor: 'divider',
+                      bgcolor:
+                        mediaWorkspaceSection === 'upload'
+                          ? 'primary.main'
+                          : 'background.paper',
+                      color:
+                        mediaWorkspaceSection === 'upload'
+                          ? 'primary.contrastText'
+                          : 'text.primary',
+                      '&:hover': {
+                        bgcolor:
+                          mediaWorkspaceSection === 'upload'
+                            ? 'primary.dark'
+                            : 'action.hover',
+                      },
+                    }}
+                  >
+                    <ShellIcon
+                      fontSize="small"
+                      name={
+                        mediaWorkspaceSection === 'upload'
+                          ? 'chevron-up'
+                          : 'chevron-down'
+                      }
+                    />
+                  </IconButton>
+                </Stack>
+                {mediaWorkspaceSection === 'upload' ? (
+                  <MediaUploadWizard
+                    connection={connection}
+                    configuration={configuration}
+                    enterpriseCode={mediaEnterpriseCode}
+                    error={storagePolicyError}
+                    formatBytes={formatBytes}
+                    loading={storagePolicyLoading}
+                    tenantCode={props.bootstrap.tenantCode}
+                    policies={effectiveStoragePolicies}
+                    sourceContexts={mediaContexts.data}
+                    onEnterpriseCodeChange={(enterpriseCode) => {
+                      setMediaEnterpriseCode(enterpriseCode);
+                      setSelectedRecordCode(undefined);
+                      setRecordPage(0);
+                    }}
+                    onUploaded={(uploaded) => {
+                      setMediaWorkspaceSection('records');
+                      refreshMediaRecords(uploaded);
+                    }}
+                  />
+                ) : (
+                  <Typography color="text.secondary" variant="body2">
+                    Upload media is collapsed. Expand it when you want to add a new
+                    media file.
+                  </Typography>
+                )}
+              </Stack>
+            </CardContent>
+          </Card>
+        ) : null}
+
         {recordWorkspaceConfiguration ? (
           <Card variant="outlined">
             <CardContent>
@@ -2599,468 +2748,637 @@ export function MediaManagementRoutePage(props: MediaManagementRoutePageProps) {
                       {recordWorkspaceConfiguration.title}
                     </Typography>
                     <Typography color="text.secondary">
-                      {recordWorkspaceConfiguration.description}
+                      {currentItem.id === 'media'
+                        ? 'Search, select, and inspect governed media metadata.'
+                        : recordWorkspaceConfiguration.description}
                     </Typography>
                   </Box>
-                  <Stack
-                    direction="row"
-                    spacing={1}
-                    sx={{
-                      alignItems: 'center',
-                      flexShrink: 0,
-                      flexWrap: 'wrap',
-                      justifyContent: { xs: 'flex-start', md: 'flex-end' },
-                    }}
-                  >
-                    <Chip
-                      label={`${records.data?.totalCount ?? 0} ${recordWorkspaceConfiguration.recordCountLabel}`}
-                    />
-                    <Chip
-                      color={connection ? 'success' : 'default'}
-                      label={
-                        connection
-                          ? 'Media service connected'
-                          : 'Media service unavailable'
+                  {currentItem.id === 'media' ? (
+                    <IconButton
+                      aria-label={
+                        mediaWorkspaceSection === 'records'
+                          ? 'Collapse media records'
+                          : 'Expand media records'
                       }
-                    />
-                  </Stack>
-                </Stack>
-
-                <Stack
-                  direction={{ xs: 'column', md: 'row' }}
-                  spacing={1.5}
-                  sx={{ alignItems: { md: 'center' } }}
-                >
-                  <TextField
-                    fullWidth
-                    placeholder={recordWorkspaceConfiguration.searchPlaceholder}
-                    value={recordSearch}
-                    onChange={(event) => {
-                      setSelectedRecordCode(undefined);
-                      setRecordPage(0);
-                      setRecordSearch(event.target.value);
-                    }}
-                    slotProps={{
-                      input: {
-                        startAdornment: (
-                          <InputAdornment position="start">
-                            <ShellIcon color="action" name="search" />
-                          </InputAdornment>
-                        ),
-                        endAdornment: recordSearch ? (
-                          <InputAdornment position="end">
-                            <IconButton
-                              aria-label={`Clear ${recordWorkspaceConfiguration.title.toLowerCase()} search`}
-                              edge="end"
-                              onClick={() => {
-                                setSelectedRecordCode(undefined);
-                                setRecordPage(0);
-                                setRecordSearch('');
-                              }}
-                            >
-                              ×
-                            </IconButton>
-                          </InputAdornment>
-                        ) : undefined,
-                      },
-                    }}
-                  />
-                  {mediaSourceFacetOption ? (
-                    <TextField
-                      label={mediaSourceFacetOption.filter.label}
-                      select
-                      sx={{ minWidth: { xs: '100%', md: 280 } }}
-                      value={
-                        recordFacetFilters[
-                          facetStateKey(mediaSourceFacetOption.filter.key)
-                        ] ?? 'ALL'
-                      }
-                      onChange={(event) => {
-                        setSelectedRecordCode(undefined);
-                        setRecordPage(0);
-                        setRecordFacetFilters((current) => ({
-                          ...current,
-                          [facetStateKey(mediaSourceFacetOption.filter.key)]:
-                            event.target.value,
-                        }));
+                      aria-expanded={mediaWorkspaceSection === 'records'}
+                      onClick={() => {
+                        setMediaWorkspaceSection(
+                          mediaWorkspaceSection === 'records' ? 'upload' : 'records',
+                        );
+                      }}
+                      sx={{
+                        border: 1,
+                        borderColor: 'divider',
+                        bgcolor:
+                          mediaWorkspaceSection === 'records'
+                            ? 'primary.main'
+                            : 'background.paper',
+                        color:
+                          mediaWorkspaceSection === 'records'
+                            ? 'primary.contrastText'
+                            : 'text.primary',
+                        '&:hover': {
+                          bgcolor:
+                            mediaWorkspaceSection === 'records'
+                              ? 'primary.dark'
+                              : 'action.hover',
+                        },
                       }}
                     >
-                      <MenuItem value="ALL">
-                        {mediaSourceFacetOption.filter.allLabel}
-                      </MenuItem>
-                      {mediaSourceFacetOption.options.map((option) => (
-                        <MenuItem key={option} value={option}>
-                          {mediaSourceFacetOption.filter.optionLabel
-                            ? mediaSourceFacetOption.filter.optionLabel(option)
-                            : option}
-                        </MenuItem>
-                      ))}
-                    </TextField>
-                  ) : null}
+                      <ShellIcon
+                        fontSize="small"
+                        name={
+                          mediaWorkspaceSection === 'records'
+                            ? 'chevron-up'
+                            : 'chevron-down'
+                        }
+                      />
+                    </IconButton>
+                  ) : (
+                    <Stack
+                      direction="row"
+                      spacing={1}
+                      sx={{
+                        alignItems: 'center',
+                        flexShrink: 0,
+                        flexWrap: 'wrap',
+                        justifyContent: { xs: 'flex-start', md: 'flex-end' },
+                      }}
+                    >
+                      {currentItem.id === 'media-folders' &&
+                      currentSchema?.mutationMode === 'GENERATED_CRUD' &&
+                      currentSchema.operations.includes('create') ? (
+                        <Button
+                          variant={
+                            mediaFolderCrudMode === 'create' ? 'contained' : 'outlined'
+                          }
+                          onClick={() => {
+                            setSelectedRecordCode(undefined);
+                            setMediaFolderCrudMode(
+                              mediaFolderCrudMode === 'create' ? 'none' : 'create',
+                            );
+                          }}
+                        >
+                          Create folder
+                        </Button>
+                      ) : null}
+                      {currentItem.id !== 'media' &&
+                      currentItem.id !== 'media-folders' &&
+                      currentItem.id !== 'storage-delivery' &&
+                      currentSchema?.mutationMode === 'GENERATED_CRUD' &&
+                      currentSchema.operations.includes('create') ? (
+                        <Button
+                          variant={
+                            schemaRecordCrudMode === 'create' ? 'contained' : 'outlined'
+                          }
+                          onClick={() => {
+                            setSelectedRecordCode(undefined);
+                            setSchemaRecordCrudMode(
+                              schemaRecordCrudMode === 'create' ? 'none' : 'create',
+                            );
+                          }}
+                        >
+                          Create {schemaRecordLabel(recordWorkspaceConfiguration)}
+                        </Button>
+                      ) : null}
+                      <Chip
+                        label={`${records.data?.totalCount ?? 0} ${recordWorkspaceConfiguration.recordCountLabel}`}
+                      />
+                      {connection ? null : (
+                        <Chip color="default" label="Media service unavailable" />
+                      )}
+                    </Stack>
+                  )}
                 </Stack>
 
-                {currentFacetFilters.length > 0 && !mediaSourceFacetOption ? (
-                  <Box
-                    sx={{
-                      backgroundColor: 'background.default',
-                      border: 1,
-                      borderColor: 'divider',
-                      borderRadius: 2,
-                      p: 2,
-                    }}
-                  >
-                    <Stack spacing={1.5}>
-                      <Stack
-                        direction={{ xs: 'column', md: 'row' }}
-                        spacing={1.5}
-                        sx={{
-                          alignItems: { md: 'center' },
-                          justifyContent: 'space-between',
+                {currentItem.id !== 'media' || mediaWorkspaceSection === 'records' ? (
+                  <>
+                    <Stack
+                      direction={{ xs: 'column', md: 'row' }}
+                      spacing={1.5}
+                      sx={{ alignItems: { md: 'center' } }}
+                    >
+                      <TextField
+                        fullWidth
+                        placeholder={recordWorkspaceConfiguration.searchPlaceholder}
+                        value={recordSearch}
+                        onChange={(event) => {
+                          setSelectedRecordCode(undefined);
+                          setRecordPage(0);
+                          setRecordSearch(event.target.value);
                         }}
-                      >
-                        <Box>
-                          <Typography component="h3" variant="h6">
-                            Filter {recordWorkspaceConfiguration.title.toLowerCase()}
-                          </Typography>
-                          <Typography color="text.secondary" variant="body2">
-                            Narrow this workspace by source type. Search still covers
-                            code, filename, folder, status, MIME type, and format.
-                          </Typography>
-                        </Box>
-                        <Stack
-                          direction="row"
-                          spacing={1}
-                          sx={{ alignItems: 'center', flexWrap: 'wrap' }}
-                        >
-                          <Chip
-                            label={`${visibleRecords.length} shown from ${totalRecordCount}`}
-                            size="small"
-                          />
-                          <Button
-                            disabled={!recordSearch.trim() && !hasActiveFacetFilters}
-                            size="small"
-                            variant="text"
-                            onClick={() => {
-                              setSelectedRecordCode(undefined);
-                              setRecordPage(0);
-                              setRecordSearch('');
-                              setRecordFacetFilters({});
-                            }}
-                          >
-                            Reset filters
-                          </Button>
-                        </Stack>
-                      </Stack>
-                      <Grid container spacing={1.5}>
-                        {facetFilterOptions.map(({ filter, options }) => (
-                          <Grid
-                            key={filter.key}
-                            size={{
-                              xs: 12,
-                              md: 4,
-                              lg: facetFilterOptions.length > 4 ? 2.4 : 3,
-                            }}
-                          >
-                            <TextField
-                              fullWidth
-                              label={filter.label}
-                              select
-                              size="small"
-                              value={
-                                recordFacetFilters[facetStateKey(filter.key)] ?? 'ALL'
-                              }
-                              onChange={(event) => {
-                                setSelectedRecordCode(undefined);
-                                setRecordPage(0);
-                                setRecordFacetFilters((current) => ({
-                                  ...current,
-                                  [facetStateKey(filter.key)]: event.target.value,
-                                }));
-                              }}
-                            >
-                              <MenuItem value="ALL">{filter.allLabel}</MenuItem>
-                              {options.map((option) => (
-                                <MenuItem key={option} value={option}>
-                                  {filter.optionLabel
-                                    ? filter.optionLabel(option)
-                                    : option}
-                                </MenuItem>
-                              ))}
-                            </TextField>
-                          </Grid>
-                        ))}
-                      </Grid>
-                      <Typography color="text.secondary" variant="caption">
-                        Filters are presentation helpers only. The selected workspace
-                        still reads records through the owning backend schema contract.
-                      </Typography>
-                    </Stack>
-                  </Box>
-                ) : null}
-
-                {currentItem.id === 'media' ? (
-                  <MediaUploadWizard
-                    connection={connection}
-                    configuration={configuration}
-                    error={storagePolicyError}
-                    formatBytes={formatBytes}
-                    loading={storagePolicyLoading}
-                    policies={effectiveStoragePolicies}
-                    sourceContexts={mediaContexts.data}
-                    onUploaded={refreshMediaRecords}
-                  />
-                ) : null}
-
-                {currentItem.id === 'media-usage' && usageMediaCode ? (
-                  <Alert
-                    action={
-                      <Button
-                        component={RouterLink}
-                        size="small"
-                        to="/media-management/usage"
-                        variant="text"
-                      >
-                        Clear usage filter
-                      </Button>
-                    }
-                    severity="info"
-                  >
-                    Showing references for media code {usageMediaCode}. Search can still
-                    narrow this filtered result set.
-                  </Alert>
-                ) : null}
-
-                {schemas.isLoading || records.isLoading ? (
-                  <Stack direction="row" spacing={1.5} sx={{ alignItems: 'center' }}>
-                    <CircularProgress size={24} />
-                    <Typography color="text.secondary">
-                      Loading {recordWorkspaceConfiguration.title.toLowerCase()}…
-                    </Typography>
-                  </Stack>
-                ) : schemas.error || records.error ? (
-                  <Alert severity="error">
-                    {schemas.error instanceof Error
-                      ? schemas.error.message
-                      : records.error instanceof Error
-                        ? records.error.message
-                        : `${recordWorkspaceConfiguration.title} are unavailable.`}
-                  </Alert>
-                ) : !currentSchema ? (
-                  <Alert severity="warning">
-                    The authorized {recordWorkspaceConfiguration.schemaName} media
-                    schema is not available for this employee session.
-                  </Alert>
-                ) : (
-                  <Grid container spacing={2}>
-                    <Grid size={{ xs: 12, xl: 8 }}>
-                      <Box
-                        sx={{
-                          border: 1,
-                          borderColor: 'divider',
-                          borderRadius: 2,
-                          overflow: 'hidden',
-                        }}
-                      >
-                        <Table>
-                          <TableHead>
-                            <TableRow>
-                              {recordWorkspaceConfiguration.columns.map((column) => (
-                                <TableCell key={column.label}>{column.label}</TableCell>
-                              ))}
-                            </TableRow>
-                          </TableHead>
-                          <TableBody>
-                            {pagedRecords.map((record) => {
-                              const code = textValue(record, 'code');
-                              const selected =
-                                code !== '—' &&
-                                code === textValue(selectedRecord, 'code');
-                              return (
-                                <TableRow
-                                  hover
-                                  key={code}
-                                  selected={selected}
-                                  sx={{ cursor: 'pointer' }}
+                        slotProps={{
+                          input: {
+                            startAdornment: (
+                              <InputAdornment position="start">
+                                <ShellIcon color="action" name="search" />
+                              </InputAdornment>
+                            ),
+                            endAdornment: recordSearch ? (
+                              <InputAdornment position="end">
+                                <IconButton
+                                  aria-label={`Clear ${recordWorkspaceConfiguration.title.toLowerCase()} search`}
+                                  edge="end"
                                   onClick={() => {
-                                    setSelectedRecordCode(
-                                      code === '—' ? undefined : code,
-                                    );
+                                    setSelectedRecordCode(undefined);
+                                    setRecordPage(0);
+                                    setRecordSearch('');
                                   }}
                                 >
-                                  {recordWorkspaceConfiguration.columns.map(
-                                    (column) => (
-                                      <TableCell key={column.label}>
-                                        {column.render(record, mediaContexts.data)}
-                                      </TableCell>
-                                    ),
-                                  )}
-                                </TableRow>
-                              );
-                            })}
-                            {visibleRecords.length === 0 ? (
-                              <TableRow>
-                                <TableCell
-                                  colSpan={recordWorkspaceConfiguration.columns.length}
-                                >
-                                  <Typography
-                                    color="text.secondary"
-                                    sx={{ py: 3, textAlign: 'center' }}
-                                  >
-                                    {recordWorkspaceConfiguration.emptyMessage}
-                                  </Typography>
-                                </TableCell>
-                              </TableRow>
-                            ) : null}
-                          </TableBody>
-                        </Table>
-                        <TablePagination
-                          component="div"
-                          count={totalRecordCount}
-                          page={effectiveRecordPage}
-                          rowsPerPage={effectiveRecordRowsPerPage}
-                          rowsPerPageOptions={recordRowsPerPageOptions}
-                          onPageChange={(_event, page) => {
-                            setRecordPage(page);
-                          }}
-                          onRowsPerPageChange={(event) => {
-                            setRecordRowsPerPage(
-                              Number.parseInt(event.target.value, 10),
-                            );
+                                  ×
+                                </IconButton>
+                              </InputAdornment>
+                            ) : undefined,
+                          },
+                        }}
+                      />
+                      {mediaSourceFacetOption ? (
+                        <TextField
+                          label={mediaSourceFacetOption.filter.label}
+                          select
+                          sx={{ minWidth: { xs: '100%', md: 280 } }}
+                          value={
+                            recordFacetFilters[
+                              facetStateKey(mediaSourceFacetOption.filter.key)
+                            ] ?? 'ALL'
+                          }
+                          onChange={(event) => {
+                            setSelectedRecordCode(undefined);
                             setRecordPage(0);
+                            setRecordFacetFilters((current) => ({
+                              ...current,
+                              [facetStateKey(mediaSourceFacetOption.filter.key)]:
+                                event.target.value,
+                            }));
                           }}
-                        />
-                      </Box>
-                    </Grid>
-                    <Grid size={{ xs: 12, xl: 4 }}>
+                        >
+                          <MenuItem value="ALL">
+                            {mediaSourceFacetOption.filter.allLabel}
+                          </MenuItem>
+                          {mediaSourceFacetOption.options.map((option) => (
+                            <MenuItem key={option} value={option}>
+                              {mediaSourceFacetOption.filter.optionLabel
+                                ? mediaSourceFacetOption.filter.optionLabel(option)
+                                : option}
+                            </MenuItem>
+                          ))}
+                        </TextField>
+                      ) : null}
+                    </Stack>
+
+                    {currentFacetFilters.length > 0 &&
+                    !mediaSourceFacetOption &&
+                    facetFilterOptions.length > 0 ? (
                       <Box
                         sx={{
+                          backgroundColor: 'background.default',
                           border: 1,
                           borderColor: 'divider',
                           borderRadius: 2,
-                          height: '100%',
                           p: 2,
                         }}
                       >
-                        {selectedRecord ? (
-                          <Stack spacing={2}>
+                        <Stack spacing={1.5}>
+                          <Stack
+                            direction={{ xs: 'column', md: 'row' }}
+                            spacing={1.5}
+                            sx={{
+                              alignItems: { md: 'center' },
+                              justifyContent: 'space-between',
+                            }}
+                          >
                             <Box>
-                              <Typography component="h3" variant="h5">
-                                {recordWorkspaceConfiguration.summary(selectedRecord)}
-                              </Typography>
-                              <Typography color="text.secondary">
-                                {textValue(selectedRecord, 'code')}
+                              <Typography component="h3" variant="h6">
+                                Filter{' '}
+                                {recordWorkspaceConfiguration.title.toLowerCase()}
                               </Typography>
                             </Box>
-                            <Divider />
-                            {currentItem.id === 'media' ? (
-                              <MediaDeliveryPreviewPanel
-                                connection={connection}
-                                record={selectedRecord}
+                            <Stack
+                              direction="row"
+                              spacing={1}
+                              sx={{ alignItems: 'center', flexWrap: 'wrap' }}
+                            >
+                              <Chip
+                                label={`${visibleRecords.length} shown from ${totalRecordCount}`}
+                                size="small"
                               />
-                            ) : null}
-                            {currentItem.id === 'media' && selectedMediaCode !== '—' ? (
-                              <MediaUsageSummaryPanel
-                                error={selectedMediaUsage.error}
-                                loading={selectedMediaUsage.isLoading}
-                                mediaCode={selectedMediaCode}
-                                records={selectedMediaUsage.data?.records ?? []}
-                              />
-                            ) : null}
-                            {currentItem.id === 'media' && selectedMediaCode !== '—' ? (
-                              <MediaImportExportLinkagePanel
-                                error={selectedMediaImportHistory.error}
-                                importConnectionAvailable={Boolean(importConnection)}
-                                importHistory={selectedMediaImportHistory.data ?? []}
-                                loading={selectedMediaImportHistory.isLoading}
-                                mediaCode={selectedMediaCode}
-                                record={selectedRecord}
-                                usageRecords={selectedMediaUsage.data?.records ?? []}
-                              />
-                            ) : null}
-                            {currentItem.id === 'media' && currentSchema ? (
-                              <MediaLifecycleActionsPanel
-                                configuration={configuration}
-                                connection={connection}
-                                mediaSchema={currentSchema}
-                                record={selectedRecord}
-                                usageRecords={selectedMediaUsage.data?.records ?? []}
-                                onChanged={() => {
-                                  void records.refetch();
-                                  void selectedMediaUsage.refetch();
+                              <Button
+                                disabled={
+                                  !recordSearch.trim() && !hasActiveFacetFilters
+                                }
+                                size="small"
+                                variant="text"
+                                onClick={() => {
+                                  setSelectedRecordCode(undefined);
+                                  setRecordPage(0);
+                                  setRecordSearch('');
+                                  setRecordFacetFilters({});
                                 }}
-                              />
-                            ) : null}
-                            {currentItem.id === 'media-folders' ? (
-                              <MediaFolderPolicyImpactPanel record={selectedRecord} />
-                            ) : null}
-                            {currentItem.id === 'media-folders' && currentSchema ? (
-                              <MediaFolderPolicyActionsPanel
-                                configuration={configuration}
-                                connection={connection}
-                                folderSchema={currentSchema}
-                                record={selectedRecord}
-                                onChanged={() => {
-                                  void records.refetch();
-                                }}
-                              />
-                            ) : null}
-                            {currentItem.id === 'media-formats' ? (
-                              <MediaFormatUsagePanel
-                                contexts={mediaContexts.data}
-                                error={mediaContexts.error}
-                                loading={mediaContexts.isLoading}
-                                record={selectedRecord}
-                              />
-                            ) : null}
-                            {recordWorkspaceConfiguration.details.map((detail) => (
-                              <Box key={detail.key}>
-                                <Typography
-                                  color="text.secondary"
-                                  sx={{
-                                    fontWeight: 800,
-                                    letterSpacing: 1.5,
-                                    textTransform: 'uppercase',
-                                  }}
-                                  variant="caption"
-                                >
-                                  {detail.label}
-                                </Typography>
-                                <Typography sx={{ overflowWrap: 'anywhere' }}>
-                                  {detail.render
-                                    ? detail.render(selectedRecord)
-                                    : textValue(selectedRecord, detail.key)}
-                                </Typography>
-                              </Box>
-                            ))}
-                            {recordWorkspaceConfiguration.hiddenPathNotice ? (
-                              <Alert severity="info">
-                                {recordWorkspaceConfiguration.hiddenPathNotice}
-                              </Alert>
-                            ) : null}
-                            {currentItem.id === 'media-sets' ? (
-                              <MediaSetEntriesPanel
-                                configuration={configuration}
-                                connection={connection}
-                                entries={mediaSetEntries.data?.records ?? []}
-                                error={mediaSetEntries.error}
-                                loading={mediaSetEntries.isLoading}
-                                onChanged={() => {
-                                  void mediaSetEntries.refetch();
-                                }}
-                                schemaAvailable={Boolean(mediaSetEntrySchema)}
-                                setCode={selectedMediaSetCode}
-                              />
-                            ) : null}
+                              >
+                                Reset filters
+                              </Button>
+                            </Stack>
                           </Stack>
-                        ) : (
-                          <Typography color="text.secondary">
-                            {recordWorkspaceConfiguration.detailEmptyMessage}
-                          </Typography>
-                        )}
+                          <Grid container spacing={1.5}>
+                            {facetFilterOptions.map(({ filter, options }) => (
+                              <Grid
+                                key={filter.key}
+                                size={{
+                                  xs: 12,
+                                  md: 4,
+                                  lg: facetFilterOptions.length > 4 ? 2.4 : 3,
+                                }}
+                              >
+                                <TextField
+                                  fullWidth
+                                  label={filter.label}
+                                  select
+                                  size="small"
+                                  value={
+                                    recordFacetFilters[facetStateKey(filter.key)] ??
+                                    'ALL'
+                                  }
+                                  onChange={(event) => {
+                                    setSelectedRecordCode(undefined);
+                                    setRecordPage(0);
+                                    setRecordFacetFilters((current) => ({
+                                      ...current,
+                                      [facetStateKey(filter.key)]: event.target.value,
+                                    }));
+                                  }}
+                                >
+                                  <MenuItem value="ALL">{filter.allLabel}</MenuItem>
+                                  {options.map((option) => (
+                                    <MenuItem key={option} value={option}>
+                                      {filter.optionLabel
+                                        ? filter.optionLabel(option)
+                                        : option}
+                                    </MenuItem>
+                                  ))}
+                                </TextField>
+                              </Grid>
+                            ))}
+                          </Grid>
+                        </Stack>
                       </Box>
-                    </Grid>
-                  </Grid>
-                )}
+                    ) : null}
+
+                    {currentItem.id === 'media-usage' && usageMediaCode ? (
+                      <Alert
+                        action={
+                          <Button
+                            component={RouterLink}
+                            size="small"
+                            to="/media-management/usage"
+                            variant="text"
+                          >
+                            Clear usage filter
+                          </Button>
+                        }
+                        severity="info"
+                      >
+                        Showing references for media code {usageMediaCode}. Search can
+                        still narrow this filtered result set.
+                      </Alert>
+                    ) : null}
+
+                    {schemas.isLoading || records.isLoading ? (
+                      <Stack
+                        direction="row"
+                        spacing={1.5}
+                        sx={{ alignItems: 'center' }}
+                      >
+                        <CircularProgress size={24} />
+                        <Typography color="text.secondary">
+                          Loading {recordWorkspaceConfiguration.title.toLowerCase()}…
+                        </Typography>
+                      </Stack>
+                    ) : schemas.error || records.error ? (
+                      <Alert severity="error">
+                        {schemas.error instanceof Error
+                          ? schemas.error.message
+                          : records.error instanceof Error
+                            ? records.error.message
+                            : `${recordWorkspaceConfiguration.title} are unavailable.`}
+                      </Alert>
+                    ) : !currentSchema ? (
+                      <Alert severity="warning">
+                        The authorized {recordWorkspaceConfiguration.schemaName} media
+                        schema is not available for this employee session.
+                      </Alert>
+                    ) : (
+                      <Grid container spacing={2}>
+                        <Grid size={{ xs: 12, xl: 8 }}>
+                          <AxisSchemaDataListing
+                            ariaLabel={recordWorkspaceConfiguration.title}
+                            columnsLabel="Columns"
+                            defaultVisibleColumnKeys={defaultRecordColumnKeys}
+                            emptyMessage={recordWorkspaceConfiguration.emptyMessage}
+                            exportFileName={`axis-${recordWorkspaceConfiguration.schemaName}`}
+                            fieldRenderers={recordFieldRenderers}
+                            footer={
+                              <TablePagination
+                                component="div"
+                                count={totalRecordCount}
+                                page={effectiveRecordPage}
+                                rowsPerPage={effectiveRecordRowsPerPage}
+                                rowsPerPageOptions={recordRowsPerPageOptions}
+                                onPageChange={(_event, page) => {
+                                  setRecordPage(page);
+                                }}
+                                onRowsPerPageChange={(event) => {
+                                  setRecordRowsPerPage(
+                                    Number.parseInt(event.target.value, 10),
+                                  );
+                                  setRecordPage(0);
+                                }}
+                              />
+                            }
+                            getRowKey={(record, index) => {
+                              const code = textValue(record, 'code');
+                              return code === '—' ? `record-${String(index)}` : code;
+                            }}
+                            maxBodyHeight="100%"
+                            minTableWidth={900}
+                            records={pagedRecords}
+                            schema={currentSchema}
+                            selectedRowKey={textValue(selectedRecord, 'code')}
+                            sortOverride={recordSortOverride}
+                            toolbarStart={
+                              <Typography color="text.secondary" variant="body2">
+                                {visibleRecords.length} shown from {totalRecordCount}
+                              </Typography>
+                            }
+                            visibleColumnKeys={configuredRecordColumnKeys}
+                            onColumnKeysChange={(columnKeys) =>
+                              setRecordColumnKeysByWorkspace((current) => ({
+                                ...current,
+                                [recordColumnStateKey]: Object.freeze([...columnKeys]),
+                              }))
+                            }
+                            onRowClick={(record) => {
+                              const code = textValue(record, 'code');
+                              setMediaFolderCrudMode('none');
+                              setSchemaRecordCrudMode('none');
+                              setSelectedRecordCode(code === '—' ? undefined : code);
+                            }}
+                            onSortOverrideChange={(sort) => {
+                              setSelectedRecordCode(undefined);
+                              setRecordPage(0);
+                              setRecordSortOverride(sort);
+                            }}
+                          />
+                        </Grid>
+                        <Grid size={{ xs: 12, xl: 4 }}>
+                          <Box
+                            sx={{
+                              border: 1,
+                              borderColor: 'divider',
+                              borderRadius: 2,
+                              height: '100%',
+                              p: 2,
+                            }}
+                          >
+                            {selectedRecord ||
+                            mediaFolderCrudMode === 'create' ||
+                            schemaRecordCrudMode === 'create' ? (
+                              <Stack spacing={2}>
+                                {selectedRecord ? (
+                                  <>
+                                    <Stack
+                                      direction={{ xs: 'column', sm: 'row' }}
+                                      spacing={1}
+                                      sx={{
+                                        alignItems: { sm: 'flex-start' },
+                                        justifyContent: 'space-between',
+                                      }}
+                                    >
+                                      <Box sx={{ minWidth: 0 }}>
+                                        <Typography
+                                          component="h3"
+                                          sx={{ overflowWrap: 'anywhere' }}
+                                          variant="h5"
+                                        >
+                                          {recordWorkspaceConfiguration.summary(
+                                            selectedRecord,
+                                          )}
+                                        </Typography>
+                                        <Typography
+                                          color="text.secondary"
+                                          sx={{ overflowWrap: 'anywhere' }}
+                                        >
+                                          {textValue(selectedRecord, 'code')}
+                                        </Typography>
+                                      </Box>
+                                      {currentItem.id === 'media' &&
+                                      currentSchema &&
+                                      mediaDetailSectionEnabled('actions') ? (
+                                        <SelectedMediaHeaderActions
+                                          configuration={configuration}
+                                          connection={connection}
+                                          importHistory={
+                                            selectedMediaImportHistory.data ?? []
+                                          }
+                                          importHistoryLoading={
+                                            selectedMediaImportHistory.isLoading
+                                          }
+                                          mediaSchema={currentSchema}
+                                          record={selectedRecord}
+                                          usageRecords={
+                                            selectedMediaUsage.data?.records ?? []
+                                          }
+                                          onChanged={() => {
+                                            void records.refetch();
+                                            void selectedMediaUsage.refetch();
+                                          }}
+                                        />
+                                      ) : null}
+                                    </Stack>
+                                    <Divider />
+                                  </>
+                                ) : null}
+                                {selectedRecord &&
+                                currentItem.id === 'media' &&
+                                mediaDetailSectionEnabled('preview') ? (
+                                  <MediaDeliveryPreviewPanel
+                                    accessToken={props.accessToken}
+                                    connection={connection}
+                                    record={selectedRecord}
+                                  />
+                                ) : null}
+                                {selectedRecord &&
+                                currentItem.id === 'media' &&
+                                mediaDetailSectionEnabled('usage') &&
+                                selectedMediaCode !== '—' ? (
+                                  <MediaUsageSummaryPanel
+                                    error={selectedMediaUsage.error}
+                                    loading={selectedMediaUsage.isLoading}
+                                    mediaCode={selectedMediaCode}
+                                    records={selectedMediaUsage.data?.records ?? []}
+                                  />
+                                ) : null}
+                                {selectedRecord &&
+                                currentItem.id === 'media' &&
+                                mediaDetailSectionEnabled('importExport') &&
+                                selectedMediaCode !== '—' ? (
+                                  <MediaImportExportLinkagePanel
+                                    error={selectedMediaImportHistory.error}
+                                    importConnectionAvailable={Boolean(
+                                      importConnection,
+                                    )}
+                                    importHistory={
+                                      selectedMediaImportHistory.data ?? []
+                                    }
+                                    loading={selectedMediaImportHistory.isLoading}
+                                    mediaCode={selectedMediaCode}
+                                    record={selectedRecord}
+                                    usageRecords={
+                                      selectedMediaUsage.data?.records ?? []
+                                    }
+                                  />
+                                ) : null}
+                                {selectedRecord &&
+                                currentItem.id === 'media-folders' ? (
+                                  <MediaFolderPolicyImpactPanel
+                                    record={selectedRecord}
+                                  />
+                                ) : null}
+                                {currentItem.id === 'media-folders' && currentSchema ? (
+                                  <MediaFolderPolicyActionsPanel
+                                    configuration={configuration}
+                                    connection={connection}
+                                    folderSchema={currentSchema}
+                                    mode={mediaFolderCrudMode}
+                                    record={selectedRecord}
+                                    onChanged={(changedRecord) => {
+                                      setSelectedRecordCode(
+                                        changedRecord
+                                          ? textValue(changedRecord, 'code')
+                                          : undefined,
+                                      );
+                                      void records.refetch();
+                                    }}
+                                    onModeChange={setMediaFolderCrudMode}
+                                  />
+                                ) : null}
+                                {currentItem.id !== 'media' &&
+                                currentItem.id !== 'media-folders' &&
+                                currentItem.id !== 'storage-delivery' &&
+                                currentSchema ? (
+                                  <SchemaRecordManagementPanel
+                                    configuration={configuration}
+                                    connection={connection}
+                                    mode={schemaRecordCrudMode}
+                                    record={selectedRecord}
+                                    schema={currentSchema}
+                                    workspaceConfiguration={
+                                      recordWorkspaceConfiguration
+                                    }
+                                    onChanged={(changedRecord) => {
+                                      setSelectedRecordCode(
+                                        changedRecord
+                                          ? textValue(changedRecord, 'code')
+                                          : undefined,
+                                      );
+                                      void records.refetch();
+                                    }}
+                                    onModeChange={setSchemaRecordCrudMode}
+                                  />
+                                ) : null}
+                                {selectedRecord &&
+                                currentItem.id === 'media-formats' ? (
+                                  <MediaFormatUsagePanel
+                                    contexts={mediaContexts.data}
+                                    error={mediaContexts.error}
+                                    loading={mediaContexts.isLoading}
+                                    record={selectedRecord}
+                                  />
+                                ) : null}
+                                {selectedRecord &&
+                                (currentItem.id !== 'media' ||
+                                  mediaDetailSectionEnabled('metadata')) ? (
+                                  <MediaMetadataViewer
+                                    fields={
+                                      currentItem.id === 'media'
+                                        ? mediaMetadataFields
+                                        : recordWorkspaceConfiguration.details
+                                    }
+                                    hiddenPathNotice={
+                                      recordWorkspaceConfiguration.hiddenPathNotice
+                                    }
+                                    record={selectedRecord}
+                                  />
+                                ) : null}
+                                {selectedRecord && currentItem.id === 'media-sets' ? (
+                                  <MediaSetEntriesPanel
+                                    configuration={configuration}
+                                    connection={connection}
+                                    entries={mediaSetEntries.data?.records ?? []}
+                                    error={mediaSetEntries.error}
+                                    loading={mediaSetEntries.isLoading}
+                                    onChanged={() => {
+                                      void mediaSetEntries.refetch();
+                                    }}
+                                    schema={mediaSetEntrySchema}
+                                    setCode={selectedMediaSetCode}
+                                  />
+                                ) : null}
+                              </Stack>
+                            ) : (
+                              <Stack spacing={2}>
+                                <Typography color="text.secondary">
+                                  {recordWorkspaceConfiguration.detailEmptyMessage}
+                                </Typography>
+                                {currentItem.id === 'media-folders' && currentSchema ? (
+                                  <MediaFolderPolicyActionsPanel
+                                    configuration={configuration}
+                                    connection={connection}
+                                    folderSchema={currentSchema}
+                                    mode={mediaFolderCrudMode}
+                                    record={undefined}
+                                    onChanged={(changedRecord) => {
+                                      setSelectedRecordCode(
+                                        changedRecord
+                                          ? textValue(changedRecord, 'code')
+                                          : undefined,
+                                      );
+                                      void records.refetch();
+                                    }}
+                                    onModeChange={setMediaFolderCrudMode}
+                                  />
+                                ) : null}
+                                {currentItem.id !== 'media' &&
+                                currentItem.id !== 'media-folders' &&
+                                currentItem.id !== 'storage-delivery' &&
+                                currentSchema ? (
+                                  <SchemaRecordManagementPanel
+                                    configuration={configuration}
+                                    connection={connection}
+                                    mode={schemaRecordCrudMode}
+                                    record={undefined}
+                                    schema={currentSchema}
+                                    workspaceConfiguration={
+                                      recordWorkspaceConfiguration
+                                    }
+                                    onChanged={(changedRecord) => {
+                                      setSelectedRecordCode(
+                                        changedRecord
+                                          ? textValue(changedRecord, 'code')
+                                          : undefined,
+                                      );
+                                      void records.refetch();
+                                    }}
+                                    onModeChange={setSchemaRecordCrudMode}
+                                  />
+                                ) : null}
+                              </Stack>
+                            )}
+                          </Box>
+                        </Grid>
+                      </Grid>
+                    )}
+                  </>
+                ) : null}
               </Stack>
             </CardContent>
           </Card>

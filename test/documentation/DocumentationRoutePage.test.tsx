@@ -28,6 +28,7 @@ const bootstrap = {
     contractVersion: 1 as const,
     screenLockEnabled: true,
     idleTimeoutSeconds: 900,
+    recentNavigationLimit: 12,
     revision: 0,
     source: 'DEFAULT' as const,
   },

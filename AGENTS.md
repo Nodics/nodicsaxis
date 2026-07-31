@@ -172,13 +172,13 @@ collections, connect to a database, or become another content-pack/import
 authority.
 
 Canonical Axis documentation is authored as granular source under
-`source/documentation`; `data/core` is generated, committed CMS import data and
+`content/documentation`; `data/core` is generated, committed CMS import data and
 must never be hand-maintained as a second documentation authority. Every
 implemented feature must update the applicable source pages, run
 `npm run docs:generate`, increment the content-pack version when generated
 content changes, and pass `npm run docs:check`. A feature is incomplete when
 its richer README or legacy `docs/` guidance is absent from the generated pack.
-`source/documentation/navigation.json` is the single authored release-version
+`content/documentation/navigation.json` is the single authored release-version
 authority. The generator projects its version into the migration register,
 generated CMS records, and `manifest/docs-content-pack.json`; never edit those
 generated version projections independently.
@@ -194,7 +194,7 @@ without a README, and do not rebuild a second detailed documentation authority
 inside it.
 Do not recreate a repository or module `docs/` directory after canonical
 migration. Keep one concise `README.md`; author all detailed permanent Axis
-guidance under `source/documentation` and regenerate `data/core`.
+guidance under `content/documentation` and regenerate `data/core`.
 
 Design Axis for partial discovery. A developer or AI tool may read only this
 file, the nearest feature source, its focused tests, and one linked guide.

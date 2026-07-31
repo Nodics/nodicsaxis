@@ -1,7 +1,9 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+  resolveWorkbenchRecordSort,
   resolveWorkbenchDeepLinkTarget,
+  schemaWithValidQueryCapabilities,
   type WorkbenchDeepLinkTarget,
 } from '../../src/workbench/WorkbenchRoutePage';
 import type { WorkbenchSchema } from '../../src/workbench/api/workbenchContracts';
@@ -112,5 +114,41 @@ describe('resolveWorkbenchDeepLinkTarget', () => {
         schema('media', 'mediaFolder', ['search', 'read']),
       ]),
     ).toBeUndefined();
+  });
+});
+
+describe('resolveWorkbenchRecordSort', () => {
+  it('uses a real sortable schema field when default sort points to a missing field', () => {
+    const employee = {
+      ...schema('profile', 'employee', ['search', 'read']),
+      displayProperty: 'employeeId',
+      displayProperties: ['employeeId'],
+      queryCapabilities: {
+        ...schema('profile', 'employee', ['search', 'read']).queryCapabilities,
+        sortableFields: ['code', 'employeeId'],
+        defaultSort: { field: 'code', direction: 'ASC' as const },
+      },
+      fields: [
+        {
+          name: 'employeeId',
+          label: 'Employee Id',
+          type: 'string' as const,
+          required: true,
+          readOnly: false,
+          primary: true,
+          description: '',
+          searchable: true,
+        },
+      ],
+    } satisfies WorkbenchSchema;
+
+    expect(resolveWorkbenchRecordSort(employee, undefined)).toEqual({
+      field: 'employeeId',
+      direction: 'ASC',
+    });
+    expect(schemaWithValidQueryCapabilities(employee).queryCapabilities).toMatchObject({
+      sortableFields: ['employeeId'],
+      defaultSort: { field: 'employeeId', direction: 'ASC' },
+    });
   });
 });

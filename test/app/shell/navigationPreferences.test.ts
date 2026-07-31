@@ -43,4 +43,25 @@ describe('Axis navigation preferences', () => {
       recents: [],
     });
   });
+
+  it('applies the configured recent item limit', () => {
+    let preferences = loadNavigationPreferences(
+      {
+        getItem: () =>
+          JSON.stringify({
+            favourites: [],
+            recents: ['cms:content', 'media:media', 'profile:tenant'],
+          }),
+      },
+      { recentItems: 2 },
+    );
+
+    expect(preferences.recents).toEqual(['cms:content', 'media:media']);
+
+    preferences = recordRecentNavigation(preferences, 'export:history', {
+      recentItems: 2,
+    });
+
+    expect(preferences.recents).toEqual(['export:history', 'cms:content']);
+  });
 });

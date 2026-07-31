@@ -288,6 +288,7 @@ export function App() {
       environments={authenticatedBootstrap?.environments}
       tenantCode={authenticatedBootstrap?.tenantCode}
       navigation={authenticatedBootstrap?.navigation}
+      recentNavigationLimit={authenticatedBootstrap?.axisPolicy.recentNavigationLimit}
       site={composition.site}
       onLock={lockScreen}
       onLogout={logout}

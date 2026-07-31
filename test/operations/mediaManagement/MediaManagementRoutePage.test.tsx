@@ -66,6 +66,7 @@ const bootstrap: AxisAuthenticatedBootstrap = {
     contractVersion: 1,
     screenLockEnabled: true,
     idleTimeoutSeconds: 900,
+    recentNavigationLimit: 12,
     revision: 1,
     source: 'DEFAULT',
   },
@@ -133,7 +134,18 @@ const mediaSchema: WorkbenchSchema = {
   displayProperties: ['code', 'originalFileName'],
   queryCapabilities: {
     searchableFields: ['code', 'originalFileName', 'folderCode'],
-    sortableFields: ['code'],
+    sortableFields: [
+      'code',
+      'folderCode',
+      'formatCode',
+      'access',
+      'status',
+      'sizeBytes',
+      'created',
+      'updated',
+      'createdBy',
+      'updatedBy',
+    ],
     filterFields: [],
     groupOperators: ['AND'],
     textOperator: 'CONTAINS',
@@ -154,6 +166,96 @@ const mediaSchema: WorkbenchSchema = {
       primary: true,
       description: '',
       searchable: true,
+    },
+    {
+      name: 'folderCode',
+      label: 'Folder',
+      type: 'string',
+      required: true,
+      readOnly: false,
+      primary: false,
+      description: '',
+      searchable: true,
+    },
+    {
+      name: 'formatCode',
+      label: 'Format',
+      type: 'string',
+      required: false,
+      readOnly: false,
+      primary: false,
+      description: '',
+      searchable: true,
+    },
+    {
+      name: 'access',
+      label: 'Access',
+      type: 'string',
+      required: true,
+      readOnly: false,
+      primary: false,
+      description: '',
+      searchable: true,
+    },
+    {
+      name: 'status',
+      label: 'Status',
+      type: 'string',
+      required: true,
+      readOnly: false,
+      primary: false,
+      description: '',
+      searchable: true,
+    },
+    {
+      name: 'sizeBytes',
+      label: 'Size Bytes',
+      type: 'int',
+      required: false,
+      readOnly: false,
+      primary: false,
+      description: '',
+      searchable: false,
+    },
+    {
+      name: 'created',
+      label: 'Created',
+      type: 'date',
+      required: true,
+      readOnly: true,
+      primary: false,
+      description: '',
+      searchable: true,
+    },
+    {
+      name: 'updated',
+      label: 'Updated',
+      type: 'date',
+      required: true,
+      readOnly: true,
+      primary: false,
+      description: '',
+      searchable: true,
+    },
+    {
+      name: 'createdBy',
+      label: 'Created By',
+      type: 'string',
+      required: false,
+      readOnly: true,
+      primary: false,
+      description: '',
+      searchable: false,
+    },
+    {
+      name: 'updatedBy',
+      label: 'Updated By',
+      type: 'string',
+      required: false,
+      readOnly: true,
+      primary: false,
+      description: '',
+      searchable: false,
     },
   ],
   relationships: [],
@@ -256,6 +358,7 @@ const mediaSetEntrySchema: WorkbenchSchema = {
   queryCapabilities: {
     ...mediaSchema.queryCapabilities,
     searchableFields: ['code', 'mediaSetCode', 'mediaCode', 'formatCode'],
+    sortableFields: ['position', 'mediaCode', 'formatCode', 'variantRole', 'status'],
     filterFields: [
       {
         field: 'mediaSetCode',
@@ -265,6 +368,128 @@ const mediaSetEntrySchema: WorkbenchSchema = {
       },
     ],
   },
+  fields: [
+    {
+      name: 'code',
+      label: 'Code',
+      type: 'string',
+      required: true,
+      readOnly: true,
+      primary: true,
+      description: '',
+      searchable: true,
+    },
+    {
+      name: 'position',
+      label: 'Position',
+      type: 'int',
+      required: true,
+      readOnly: false,
+      primary: false,
+      description: '',
+      searchable: false,
+    },
+    {
+      name: 'mediaCode',
+      label: 'Media',
+      type: 'string',
+      required: true,
+      readOnly: false,
+      primary: false,
+      description: '',
+      searchable: true,
+    },
+    {
+      name: 'formatCode',
+      label: 'Format',
+      type: 'string',
+      required: false,
+      readOnly: false,
+      primary: false,
+      description: '',
+      searchable: true,
+    },
+    {
+      name: 'variantRole',
+      label: 'Role',
+      type: 'string',
+      required: false,
+      readOnly: false,
+      primary: false,
+      description: '',
+      searchable: true,
+    },
+    {
+      name: 'localeCode',
+      label: 'Locale',
+      type: 'string',
+      required: false,
+      readOnly: false,
+      primary: false,
+      description: '',
+      searchable: false,
+    },
+    {
+      name: 'channelCode',
+      label: 'Channel',
+      type: 'string',
+      required: false,
+      readOnly: false,
+      primary: false,
+      description: '',
+      searchable: false,
+    },
+    {
+      name: 'deviceCode',
+      label: 'Device',
+      type: 'string',
+      required: false,
+      readOnly: false,
+      primary: false,
+      description: '',
+      searchable: false,
+    },
+    {
+      name: 'breakpointCode',
+      label: 'Breakpoint',
+      type: 'string',
+      required: false,
+      readOnly: false,
+      primary: false,
+      description: '',
+      searchable: false,
+    },
+    {
+      name: 'fallbackEntryCode',
+      label: 'Fallback',
+      type: 'string',
+      required: false,
+      readOnly: false,
+      primary: false,
+      description: '',
+      searchable: false,
+    },
+    {
+      name: 'status',
+      label: 'Status',
+      type: 'string',
+      required: true,
+      readOnly: false,
+      primary: false,
+      description: '',
+      searchable: true,
+    },
+    {
+      name: 'primary',
+      label: 'Primary',
+      type: 'boolean',
+      required: false,
+      readOnly: false,
+      primary: false,
+      description: '',
+      searchable: false,
+    },
+  ],
   operations: ['search', 'read', 'create', 'update'],
 };
 
@@ -312,8 +537,72 @@ describe('MediaManagementRoutePage', () => {
     vi.restoreAllMocks();
   });
 
+  it('shows schema-driven create actions for media formats and media sets', async () => {
+    const writableMediaFormatSchema: WorkbenchSchema = {
+      ...mediaFormatSchema,
+      operations: ['search', 'read', 'create', 'update', 'delete'],
+    };
+    const writableMediaSetSchema: WorkbenchSchema = {
+      ...mediaSetSchema,
+      operations: ['search', 'read', 'create', 'update', 'delete'],
+    };
+    vi.spyOn(globalThis, 'fetch').mockImplementation((input) => {
+      const url = fetchInputUrl(input);
+      if (url.pathname === '/nodics/media/v0/schema/workbench') {
+        return Promise.resolve(
+          json({
+            moduleName: 'media',
+            schemas: [
+              writableMediaFormatSchema,
+              writableMediaSetSchema,
+              mediaSetEntrySchema,
+            ],
+          }),
+        );
+      }
+      if (
+        url.pathname === '/nodics/media/v0/schema/workbench/mediaFormat/records' ||
+        url.pathname === '/nodics/media/v0/schema/workbench/mediaSet/records' ||
+        url.pathname === '/nodics/media/v0/schema/workbench/mediaSetEntry/records'
+      ) {
+        return Promise.resolve(
+          json({
+            records: [],
+            totalCount: 0,
+            pageNumber: 1,
+            pageSize: 10,
+            sort: { field: 'code', direction: 'ASC' },
+          }),
+        );
+      }
+      if (url.pathname === '/nodics/media/v0/contexts') {
+        return Promise.resolve(json({ contexts: [] }));
+      }
+      return Promise.resolve(json({}));
+    });
+
+    const formats = renderPage('/media-management/formats');
+
+    expect(await screen.findByRole('button', { name: 'Create format' })).toBeVisible();
+    formats.unmount();
+
+    renderPage('/media-management/sets');
+
+    expect(await screen.findByRole('button', { name: 'Create set' })).toBeVisible();
+  });
+
   it('renders media records through nMedia contracts without exposing storage keys', async () => {
     const user = userEvent.setup();
+    const createObjectUrl = vi.fn(() => 'blob:private-media-preview');
+    const revokeObjectUrl = vi.fn();
+    Object.defineProperty(URL, 'createObjectURL', {
+      configurable: true,
+      value: createObjectUrl,
+    });
+    Object.defineProperty(URL, 'revokeObjectURL', {
+      configurable: true,
+      value: revokeObjectUrl,
+    });
     const fetchMock = vi
       .spyOn(globalThis, 'fetch')
       .mockImplementation((input, init) => {
@@ -344,14 +633,125 @@ describe('MediaManagementRoutePage', () => {
                   sizeBytes: 2048,
                   checksum: 'abc123',
                   checksumAlgorithm: 'sha256',
+                  created: '2026-07-30T10:00:00.000Z',
+                  updated: '2026-07-31T10:00:00.000Z',
+                  createdBy: 'media.creator',
+                  updatedBy: 'media.operator',
                   storageKey: 'private/internal/home-banner.png',
                   accessUrl: '/nodics/media/v0/content/home-banner',
                 },
+                {
+                  code: 'export-report',
+                  name: 'Export report',
+                  originalFileName: 'export-report.csv',
+                  folderCode: 'exportFiles',
+                  formatCode: 'export',
+                  providerCode: 'local',
+                  access: 'PUBLIC',
+                  status: 'READY',
+                  mimeType: 'text/csv',
+                  extension: 'csv',
+                  sizeBytes: 48,
+                  checksum: 'def456',
+                  checksumAlgorithm: 'sha256',
+                  created: '2026-07-30T11:00:00.000Z',
+                  updated: '2026-07-31T11:00:00.000Z',
+                  createdBy: 'export.creator',
+                  updatedBy: 'export.operator',
+                  storageKey: 'private/internal/export-report.csv',
+                  accessUrl: '/nodics/media/v0/content/export-report',
+                },
+                {
+                  code: 'private-product-image',
+                  name: 'Private product image',
+                  originalFileName: 'private-product-image.png',
+                  folderCode: 'default',
+                  formatCode: 'original',
+                  providerCode: 'local',
+                  access: 'PRIVATE',
+                  status: 'READY',
+                  mimeType: 'image/png',
+                  extension: 'png',
+                  sizeBytes: 128,
+                  checksum: 'ghi789',
+                  checksumAlgorithm: 'sha256',
+                  created: '2026-07-30T12:00:00.000Z',
+                  updated: '2026-07-31T12:00:00.000Z',
+                  createdBy: 'media.creator',
+                  updatedBy: 'media.operator',
+                  storageKey: 'private/internal/private-product-image.png',
+                  accessUrl: '/nodics/media/v0/content/private-product-image',
+                },
+                {
+                  code: 'private-export-json',
+                  name: 'Private export JSON',
+                  originalFileName: 'private-export.json',
+                  folderCode: 'exportFiles',
+                  formatCode: 'exportFile',
+                  providerCode: 'local',
+                  access: 'PRIVATE',
+                  status: 'READY',
+                  mimeType: 'application/json',
+                  extension: 'json',
+                  sizeBytes: 72,
+                  checksum: 'jkl012',
+                  checksumAlgorithm: 'sha256',
+                  created: '2026-07-30T13:00:00.000Z',
+                  updated: '2026-07-31T13:00:00.000Z',
+                  createdBy: 'export.creator',
+                  updatedBy: 'export.operator',
+                  storageKey: 'private/internal/private-export.json',
+                  accessUrl: '/nodics/media/v0/content/private-export-json',
+                },
               ],
-              totalCount: 1,
+              totalCount: 4,
               pageNumber: 1,
               pageSize: 10,
               sort: { field: 'code', direction: 'ASC' },
+            }),
+          );
+        }
+        if (url.pathname === '/nodics/media/v0/content/export-report') {
+          return Promise.resolve(
+            new Response('code,status\naddress,READY\nprofile,READY', {
+              status: 200,
+              headers: { 'Content-Type': 'text/csv' },
+            }),
+          );
+        }
+        if (url.pathname === '/nodics/media/v0/content/private-product-image') {
+          expect(new Headers(init?.headers).get('Authorization')).toBe(
+            'Bearer employee-token',
+          );
+          return Promise.resolve(
+            new Response(new Blob(['private image bytes'], { type: 'image/png' }), {
+              status: 200,
+              headers: { 'Content-Type': 'image/png' },
+            }),
+          );
+        }
+        if (url.pathname === '/nodics/media/v0/content/private-export-json') {
+          expect(new Headers(init?.headers).get('Authorization')).toBe(
+            'Bearer employee-token',
+          );
+          return Promise.resolve(
+            new Response(JSON.stringify({ records: [{ code: 'address' }] }), {
+              status: 200,
+              headers: { 'Content-Type': 'application/json' },
+            }),
+          );
+        }
+        if (url.pathname === '/nodics/media/v0/download/private-export-json') {
+          const headers = new Headers(init?.headers);
+          expect(headers.get('Authorization')).toBe('Bearer employee-token');
+          expect(headers.get('x-enterprise-code')).toBe('default');
+          return Promise.resolve(
+            new Response(new Blob(['{"records":[]}'], { type: 'application/json' }), {
+              status: 200,
+              headers: {
+                'Content-Disposition': 'attachment; filename="private-export.json"',
+                'Content-Type': 'application/json',
+              },
             }),
           );
         }
@@ -379,7 +779,9 @@ describe('MediaManagementRoutePage', () => {
           );
         }
         if (url.pathname === '/nodics/import/v0/run/history') {
-          expect(url.searchParams.get('mediaCode')).toBe('home-banner');
+          if (url.searchParams.get('mediaCode') !== 'home-banner') {
+            return Promise.resolve(json([]));
+          }
           return Promise.resolve(
             json([
               {
@@ -491,25 +893,81 @@ describe('MediaManagementRoutePage', () => {
     await waitFor(() => {
       expect(screen.getAllByText('home-banner.png').length).toBeGreaterThan(0);
     });
+    expect(
+      screen.getByRole('button', { name: 'Collapse media records' }),
+    ).toHaveAttribute('aria-expanded', 'true');
+    await user.click(screen.getByRole('button', { name: 'Columns' }));
+    expect(
+      screen.getByRole('checkbox', { name: 'Toggle Created column' }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole('checkbox', { name: 'Toggle Updated column' }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole('checkbox', { name: 'Toggle Created By column' }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole('checkbox', { name: 'Toggle Updated By column' }),
+    ).toBeInTheDocument();
+    await user.keyboard('{Escape}');
+    expect(screen.queryByText('Import/export linkage')).not.toBeInTheDocument();
+    await user.click(screen.getAllByText('home-banner.png')[0]!);
     expect(screen.getByText('Content media')).toBeVisible();
     expect(screen.getByText('Visibility: PUBLIC')).toBeVisible();
     expect(await screen.findByText('Import/export linkage')).toBeVisible();
     expect(await screen.findByText('importRun_media_1')).toBeVisible();
     expect(screen.getByText('nImport')).toBeVisible();
-    expect(screen.getByText(/does not mutate owner records/i)).toBeVisible();
+    expect(screen.getByRole('link', { name: 'History' })).toHaveAttribute(
+      'href',
+      '/operations/imports-exports?area=history',
+    );
     expect(
-      screen.getByRole('link', { name: 'Open through media delivery' }),
-    ).toHaveAttribute(
-      'href',
-      'http://localhost:3000/nodics/media/v0/content/home-banner',
-    );
-    expect(screen.getByRole('link', { name: 'Download' })).toHaveAttribute(
-      'href',
-      'http://localhost:3000/nodics/media/v0/download/home-banner',
-    );
+      screen.queryByText(/does not mutate owner records/i),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole('link', { name: 'Open through media delivery' }),
+    ).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Download' })).toBeVisible();
     expect(screen.queryByText('Storage key')).not.toBeInTheDocument();
     expect(
       screen.queryByText('private/internal/home-banner.png'),
+    ).not.toBeInTheDocument();
+    await user.click(screen.getAllByText('export-report.csv')[0]!);
+    expect(await screen.findByText('CSV preview')).toBeVisible();
+    expect(await screen.findByText('address')).toBeVisible();
+    expect(screen.getByText('profile')).toBeVisible();
+    expect(
+      screen.queryByText('private/internal/export-report.csv'),
+    ).not.toBeInTheDocument();
+    await user.click(screen.getAllByText('private-export.json')[0]!);
+    await waitFor(() =>
+      expect(
+        screen.queryByRole('heading', { name: 'Export file' }),
+      ).not.toBeInTheDocument(),
+    );
+    expect(await screen.findByText('JSON preview')).toBeVisible();
+    expect(await screen.findByText(/"records"/)).toBeVisible();
+    await user.click(screen.getByRole('button', { name: 'Download' }));
+    await waitFor(() =>
+      expect(
+        fetchMock.mock.calls.some(
+          ([input]) =>
+            fetchInputUrl(input).pathname ===
+            '/nodics/media/v0/download/private-export-json',
+        ),
+      ).toBe(true),
+    );
+    expect(
+      screen.queryByText('private/internal/private-export.json'),
+    ).not.toBeInTheDocument();
+    await user.click(screen.getAllByText('private-product-image.png')[0]!);
+    const privatePreview = await screen.findByAltText(
+      'Preview of private-product-image.png',
+    );
+    expect(privatePreview).toHaveAttribute('src', 'blob:private-media-preview');
+    expect(createObjectUrl).toHaveBeenCalled();
+    expect(
+      screen.queryByText('private/internal/private-product-image.png'),
     ).not.toBeInTheDocument();
 
     await waitFor(() => {
@@ -552,6 +1010,10 @@ describe('MediaManagementRoutePage', () => {
       sort: { field: 'code', direction: 'ASC' },
     });
 
+    await user.click(screen.getByRole('button', { name: 'Expand upload media' }));
+    expect(
+      screen.getByRole('button', { name: 'Collapse upload media' }),
+    ).toHaveAttribute('aria-expanded', 'true');
     const sourceTypeComboboxes = screen.getAllByRole('combobox', {
       name: 'Source type',
     });
@@ -619,9 +1081,7 @@ describe('MediaManagementRoutePage', () => {
     expect(
       screen.getByText(/Folder policy affects future uploads for cmsAssets/i),
     ).toBeVisible();
-    expect(
-      screen.getByText(/nMedia uses this folder policy for upload validation/i),
-    ).toBeVisible();
+    expect(screen.getByText(/nMedia owns upload validation/i)).toBeVisible();
     expect(
       screen.getByText(
         /Editing is unavailable until nMedia exposes mediaFolder update/i,
@@ -630,11 +1090,11 @@ describe('MediaManagementRoutePage', () => {
     expect(screen.getByRole('button', { name: 'Save folder policy' })).toBeDisabled();
     expect(
       screen.getByRole('link', {
-        name: 'Open full folder record in Schema Workbench',
+        name: 'Open in Schema Workbench',
       }),
     ).toHaveAttribute('href', '/schema-workbench?module=media&schema=mediaFolder');
     expect(
-      screen.queryByRole('link', { name: 'Create folder in Schema Workbench' }),
+      screen.queryByRole('link', { name: 'Create folder' }),
     ).not.toBeInTheDocument();
     expect(screen.queryByText('/do/not/show/cms-assets')).not.toBeInTheDocument();
     expect(screen.queryByText('must-not-render')).not.toBeInTheDocument();
@@ -715,7 +1175,7 @@ describe('MediaManagementRoutePage', () => {
 
     renderPage('/media-management/storage-delivery');
 
-    expect(await screen.findByText('Provider operations')).toBeVisible();
+    expect(await screen.findByText('Providers')).toBeVisible();
     expect(screen.getByText('Active: local')).toBeVisible();
     expect(
       screen.getByText('Key strategy: tenantEnterpriseSchemaDateMedia'),
@@ -723,8 +1183,9 @@ describe('MediaManagementRoutePage', () => {
     expect(screen.getByText('Local Filesystem')).toBeVisible();
     expect(screen.getByText('Health: Available')).toBeVisible();
     expect(screen.getByText('Root mode: Configured Relative')).toBeVisible();
+    expect(screen.getByText('Backend controlled')).toBeVisible();
     expect(
-      screen.getByText(/provider summaries set secret and raw path/i),
+      screen.getByText(/nMedia owns storage paths, provider credentials/i),
     ).toBeVisible();
     expect(screen.getByText('Import source')).toBeVisible();
     expect(screen.queryByText('/tmp/media')).not.toBeInTheDocument();
@@ -810,15 +1271,10 @@ describe('MediaManagementRoutePage', () => {
     renderPage('/media-management/folders');
 
     expect((await screen.findAllByText('CMS assets')).length).toBeGreaterThan(0);
+    expect(screen.getByText(/Axis submits changes through the nMedia/i)).toBeVisible();
     expect(
-      screen.getByText(/Axis submits folder policy changes through the nMedia/i),
-    ).toBeVisible();
-    expect(
-      screen.getByRole('link', { name: 'Create folder in Schema Workbench' }),
-    ).toHaveAttribute(
-      'href',
-      '/schema-workbench?module=media&schema=mediaFolder&mode=create',
-    );
+      screen.getAllByRole('button', { name: 'Create folder' }).length,
+    ).toBeGreaterThan(0);
 
     await user.click(screen.getByRole('combobox', { name: 'Visibility' }));
     await user.click(await screen.findByRole('option', { name: 'SIGNED' }));
@@ -868,6 +1324,140 @@ describe('MediaManagementRoutePage', () => {
     ).toBe(false);
     expect(screen.queryByText('/do/not/show/cms-assets')).not.toBeInTheDocument();
     expect(screen.queryByText('must-not-render')).not.toBeInTheDocument();
+  });
+
+  it('creates, edits, and deletes media folders through generated schema CRUD', async () => {
+    const user = userEvent.setup();
+    const crudMediaFolderSchema: WorkbenchSchema = {
+      ...mediaFolderSchema,
+      operations: ['search', 'read', 'create', 'update', 'delete'],
+    };
+    const fetchMock = vi
+      .spyOn(globalThis, 'fetch')
+      .mockImplementation((input, init) => {
+        const url = fetchInputUrl(input);
+        if (url.pathname === '/nodics/media/v0/schema/workbench') {
+          return Promise.resolve(
+            json({
+              moduleName: 'media',
+              schemas: [mediaSchema, mediaReferenceSchema, crudMediaFolderSchema],
+            }),
+          );
+        }
+        if (url.pathname === '/nodics/media/v0/schema/workbench/mediaFolder/records') {
+          return Promise.resolve(
+            json({
+              records: [
+                {
+                  code: 'cmsAssets',
+                  name: 'CMS assets',
+                  folderCode: 'cmsAssets',
+                  formatCode: 'original',
+                  access: 'PUBLIC',
+                  status: 'ACTIVE',
+                },
+              ],
+              totalCount: 1,
+              pageNumber: 1,
+              pageSize: 10,
+              sort: { field: 'code', direction: 'ASC' },
+            }),
+          );
+        }
+        if (url.pathname === '/nodics/media/v0/mediaFolder' && init?.method === 'PUT') {
+          return Promise.resolve(
+            json({
+              code: 'brandAssets',
+              folderCode: 'brandAssets',
+              formatCode: 'original',
+              access: 'PRIVATE',
+              status: 'ACTIVE',
+            }),
+          );
+        }
+        if (
+          url.pathname === '/nodics/media/v0/mediaFolder' &&
+          init?.method === 'PATCH'
+        ) {
+          return Promise.resolve(
+            json({
+              models: [
+                {
+                  code: 'cmsAssets',
+                  folderCode: 'cmsAssets',
+                  formatCode: 'original',
+                  access: 'SIGNED',
+                  status: 'ACTIVE',
+                },
+              ],
+            }),
+          );
+        }
+        if (
+          url.pathname === '/nodics/media/v0/mediaFolder' &&
+          init?.method === 'DELETE'
+        ) {
+          return Promise.resolve(json(undefined));
+        }
+        if (url.pathname === '/nodics/media/v0/contexts') {
+          return Promise.resolve(json({ contexts: [] }));
+        }
+        return Promise.resolve(json({}));
+      });
+
+    renderPage('/media-management/folders');
+
+    expect((await screen.findAllByText('CMS assets')).length).toBeGreaterThan(0);
+
+    await user.click(screen.getAllByRole('button', { name: 'Create folder' })[0]!);
+    expect(screen.getByRole('heading', { name: 'Create media folder' })).toBeVisible();
+    await user.type(screen.getByRole('textbox', { name: 'Code' }), 'brandAssets');
+    await user.type(screen.getByRole('textbox', { name: 'Folder' }), 'brandAssets');
+    await user.type(screen.getByRole('textbox', { name: 'Format' }), 'original');
+    await user.type(screen.getByRole('textbox', { name: 'Access' }), 'PRIVATE');
+    await user.type(screen.getByRole('textbox', { name: 'Status' }), 'ACTIVE');
+    await user.click(screen.getAllByRole('button', { name: 'Create folder' }).at(-1)!);
+
+    await waitFor(() => {
+      expect(
+        fetchMock.mock.calls.some(([input, init]) => {
+          const url = fetchInputUrl(input);
+          return (
+            url.pathname === '/nodics/media/v0/mediaFolder' && init?.method === 'PUT'
+          );
+        }),
+      ).toBe(true);
+    });
+
+    await user.click(screen.getByRole('button', { name: 'Edit folder' }));
+    await user.clear(screen.getByRole('textbox', { name: 'Access' }));
+    await user.type(screen.getByRole('textbox', { name: 'Access' }), 'SIGNED');
+    await user.click(screen.getByRole('button', { name: 'Save folder' }));
+
+    await waitFor(() => {
+      expect(
+        fetchMock.mock.calls.some(([input, init]) => {
+          const url = fetchInputUrl(input);
+          return (
+            url.pathname === '/nodics/media/v0/mediaFolder' && init?.method === 'PATCH'
+          );
+        }),
+      ).toBe(true);
+    });
+
+    await user.click(screen.getByRole('button', { name: 'Delete folder' }));
+    await user.click(screen.getByRole('button', { name: 'Delete' }));
+
+    await waitFor(() => {
+      expect(
+        fetchMock.mock.calls.some(([input, init]) => {
+          const url = fetchInputUrl(input);
+          return (
+            url.pathname === '/nodics/media/v0/mediaFolder' && init?.method === 'DELETE'
+          );
+        }),
+      ).toBe(true);
+    });
   });
 
   it('shows media format context usage from backend-owned source contexts', async () => {

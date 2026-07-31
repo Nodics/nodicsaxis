@@ -114,7 +114,7 @@ contracts and security, responsive/accessibility behavior, extension,
 troubleshooting, and verification. Change the pack version whenever committed
 content hashes change. A same-version checksum change is rejected by default.
 
-Canonical authored pages live under `source/documentation`. The committed
+Canonical authored pages live under `content/documentation`. The committed
 records under `data/core` are deterministic generated projections, not an
 independent documentation authority. Run `npm run docs:generate` after changing
 an implemented Axis capability, then run `npm run docs:check` and
@@ -122,7 +122,12 @@ an implemented Axis capability, then run `npm run docs:check` and
 destination, headings, and detail evidence for every README or legacy docs
 source before those transitional files are reduced or retired.
 
-`source/documentation/navigation.json` is the only authored Axis documentation
+The content-pack generator is scoped with the content source at
+`content/documentation/tooling/generate-documentation-content.js`. It remains
+tooling, not configuration: `config` is reserved for declarative runtime values
+and must not contain executable generators.
+
+`content/documentation/navigation.json` is the only authored Axis documentation
 release-version authority. Generation copies that version into CMS records,
 the migration register, and the immutable release manifest. Contributors must
 increment it before generating changed content and must not repair generated

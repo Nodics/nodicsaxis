@@ -51,9 +51,9 @@ browser configuration.
 
 Detailed user, operator, architecture, security, customization, and contributor
 guidance is authored under
-[`source/documentation`](source/documentation/navigation.json). The canonical
+[`content/documentation`](content/documentation/navigation.json). The canonical
 starting page is
-[`project-overview.md`](source/documentation/pages/project-overview.md).
+[`project-overview.md`](content/documentation/pages/project-overview.md).
 Generated CMS import data is committed under `data/core`; its immutable release
 manifest is `manifest/docs-content-pack.json`.
 
@@ -76,5 +76,5 @@ logic into React, hardcode module endpoints, execute CMS-provided code, create
 parallel registries, or store access or refresh credentials in browser storage.
 
 See
-[`implementation-and-documentation-contract.md`](source/documentation/pages/implementation-and-documentation-contract.md)
+[`implementation-and-documentation-contract.md`](content/documentation/pages/implementation-and-documentation-contract.md)
 for placement, documentation, security, testing, and safe customization rules.

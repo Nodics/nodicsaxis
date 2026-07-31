@@ -15,6 +15,7 @@ import { useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
 
 import type { WorkbenchRelationship, WorkbenchSchema } from '../api/workbenchContracts';
+import { workbenchRecordValue } from '../record/workbenchRecordPaths';
 import type {
   WorkbenchRelationshipCopy,
   WorkbenchRelationshipDraft,
@@ -39,7 +40,7 @@ function referenceValue(
   record: Readonly<Record<string, unknown>>,
   property: string,
 ): string | undefined {
-  const value = record[property];
+  const value = workbenchRecordValue(record, property);
   return typeof value === 'string' || typeof value === 'number'
     ? String(value)
     : undefined;
@@ -73,7 +74,7 @@ function recordLabel(
 ): string {
   const values = schema.displayProperties
     .map((property) => {
-      const value = displayValue(record[property], '').trim();
+      const value = displayValue(workbenchRecordValue(record, property), '').trim();
       return property === 'description' ? truncateWords(value, 5) : value;
     })
     .filter(Boolean);

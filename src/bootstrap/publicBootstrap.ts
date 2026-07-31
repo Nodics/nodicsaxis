@@ -20,6 +20,7 @@ export interface AxisEmployeePolicy {
   readonly contractVersion: number;
   readonly screenLockEnabled: boolean;
   readonly idleTimeoutSeconds: number;
+  readonly recentNavigationLimit: number;
   readonly revision: number;
   readonly source: 'DEFAULT' | 'PERSISTED';
 }
@@ -448,6 +449,9 @@ export function parseEmployeePolicy(value: unknown): AxisEmployeePolicy {
     !Number.isInteger(policy.idleTimeoutSeconds) ||
     Number(policy.idleTimeoutSeconds) < 60 ||
     Number(policy.idleTimeoutSeconds) > 86_400 ||
+    !Number.isInteger(policy.recentNavigationLimit) ||
+    Number(policy.recentNavigationLimit) < 1 ||
+    Number(policy.recentNavigationLimit) > 24 ||
     !['DEFAULT', 'PERSISTED'].includes(String(policy.source))
   ) {
     throw new Error('BackOffice Axis employee policy is incompatible');
@@ -456,6 +460,7 @@ export function parseEmployeePolicy(value: unknown): AxisEmployeePolicy {
     contractVersion: 1,
     screenLockEnabled: policy.screenLockEnabled,
     idleTimeoutSeconds: Number(policy.idleTimeoutSeconds),
+    recentNavigationLimit: Number(policy.recentNavigationLimit),
     revision: nonNegativeInteger(policy.revision, 'Axis policy revision'),
     source: policy.source as 'DEFAULT' | 'PERSISTED',
   });

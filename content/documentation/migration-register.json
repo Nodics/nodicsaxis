@@ -16,10 +16,10 @@
         "Quality commands",
         "Current scope"
       ],
-      "canonicalSource": "source/documentation/pages/project-overview.md",
+      "canonicalSource": "content/documentation/pages/project-overview.md",
       "destinationRoute": "/docs/nodics-axis",
       "disposition": "migrated",
-      "sourceHash": "ceccd42f61e27d815bf9633f317ed96d75ca2ad1b03c824f00366652e4ad40ab",
+      "sourceHash": "6f55d5847c2e74ab577798f29cbf67c07073911c6be2d836cfdb59162a93f216",
       "wordCount": 914,
       "headings": [
         "Boundaries",
@@ -44,7 +44,7 @@
         "Documentation ownership",
         "Verification expectations"
       ],
-      "canonicalSource": "source/documentation/pages/architecture-and-ownership.md",
+      "canonicalSource": "content/documentation/pages/architecture-and-ownership.md",
       "destinationRoute": "/docs/nodics-axis/architecture",
       "disposition": "migrated",
       "sourceHash": "f47604672729255bb987075b091a9ced856766fdb0b699f3f4f6037d3439293c",
@@ -73,7 +73,7 @@
         "Dependency decision rule",
         "Verification"
       ],
-      "canonicalSource": "source/documentation/pages/frontend-technology-stack.md",
+      "canonicalSource": "content/documentation/pages/frontend-technology-stack.md",
       "destinationRoute": "/docs/nodics-axis/technology-stack",
       "disposition": "migrated",
       "sourceHash": "8abe85c340b862cd361d4aa147e28e9c88451c276a16f0bb0da6b8eeca676f62",
@@ -104,7 +104,7 @@
         "Extension rules",
         "Verification"
       ],
-      "canonicalSource": "source/documentation/pages/design-system-and-shell.md",
+      "canonicalSource": "content/documentation/pages/design-system-and-shell.md",
       "destinationRoute": "/docs/nodics-axis/design-system",
       "disposition": "migrated",
       "sourceHash": "a6995601b81ef6b2fe4ef2f6b123a1b4bba597a7f3c0976002284f55513a7498",
@@ -131,7 +131,7 @@
         "Request and cache safety",
         "Renderer development"
       ],
-      "canonicalSource": "source/documentation/pages/cms-delivery-and-renderers.md",
+      "canonicalSource": "content/documentation/pages/cms-delivery-and-renderers.md",
       "destinationRoute": "/docs/nodics-axis/cms-renderers",
       "disposition": "migrated",
       "sourceHash": "84b2be72effcb6eca8b000a43cfcb3414ef8d0ce52861bea24ffc95dbe9c4c15",
@@ -156,11 +156,11 @@
         "Failure And Recovery",
         "Contributor Verification"
       ],
-      "canonicalSource": "source/documentation/pages/documentation-content.md",
+      "canonicalSource": "content/documentation/pages/documentation-content.md",
       "destinationRoute": "/docs/nodics-axis/documentation-content",
       "disposition": "migrated",
-      "sourceHash": "5707414844e322205ba30221d53b46678fcffbfd3a649e31bb6cba2542a4dcac",
-      "wordCount": 1635,
+      "sourceHash": "2179d3d471836b432cef5b08452aa8c728dc26823dc4c7b7d9fbc6e7a9786044",
+      "wordCount": 1668,
       "headings": [
         "Employee Journey",
         "Nodics Axis Content Pack",
@@ -184,7 +184,7 @@
         "Failure behavior",
         "Verification"
       ],
-      "canonicalSource": "source/documentation/pages/employee-login.md",
+      "canonicalSource": "content/documentation/pages/employee-login.md",
       "destinationRoute": "/docs/nodics-axis/employee-access",
       "disposition": "migrated",
       "sourceHash": "66fe7b8b4a1d494575851de67d521be1d62b746202d60226599b7ea35057f77f",
@@ -219,7 +219,7 @@
         "Evidence and operational transparency",
         "Known next boundary"
       ],
-      "canonicalSource": "source/documentation/pages/assistant-frontend.md",
+      "canonicalSource": "content/documentation/pages/assistant-frontend.md",
       "destinationRoute": "/docs/nodics-axis/assistant",
       "disposition": "migrated",
       "sourceHash": "4b5f2628a6a7b3e6561fef37e68c4001f02a8385700174ffd36fb293b46b2604",
@@ -255,7 +255,7 @@
         "Customization",
         "Verification"
       ],
-      "canonicalSource": "source/documentation/pages/schema-workbench.md",
+      "canonicalSource": "content/documentation/pages/schema-workbench.md",
       "destinationRoute": "/docs/nodics-axis/schema-workbench",
       "disposition": "migrated",
       "sourceHash": "6f8fda062c3d93dd46777f89a8bbdec22887d0ff4b8a8ed3a3aa7fd90427edfa",
@@ -284,7 +284,7 @@
         "Responsive, accessible, and failure behavior",
         "Extension rules"
       ],
-      "canonicalSource": "source/documentation/pages/module-health.md",
+      "canonicalSource": "content/documentation/pages/module-health.md",
       "destinationRoute": "/docs/nodics-axis/module-health",
       "disposition": "migrated",
       "sourceHash": "b94bb7b70fb2b4a7b2e8cd755b33cd564769bdf45bf2872dfa99520e6965f937",
@@ -309,7 +309,7 @@
         "Employee workflow",
         "Security, failure, and extension"
       ],
-      "canonicalSource": "source/documentation/pages/imports-and-exports.md",
+      "canonicalSource": "content/documentation/pages/imports-and-exports.md",
       "destinationRoute": "/docs/nodics-axis/imports-exports",
       "disposition": "migrated",
       "sourceHash": "8e6e20e92557c3b3f0b97e7db1c50f859af97be82d9b468108dc78745e47993f",
@@ -325,7 +325,7 @@
       ]
     },
     {
-      "evidence": "source/documentation/pages/media-management.md",
+      "evidence": "content/documentation/pages/media-management.md",
       "evidenceStatus": "retired-after-verified-migration",
       "evidenceHash": "d71a8a16fcbd819d15b79b9b91d366999e5020194df7b1c5745eb72a4bdd90f2",
       "evidenceWordCount": 2795,
@@ -339,7 +339,7 @@
         "Customizing upload behavior safely",
         "Verification"
       ],
-      "canonicalSource": "source/documentation/pages/media-management.md",
+      "canonicalSource": "content/documentation/pages/media-management.md",
       "destinationRoute": "/docs/nodics-axis/media-management",
       "disposition": "migrated",
       "sourceHash": "1371f3b9cfd55b2ba193909a2d1738cb1607719a8b048471a880e6e7110a47cd",
@@ -370,7 +370,7 @@
         "7. Partial-discovery and use-case proof",
         "8. Completion evidence"
       ],
-      "canonicalSource": "source/documentation/pages/feature-delivery-checklist.md",
+      "canonicalSource": "content/documentation/pages/feature-delivery-checklist.md",
       "destinationRoute": "/docs/nodics-axis/feature-delivery",
       "disposition": "migrated",
       "sourceHash": "da3160391c340399debae48e13e16e44a9ebe134f4e8510724ee502275658694",
@@ -407,11 +407,11 @@
         "Acceptance",
         "Continue"
       ],
-      "canonicalSource": "source/documentation/pages/implementation-and-documentation-contract.md",
+      "canonicalSource": "content/documentation/pages/implementation-and-documentation-contract.md",
       "destinationRoute": "/docs/nodics-axis/implementation-contract",
       "disposition": "migrated",
-      "sourceHash": "6fe7502a63f61607d2ba73a95d46fdaae47065317354b33bb9f5547cfd7de9ef",
-      "wordCount": 1144,
+      "sourceHash": "da6cbc490f21e7a2497cb597c55cd5aa022b0628b8abfde7d08d879c2381e356",
+      "wordCount": 1176,
       "headings": [
         "Local Discovery Chain",
         "Repository Ownership",

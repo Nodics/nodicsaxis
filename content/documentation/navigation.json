@@ -144,7 +144,7 @@
       "sectionOrder": 30,
       "order": 115,
       "source": "pages/media-management.md",
-      "evidence": "source/documentation/pages/media-management.md",
+      "evidence": "content/documentation/pages/media-management.md",
       "summary": "Understand the governed Media Management navigation, route shell, backend ownership, storage and delivery boundaries, and upcoming capability slices.",
       "audience": ["administrator", "operator", "developer", "business-user"]
     },
