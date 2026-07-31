@@ -120,6 +120,26 @@ Axis does not choose the filesystem folder, does not generate the storage key,
 and does not persist
 media metadata directly.
 
+The upload UI is implemented as the reusable `MediaUploadWizard` component under
+Media Management operations. The wizard keeps the interaction layered:
+
+1. select a backend-published source type;
+2. show the resolved nMedia folder, format, route template, extension policy,
+   MIME policy, and max-size policy;
+3. keep file selection disabled until a valid source type and policy are known;
+4. let the employee choose a local file;
+5. show a browser-only review; and
+6. submit the file to nMedia and call the parent refresh callback after a media
+   code is returned.
+
+The browser-only review is intentionally advisory. Axis may show local metadata
+that helps an employee catch obvious mistakes before upload, including file
+size, MIME type, extension, image dimensions, a thumbnail for image files, CSV
+headers and row count, JSON top-level shape, and a small text preview. These
+signals are not business validation. nMedia still validates upload policy, and
+the owning module, such as nImport, Product, CMS, or a partner module, still
+validates business content after it receives the media code.
+
 Media detail includes three operational checks:
 
 1. **Delivery preview** uses the nMedia content endpoint only when the media is
@@ -360,6 +380,28 @@ automatically in the upload purpose selector. If the partner needs a richer
 workflow, such as a product gallery uploader or CMS banner picker, that workflow
 should still call nMedia upload first and then create the product or CMS
 reference through the owning module contract.
+
+The smallest safe Axis customization is to compose `MediaUploadWizard` inside a
+project-owned page or workflow and respond to its returned media code. A customer
+page may change surrounding copy, add a next-step panel, or route the media code
+to an owning Product, CMS, Import, or partner API. It must not copy the wizard
+into a second upload implementation, hardcode folder-to-source mappings, invent
+file policy, generate media records locally, infer storage paths, or bypass
+nMedia upload.
+
+When customizing the wizard, keep tests focused on the boundary:
+
+- generated export contexts remain excluded from manual upload unless nMedia
+  explicitly publishes a different contract;
+- file selection is blocked until backend policy is known;
+- unsupported extensions, MIME types, and oversized files are rejected locally
+  only as early UX warnings;
+- successful upload calls nMedia with the backend-derived folder, format,
+  module, and schema context;
+- backend upload errors are shown as safe messages without exposing service
+  internals; and
+- local previews for images, CSV, JSON, or text remain advisory and never
+  replace backend validation.
 
 ## Verification
 
