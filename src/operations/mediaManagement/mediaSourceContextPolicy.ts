@@ -201,6 +201,22 @@ export function mediaSourceType(
   return humanize(normalized);
 }
 
+export function mediaSourceTypesForContexts(
+  contexts?: readonly MediaSourceContext[],
+): readonly string[] {
+  if (!contexts?.length) return governedMediaSourceTypes;
+  return Object.freeze(contexts.map(contextSourceType));
+}
+
+export function folderCodesForSourceType(
+  sourceType: string,
+  contexts?: readonly MediaSourceContext[],
+): readonly string[] {
+  const backendContext = backendContextForSourceType(contexts, sourceType);
+  if (backendContext) return backendContext.folderCodes;
+  return fallbackContextForSourceType(sourceType)?.folderCodes ?? [];
+}
+
 export function selectPreferredUploadPolicy(
   policies: readonly MediaFolderUploadPolicy[],
   sourceType: string,

@@ -3,9 +3,11 @@ import { describe, expect, it } from 'vitest';
 import type { MediaFolderUploadPolicy } from '../../../src/operations/mediaManagement/api/mediaStoragePolicyClient';
 import {
   defaultFormatForSourceType,
+  folderCodesForSourceType,
   folderUploadPoliciesFromContexts,
   manualUploadSourceTypesForPolicies,
   mediaFormatLabel,
+  mediaSourceTypesForContexts,
   mediaSourceType,
   moduleForSourceType,
   schemaForSourceType,
@@ -151,5 +153,13 @@ describe('mediaSourceContextPolicy', () => {
     expect(sourceTypeStorageRouteLabel('Content media', backendContexts)).toBe(
       'media/content/{mediaCode}.{extension}',
     );
+    expect(mediaSourceTypesForContexts(backendContexts)).toEqual([
+      'Data imports',
+      'Data exports',
+      'Content media',
+    ]);
+    expect(folderCodesForSourceType('Content media', backendContexts)).toEqual([
+      'cmsAssets',
+    ]);
   });
 });

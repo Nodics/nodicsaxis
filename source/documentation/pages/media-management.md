@@ -90,14 +90,16 @@ Business users can narrow media records by:
 - free-text search across safe metadata such as code, filename, folder, format,
   status, MIME type, and extension.
 
-Axis also paginates the visible table so a long result set does not become one
-unmanageable page. The backend media schema/search contract remains the
-authority for record retrieval. As the number of media records grows into
-thousands or millions, nMedia should expose server-side paging, sorting,
-filtering, and search-index backed queries through the same backend-owned
-contract. Axis should keep the same user experience and pass the selected
-filters to that contract; it must not create a browser-only media index or read
-storage folders directly.
+Axis sends search text, queryable source-type/facet selections, page number,
+page size, and the schema default sort to nMedia through the generated
+Schema Workbench record contract. The table count comes from the backend
+`totalCount`, not from a browser-side full-record load. Axis only renders
+filters when the active schema advertises the corresponding safe filter field
+and operator. Source type is mapped to backend folder codes from `/contexts`,
+then passed as a `folderCode` filter when the media schema allows it. This keeps
+large media libraries scalable while preserving nMedia as the only authority for
+record retrieval, filtering, storage, and delivery. Axis must not create a
+browser-only media index or read storage folders directly.
 
 The same section also supports governed upload. The employee selects an upload
 purpose, such as data imports, content media, product media, or utility media.

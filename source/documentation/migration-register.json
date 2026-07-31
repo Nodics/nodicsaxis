@@ -342,8 +342,8 @@
       "canonicalSource": "source/documentation/pages/media-management.md",
       "destinationRoute": "/docs/nodics-axis/media-management",
       "disposition": "migrated",
-      "sourceHash": "9e36e9c942840a4ffa2cf7cdc19ebaaffd62717c26c7b5e38c43ce01fdb31f02",
-      "wordCount": 2922,
+      "sourceHash": "224b5e512df1ca0237cd360be98a3d7eaa7d4e9721bbaf45ec2195d540703000",
+      "wordCount": 2949,
       "headings": [
         "Purpose",
         "Navigation",

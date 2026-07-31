@@ -40,6 +40,7 @@ import {
   type WorkbenchClientConfiguration,
 } from '../../workbench/api/workbenchClient';
 import type {
+  WorkbenchFilterCondition,
   WorkbenchFilterGroup,
   WorkbenchRecord,
   WorkbenchRecordQuery,
@@ -55,10 +56,12 @@ import {
 } from './api/mediaStoragePolicyClient';
 import {
   defaultFormatForSourceType,
+  folderCodesForSourceType,
   folderUploadPoliciesFromContexts,
   governedMediaSourceTypes,
   manualUploadSourceTypesForPolicies,
   mediaFormatLabel,
+  mediaSourceTypesForContexts,
   mediaSourceType,
   moduleForSourceType,
   schemaForSourceType,
@@ -240,12 +243,18 @@ function buildRecordQuery(
   schema: WorkbenchSchema,
   search: string,
   filters?: WorkbenchFilterGroup,
+  pageNumber = 1,
+  pageSize = schema.queryCapabilities.defaultPageSize,
 ): WorkbenchRecordQuery {
+  const normalizedPageSize = Math.min(
+    Math.max(1, pageSize),
+    schema.queryCapabilities.maximumPageSize,
+  );
   return Object.freeze({
     search,
     ...(filters ? { filters } : {}),
-    pageNumber: 1,
-    pageSize: Math.min(25, schema.queryCapabilities.maximumPageSize),
+    pageNumber: Math.max(1, pageNumber),
+    pageSize: normalizedPageSize,
     sort: schema.queryCapabilities.defaultSort,
   });
 }
@@ -263,15 +272,135 @@ function buildEqualsFilter(field: string, value: string): WorkbenchFilterGroup {
   });
 }
 
-function recordSearchText(
-  record: WorkbenchRecord,
-  searchKeys: readonly string[],
+function supportedFilterOperator(
+  schema: WorkbenchSchema,
+  field: string,
+  operator: WorkbenchFilterCondition['operator'],
+): boolean {
+  return Boolean(
+    schema.queryCapabilities.filterFields
+      .find((filterField) => filterField.field === field)
+      ?.operators.includes(operator),
+  );
+}
+
+function conditionFilter(condition: WorkbenchFilterCondition): WorkbenchFilterGroup {
+  return Object.freeze({
+    operator: 'AND',
+    items: Object.freeze([Object.freeze(condition)]),
+  });
+}
+
+function buildInOrEqualsFilter(
+  schema: WorkbenchSchema,
+  field: string,
+  values: readonly string[],
+): WorkbenchFilterGroup | undefined {
+  const normalizedValues = uniqueSorted(
+    values.map((value) => value.trim()).filter(Boolean),
+  );
+  if (normalizedValues.length === 0) return undefined;
+  if (normalizedValues.length > 1 && supportedFilterOperator(schema, field, 'IN')) {
+    return conditionFilter({
+      field,
+      operator: 'IN',
+      value: normalizedValues,
+    });
+  }
+  if (supportedFilterOperator(schema, field, 'EQUALS')) {
+    if (
+      normalizedValues.length > 1 &&
+      schema.queryCapabilities.groupOperators.includes('OR')
+    ) {
+      return Object.freeze({
+        operator: 'OR',
+        items: Object.freeze(
+          normalizedValues.map((value) =>
+            Object.freeze({
+              field,
+              operator: 'EQUALS',
+              value,
+            }),
+          ),
+        ),
+      });
+    }
+    return conditionFilter({
+      field,
+      operator: 'EQUALS',
+      value: normalizedValues[0]!,
+    });
+  }
+  return undefined;
+}
+
+function isFieldFilterable(schema: WorkbenchSchema, field: string): boolean {
+  return (
+    supportedFilterOperator(schema, field, 'EQUALS') ||
+    supportedFilterOperator(schema, field, 'IN')
+  );
+}
+
+function facetBackendField(
+  itemId: string | undefined,
+  filter: MediaRecordFacetFilter,
 ): string {
-  return searchKeys
-    .map((key) => displayValue(record[key]))
-    .filter((value) => value !== '—')
-    .join(' ')
-    .toLowerCase();
+  if (itemId === 'media' && filter.key === 'sourceType') return 'folderCode';
+  return filter.key;
+}
+
+function isFacetFilterQueryable(
+  schema: WorkbenchSchema,
+  itemId: string | undefined,
+  filter: MediaRecordFacetFilter,
+): boolean {
+  return isFieldFilterable(schema, facetBackendField(itemId, filter));
+}
+
+function combineFilters(
+  filters: readonly (WorkbenchFilterGroup | undefined)[],
+): WorkbenchFilterGroup | undefined {
+  const activeFilters = filters.filter((filter): filter is WorkbenchFilterGroup =>
+    Boolean(filter && filter.items.length > 0),
+  );
+  if (activeFilters.length === 0) return undefined;
+  if (activeFilters.length === 1) return activeFilters[0];
+  return Object.freeze({
+    operator: 'AND',
+    items: Object.freeze(activeFilters),
+  });
+}
+
+function buildFacetRecordFilter(
+  schema: WorkbenchSchema,
+  itemId: string | undefined,
+  facetFilters: readonly MediaRecordFacetFilter[],
+  selections: Readonly<Record<string, string>>,
+  contexts?: readonly MediaSourceContext[],
+): WorkbenchFilterGroup | undefined {
+  const statePrefix = `${itemId ?? 'none'}:`;
+  return combineFilters(
+    facetFilters.map((filter) => {
+      const selectedValue = selections[`${statePrefix}${filter.key}`] ?? 'ALL';
+      if (!selectedValue || selectedValue === 'ALL') return undefined;
+      if (itemId === 'media' && filter.key === 'sourceType') {
+        return buildInOrEqualsFilter(
+          schema,
+          'folderCode',
+          folderCodesForSourceType(selectedValue, contexts),
+        );
+      }
+      return buildInOrEqualsFilter(schema, filter.key, [selectedValue]);
+    }),
+  );
+}
+
+function recordPageSizeOptions(schema: WorkbenchSchema | undefined): readonly number[] {
+  const allowedPageSizes = schema?.queryCapabilities.allowedPageSizes ?? [10, 25, 50];
+  const maximumPageSize =
+    schema?.queryCapabilities.maximumPageSize ?? Number.MAX_SAFE_INTEGER;
+  const boundedPageSizes = allowedPageSizes.filter((size) => size <= maximumPageSize);
+  return boundedPageSizes.length ? boundedPageSizes : [10];
 }
 
 function mediaSummary(record: WorkbenchRecord): string {
@@ -1964,10 +2093,47 @@ export function MediaManagementRoutePage(props: MediaManagementRoutePageProps) {
       ),
     [schemas.data],
   );
+  const mediaContexts = useQuery({
+    enabled: Boolean(
+      (currentItem?.id === 'storage-delivery' || currentItem?.id === 'media') &&
+      connection,
+    ),
+    queryKey: [
+      'media-management',
+      'media-contexts',
+      connection?.endpoint,
+      configuration.enterpriseCode,
+    ],
+    queryFn: () => loadMediaSourceContexts(connection!, configuration),
+  });
   const currentRecordFilter =
     currentItem?.id === 'media-usage' && usageMediaCode
       ? buildEqualsFilter('mediaCode', usageMediaCode)
       : undefined;
+  const queryableFacetFilters = currentSchema
+    ? currentFacetFilters.filter((filter) =>
+        isFacetFilterQueryable(currentSchema, currentItem?.id, filter),
+      )
+    : emptyFacetFilters;
+  const currentFacetRecordFilter = currentSchema
+    ? buildFacetRecordFilter(
+        currentSchema,
+        currentItem?.id,
+        queryableFacetFilters,
+        recordFacetFilters,
+        mediaContexts.data,
+      )
+    : undefined;
+  const activeRecordFilter = combineFilters([
+    currentRecordFilter,
+    currentFacetRecordFilter,
+  ]);
+  const recordRowsPerPageOptions = recordPageSizeOptions(currentSchema);
+  const effectiveRecordRowsPerPage = recordRowsPerPageOptions.includes(
+    recordRowsPerPage,
+  )
+    ? recordRowsPerPage
+    : (recordRowsPerPageOptions[0] ?? 10);
   const records = useQuery({
     enabled: Boolean(recordWorkspaceConfiguration && connection && currentSchema),
     queryKey: [
@@ -1976,6 +2142,10 @@ export function MediaManagementRoutePage(props: MediaManagementRoutePageProps) {
       connection?.endpoint,
       currentSchema?.schemaName,
       recordSearch.trim(),
+      recordPage,
+      effectiveRecordRowsPerPage,
+      recordFacetFilters,
+      mediaContexts.data?.map((context) => context.folderCodes.join(',')).join('|'),
       usageMediaCode,
     ],
     queryFn: () =>
@@ -1983,94 +2153,60 @@ export function MediaManagementRoutePage(props: MediaManagementRoutePageProps) {
         connection!,
         currentSchema!,
         configuration,
-        buildRecordQuery(currentSchema!, recordSearch.trim(), currentRecordFilter),
+        buildRecordQuery(
+          currentSchema!,
+          recordSearch.trim(),
+          activeRecordFilter,
+          recordPage + 1,
+          effectiveRecordRowsPerPage,
+        ),
       ),
   });
   const loadedRecords = useMemo(
     () => records.data?.records ?? [],
     [records.data?.records],
   );
-  const facetFilterOptions = useMemo(
-    () =>
-      currentFacetFilters
-        .map((filter) => {
-          const dynamicOptions = uniqueSorted(
-            loadedRecords
-              .map((record) => filter.value(record))
-              .filter((value) => value && value !== '—'),
-          );
-          const options = uniqueSorted([
-            ...(filter.staticOptions ?? []),
-            ...dynamicOptions,
-          ]);
-          return {
-            filter,
-            options,
-          };
-        })
-        .filter(({ options }) => options.length > 0),
-    [currentFacetFilters, loadedRecords],
-  );
+  const facetFilterOptions = queryableFacetFilters
+    .map((filter) => {
+      const dynamicOptions = uniqueSorted(
+        loadedRecords
+          .map((record) => filter.value(record))
+          .filter((value) => value && value !== '—'),
+      );
+      const backendSourceOptions =
+        filter.key === 'sourceType'
+          ? mediaSourceTypesForContexts(mediaContexts.data)
+          : [];
+      const options = uniqueSorted([
+        ...(filter.staticOptions ?? []),
+        ...backendSourceOptions,
+        ...dynamicOptions,
+      ]);
+      return {
+        filter,
+        options,
+      };
+    })
+    .filter(({ options }) => options.length > 0);
   const mediaSourceFacetOption =
     currentItem?.id === 'media'
       ? facetFilterOptions.find(({ filter }) => filter.key === 'sourceType')
       : undefined;
-  const hasActiveFacetFilters = useMemo(
-    () =>
-      currentFacetFilters.some((filter) => {
-        const value = recordFacetFilters[`${currentItem?.id ?? 'none'}:${filter.key}`];
-        return Boolean(value && value !== 'ALL');
-      }),
-    [currentFacetFilters, currentItem?.id, recordFacetFilters],
-  );
-  const filteredRecords = useMemo(() => {
-    const normalizedSearch = recordSearch.trim().toLowerCase();
-    return loadedRecords.filter((record) => {
-      if (
-        normalizedSearch &&
-        !recordSearchText(
-          record,
-          recordWorkspaceConfiguration?.searchKeys ?? [],
-        ).includes(normalizedSearch)
-      ) {
-        return false;
-      }
-      return currentFacetFilters.every((filter) => {
-        const selectedValue =
-          recordFacetFilters[`${currentItem?.id ?? 'none'}:${filter.key}`] ?? 'ALL';
-        return selectedValue === 'ALL' || filter.value(record) === selectedValue;
-      });
-    });
-  }, [
-    currentFacetFilters,
-    currentItem?.id,
-    loadedRecords,
-    recordFacetFilters,
-    recordSearch,
-    recordWorkspaceConfiguration?.searchKeys,
-  ]);
-  const effectiveRecordPage =
-    filteredRecords.length === 0
-      ? 0
-      : Math.min(
-          recordPage,
-          Math.floor((filteredRecords.length - 1) / recordRowsPerPage),
-        );
-  const pagedRecords = useMemo(
-    () =>
-      filteredRecords.slice(
-        effectiveRecordPage * recordRowsPerPage,
-        effectiveRecordPage * recordRowsPerPage + recordRowsPerPage,
-      ),
-    [effectiveRecordPage, filteredRecords, recordRowsPerPage],
-  );
+  const hasActiveFacetFilters = queryableFacetFilters.some((filter) => {
+    const value = recordFacetFilters[`${currentItem?.id ?? 'none'}:${filter.key}`];
+    return Boolean(value && value !== 'ALL');
+  });
+  const visibleRecords = loadedRecords;
+  const totalRecordCount = records.data?.totalCount ?? visibleRecords.length;
+  const effectiveRecordPage = recordPage;
+  const pagedRecords = visibleRecords;
   const selectedRecord = useMemo(
     () =>
-      filteredRecords.find(
+      visibleRecords.find(
         (record) =>
           typeof record.code === 'string' && record.code === selectedRecordCode,
-      ) ?? filteredRecords[0],
-    [filteredRecords, selectedRecordCode],
+      ) ?? visibleRecords[0],
+    [visibleRecords, selectedRecordCode],
   );
   const selectedMediaSetCode =
     currentItem?.id === 'media-sets' ? textValue(selectedRecord, 'code') : '—';
@@ -2125,19 +2261,6 @@ export function MediaManagementRoutePage(props: MediaManagementRoutePageProps) {
           buildEqualsFilter('mediaSetCode', selectedMediaSetCode),
         ),
       ),
-  });
-  const mediaContexts = useQuery({
-    enabled: Boolean(
-      (currentItem?.id === 'storage-delivery' || currentItem?.id === 'media') &&
-      connection,
-    ),
-    queryKey: [
-      'media-management',
-      'media-contexts',
-      connection?.endpoint,
-      configuration.enterpriseCode,
-    ],
-    queryFn: () => loadMediaSourceContexts(connection!, configuration),
   });
   const storagePolicies = useQuery({
     enabled: Boolean(
@@ -2426,7 +2549,7 @@ export function MediaManagementRoutePage(props: MediaManagementRoutePageProps) {
                           sx={{ alignItems: 'center', flexWrap: 'wrap' }}
                         >
                           <Chip
-                            label={`${filteredRecords.length} shown from ${records.data?.totalCount ?? loadedRecords.length}`}
+                            label={`${visibleRecords.length} shown from ${totalRecordCount}`}
                             size="small"
                           />
                           <Button
@@ -2589,7 +2712,7 @@ export function MediaManagementRoutePage(props: MediaManagementRoutePageProps) {
                                 </TableRow>
                               );
                             })}
-                            {filteredRecords.length === 0 ? (
+                            {visibleRecords.length === 0 ? (
                               <TableRow>
                                 <TableCell
                                   colSpan={recordWorkspaceConfiguration.columns.length}
@@ -2607,10 +2730,10 @@ export function MediaManagementRoutePage(props: MediaManagementRoutePageProps) {
                         </Table>
                         <TablePagination
                           component="div"
-                          count={filteredRecords.length}
+                          count={totalRecordCount}
                           page={effectiveRecordPage}
-                          rowsPerPage={recordRowsPerPage}
-                          rowsPerPageOptions={[10, 25, 50]}
+                          rowsPerPage={effectiveRecordRowsPerPage}
+                          rowsPerPageOptions={recordRowsPerPageOptions}
                           onPageChange={(_event, page) => {
                             setRecordPage(page);
                           }}
