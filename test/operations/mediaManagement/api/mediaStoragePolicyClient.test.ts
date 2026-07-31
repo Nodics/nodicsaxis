@@ -4,6 +4,7 @@ import type { AxisModuleConnection } from '../../../../src/bootstrap/publicBoots
 import {
   loadMediaFolderUploadPolicies,
   loadMediaSourceContexts,
+  loadMediaStorageProviderSummary,
 } from '../../../../src/operations/mediaManagement/api/mediaStoragePolicyClient';
 
 const connection: AxisModuleConnection = {
@@ -115,5 +116,78 @@ describe('media storage policy client', () => {
     );
 
     expect(result[0]?.maxFileSizeBytes).toBe(2048);
+  });
+
+  it('loads safe provider summary without exposing backend storage internals', async () => {
+    const fetchImplementation = vi.fn<typeof fetch>().mockResolvedValue(
+      response({
+        result: {
+          activeProviderCode: 'local',
+          keyStrategyName: 'tenantEnterpriseSchemaDateMedia',
+          delivery: {
+            enabled: true,
+            publicAccessEnabled: true,
+            signedAccessEnabled: false,
+            privateAccessEnabled: true,
+            cacheControl: 'public, max-age=3600',
+            contentDisposition: 'inline',
+          },
+          providers: [
+            {
+              providerCode: 'local',
+              providerType: 'LOCAL_FILESYSTEM',
+              active: true,
+              enabled: true,
+              health: {
+                status: 'AVAILABLE',
+                rootMode: 'CONFIGURED_RELATIVE',
+                pathExposed: false,
+                message: 'Local provider available',
+                absolutePath: '/must/not/pass',
+              },
+              deliveryMode: 'BACKEND_DELIVERY',
+              secretsHidden: true,
+              rawPathsHidden: true,
+              serviceName: 'DefaultLocalMediaStorageProviderService',
+              bucketName: 'must-not-pass',
+              basePath: '/must/not/pass',
+            },
+          ],
+        },
+      }),
+    );
+
+    const result = await loadMediaStorageProviderSummary(
+      connection,
+      configuration,
+      fetchImplementation,
+    );
+
+    expect((fetchImplementation.mock.calls[0]?.[0] as URL).pathname).toBe(
+      '/nodics/media/v0/storage/providers/summary',
+    );
+    expect(result.activeProviderCode).toBe('local');
+    expect(result.keyStrategyName).toBe('tenantEnterpriseSchemaDateMedia');
+    expect(result.delivery.publicAccessEnabled).toBe(true);
+    expect(result.providers[0]).toEqual({
+      providerCode: 'local',
+      providerType: 'LOCAL_FILESYSTEM',
+      active: true,
+      enabled: true,
+      health: {
+        status: 'AVAILABLE',
+        rootMode: 'CONFIGURED_RELATIVE',
+        pathExposed: false,
+        message: 'Local provider available',
+      },
+      deliveryMode: 'BACKEND_DELIVERY',
+      secretsHidden: true,
+      rawPathsHidden: true,
+    });
+    expect(JSON.stringify(result)).not.toContain(
+      'DefaultLocalMediaStorageProviderService',
+    );
+    expect(JSON.stringify(result)).not.toContain('must-not-pass');
+    expect(JSON.stringify(result)).not.toContain('/must/not/pass');
   });
 });

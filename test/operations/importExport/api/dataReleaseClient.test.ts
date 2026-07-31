@@ -6,6 +6,7 @@ import {
   installMediaImport,
   loadDataReleases,
   loadImportHistory,
+  loadImportHistoryForMediaCode,
   downloadDataExportMedia,
   preflightDataReleases,
   uploadImportMedia,
@@ -211,6 +212,45 @@ describe('data release client', () => {
     ]);
     expect(JSON.stringify(result)).not.toContain('stack');
     expect(JSON.stringify(result)).not.toContain('internalAbsolutePath');
+  });
+
+  it('loads media-specific import history through a sanitized mediaCode query', async () => {
+    const fetchImplementation = vi.fn<typeof fetch>().mockResolvedValue(
+      response({
+        data: [
+          {
+            runId: 'media-import-run-1',
+            status: 'COMPLETED',
+            dataType: 'media',
+            modules: ['catalog'],
+            sourceName: 'media:tenant-upload',
+            providerPath: '/must/not/pass',
+          },
+        ],
+      }),
+    );
+
+    const result = await loadImportHistoryForMediaCode(
+      connection,
+      configuration,
+      'tenant-upload',
+      fetchImplementation,
+    );
+
+    const requestUrl = fetchImplementation.mock.calls[0]?.[0] as URL;
+    expect(requestUrl.pathname).toBe('/nodics/import/v0/run/history');
+    expect(requestUrl.searchParams.get('mediaCode')).toBe('tenant-upload');
+    expect(requestUrl.searchParams.get('limit')).toBe('10');
+    expect(result).toEqual([
+      {
+        runId: 'media-import-run-1',
+        status: 'COMPLETED',
+        dataType: 'media',
+        modules: ['catalog'],
+      },
+    ]);
+    expect(JSON.stringify(result)).not.toContain('sourceName');
+    expect(JSON.stringify(result)).not.toContain('/must/not/pass');
   });
 
   it('uploads import media without overriding the browser multipart boundary', async () => {

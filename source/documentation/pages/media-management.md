@@ -497,7 +497,18 @@ When adding a Media Management feature, verify:
     are hidden or disabled when update is not authorized.
 11. Large media lists provide source-type, visibility, status, format, free-text
     search, and pagination without creating a browser-side media authority.
-12. Upload, search, reference, lifecycle, or delivery behavior stays
+12. Import/export linkage remains read-only. Axis may query nImport history by
+    media code and show import/export media references, but it must not mutate
+    import runs, export results, Product records, CMS records, or partner owner
+    records through Media Management.
+13. Storage provider summaries show only safe operator metadata: active
+    provider code, provider type, enabled/active state, health, key strategy,
+    and delivery mode. They must not show credentials, certificates, buckets,
+    storage keys, signed URL secrets, absolute paths, or backend-resolved full
+    paths.
+14. Generated export files are downloaded through nMedia media-code delivery,
+    not through export-specific browser paths or duplicate binary routes.
+15. Upload, search, reference, lifecycle, or delivery behavior stays
     backend-owned.
-13. Positive, negative, boundary, permission, contract, integration, and
+16. Positive, negative, boundary, permission, contract, integration, and
     regression tests cover the new behavior.
