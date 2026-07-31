@@ -468,6 +468,131 @@ describe('MediaManagementRoutePage', () => {
     expect(
       screen.getByText(/nMedia uses this folder policy for upload validation/i),
     ).toBeVisible();
+    expect(
+      screen.getByText(/Editing is unavailable until nMedia exposes generated update/i),
+    ).toBeVisible();
+    expect(screen.getByRole('button', { name: 'Save folder policy' })).toBeDisabled();
+    expect(screen.queryByText('/do/not/show/cms-assets')).not.toBeInTheDocument();
+    expect(screen.queryByText('must-not-render')).not.toBeInTheDocument();
+  });
+
+  it('updates media folder policy only through generated schema mutations', async () => {
+    const user = userEvent.setup();
+    const editableMediaFolderSchema: WorkbenchSchema = {
+      ...mediaFolderSchema,
+      operations: ['search', 'read', 'update'],
+    };
+    const fetchMock = vi
+      .spyOn(globalThis, 'fetch')
+      .mockImplementation((input, init) => {
+        const url = fetchInputUrl(input);
+        if (url.pathname === '/nodics/media/v0/schema/workbench') {
+          return Promise.resolve(
+            json({
+              moduleName: 'media',
+              schemas: [mediaSchema, mediaReferenceSchema, editableMediaFolderSchema],
+            }),
+          );
+        }
+        if (url.pathname === '/nodics/media/v0/schema/workbench/mediaFolder/records') {
+          return Promise.resolve(
+            json({
+              records: [
+                {
+                  code: 'cmsAssets',
+                  name: 'CMS assets',
+                  description: 'Content media folder',
+                  storagePrefix: 'media/content',
+                  access: 'PUBLIC',
+                  allowedExtensions: ['png', 'webp'],
+                  allowedMimeTypes: ['image/png', 'image/webp'],
+                  maximumFileSizeBytes: 52428800,
+                  retentionDays: 0,
+                  fullPath: '/do/not/show/cms-assets',
+                  providerSecret: 'must-not-render',
+                },
+              ],
+              totalCount: 1,
+              pageNumber: 1,
+              pageSize: 10,
+              sort: { field: 'code', direction: 'ASC' },
+            }),
+          );
+        }
+        if (
+          url.pathname === '/nodics/media/v0/mediaFolder' &&
+          init?.method === 'PATCH'
+        ) {
+          return Promise.resolve(
+            json({
+              models: [
+                {
+                  code: 'cmsAssets',
+                  name: 'CMS assets',
+                  storagePrefix: 'media/content',
+                  access: 'SIGNED',
+                  maximumFileSizeBytes: 1024,
+                  retentionDays: 30,
+                },
+              ],
+            }),
+          );
+        }
+        if (url.pathname === '/nodics/media/v0/contexts') {
+          return Promise.resolve(json({ contexts: [] }));
+        }
+        return Promise.resolve(json({}));
+      });
+
+    renderPage('/media-management/folders');
+
+    expect((await screen.findAllByText('CMS assets')).length).toBeGreaterThan(0);
+    expect(
+      screen.getByText(/Axis submits folder policy changes through the generated/i),
+    ).toBeVisible();
+
+    await user.click(screen.getByRole('combobox', { name: 'Visibility' }));
+    await user.click(await screen.findByRole('option', { name: 'SIGNED' }));
+    await user.clear(screen.getByRole('spinbutton', { name: 'Maximum file size' }));
+    await user.type(
+      screen.getByRole('spinbutton', { name: 'Maximum file size' }),
+      '1024',
+    );
+    await user.clear(screen.getByRole('spinbutton', { name: 'Retention days' }));
+    await user.type(screen.getByRole('spinbutton', { name: 'Retention days' }), '30');
+    await user.click(screen.getByRole('button', { name: 'Save folder policy' }));
+
+    await waitFor(() => {
+      expect(
+        fetchMock.mock.calls.some(([input, init]) => {
+          const url = fetchInputUrl(input);
+          return (
+            url.pathname === '/nodics/media/v0/mediaFolder' && init?.method === 'PATCH'
+          );
+        }),
+      ).toBe(true);
+    });
+    const updateRequest = fetchMock.mock.calls.find(([input, init]) => {
+      const url = fetchInputUrl(input);
+      return (
+        url.pathname === '/nodics/media/v0/mediaFolder' && init?.method === 'PATCH'
+      );
+    });
+    expect(JSON.parse(fetchBodyText(updateRequest?.[1]))).toEqual({
+      model: {
+        access: 'SIGNED',
+        maximumFileSizeBytes: 1024,
+        retentionDays: 30,
+      },
+      options: { recursive: false, returnModified: true },
+      query: { code: 'cmsAssets' },
+    });
+    expect(fetchMock).not.toHaveBeenCalledWith(
+      expect.objectContaining({
+        pathname: '/nodics/media/v0/storage/policy',
+      }),
+      expect.anything(),
+    );
     expect(screen.queryByText('/do/not/show/cms-assets')).not.toBeInTheDocument();
     expect(screen.queryByText('must-not-render')).not.toBeInTheDocument();
   });

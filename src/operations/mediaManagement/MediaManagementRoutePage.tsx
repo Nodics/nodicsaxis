@@ -445,6 +445,167 @@ function MediaFolderPolicyImpactPanel(props: { readonly record: WorkbenchRecord 
   );
 }
 
+function numericInputValue(record: WorkbenchRecord, key: string): string {
+  const value = numberValue(record, key);
+  return value === undefined ? '' : String(value);
+}
+
+function parseOptionalNonNegativeInteger(value: string): number | undefined {
+  const trimmed = value.trim();
+  if (!trimmed) return undefined;
+  const parsed = Number.parseInt(trimmed, 10);
+  return Number.isSafeInteger(parsed) && parsed >= 0 && String(parsed) === trimmed
+    ? parsed
+    : undefined;
+}
+
+function MediaFolderPolicyActionsPanel(props: {
+  readonly configuration: WorkbenchClientConfiguration;
+  readonly connection: ReturnType<typeof selectModuleConnection>;
+  readonly folderSchema: WorkbenchSchema;
+  readonly onChanged: () => void;
+  readonly record: WorkbenchRecord;
+}) {
+  const [access, setAccess] = useState(textValue(props.record, 'access'));
+  const [maximumFileSizeBytes, setMaximumFileSizeBytes] = useState(
+    numericInputValue(props.record, 'maximumFileSizeBytes'),
+  );
+  const [retentionDays, setRetentionDays] = useState(
+    numericInputValue(props.record, 'retentionDays'),
+  );
+  useEffect(() => {
+    setAccess(textValue(props.record, 'access'));
+    setMaximumFileSizeBytes(numericInputValue(props.record, 'maximumFileSizeBytes'));
+    setRetentionDays(numericInputValue(props.record, 'retentionDays'));
+  }, [props.record]);
+
+  const mutation = useMutation({
+    mutationFn: (model: Readonly<Record<string, unknown>>) =>
+      updateWorkbenchRecord(
+        props.connection!,
+        props.folderSchema,
+        props.record,
+        model,
+        props.configuration,
+      ),
+    onSuccess: () => props.onChanged(),
+  });
+  const canUpdate =
+    Boolean(props.connection) &&
+    props.folderSchema.mutationMode === 'GENERATED_CRUD' &&
+    props.folderSchema.operations.includes('update');
+  const parsedMaximumFileSizeBytes =
+    parseOptionalNonNegativeInteger(maximumFileSizeBytes);
+  const parsedRetentionDays = parseOptionalNonNegativeInteger(retentionDays);
+  const maximumFileSizeInvalid =
+    maximumFileSizeBytes.trim().length > 0 && parsedMaximumFileSizeBytes === undefined;
+  const retentionInvalid =
+    retentionDays.trim().length > 0 && parsedRetentionDays === undefined;
+  const model: Readonly<Record<string, unknown>> = {
+    access,
+    maximumFileSizeBytes: parsedMaximumFileSizeBytes,
+    retentionDays: parsedRetentionDays,
+  };
+  const unchanged =
+    access === textValue(props.record, 'access') &&
+    maximumFileSizeBytes === numericInputValue(props.record, 'maximumFileSizeBytes') &&
+    retentionDays === numericInputValue(props.record, 'retentionDays');
+  const saveDisabled =
+    !canUpdate ||
+    unchanged ||
+    mutation.isPending ||
+    maximumFileSizeInvalid ||
+    retentionInvalid;
+
+  return (
+    <Stack spacing={1.5}>
+      <Divider />
+      <Typography component="h4" variant="h6">
+        Folder policy actions
+      </Typography>
+      {!canUpdate ? (
+        <Alert severity="info">
+          Editing is unavailable until nMedia exposes generated update permission for
+          the mediaFolder schema in this employee session. Use the Schema Workbench or
+          backend configuration approved for this deployment.
+        </Alert>
+      ) : (
+        <Alert severity="info">
+          Axis submits folder policy changes through the generated mediaFolder schema
+          mutation contract. nMedia remains responsible for validation, storage routing,
+          provider configuration, and tenant policy.
+        </Alert>
+      )}
+      <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5}>
+        <TextField
+          fullWidth
+          disabled={!canUpdate || mutation.isPending}
+          label="Visibility"
+          select
+          size="small"
+          value={access === '—' ? 'PRIVATE' : access}
+          onChange={(event) => setAccess(event.target.value)}
+        >
+          {['PRIVATE', 'PUBLIC', 'SIGNED'].map((option) => (
+            <MenuItem key={option} value={option}>
+              {humanize(option)}
+            </MenuItem>
+          ))}
+        </TextField>
+        <TextField
+          fullWidth
+          disabled={!canUpdate || mutation.isPending}
+          error={maximumFileSizeInvalid}
+          helperText={
+            maximumFileSizeInvalid
+              ? 'Enter a whole number of bytes or leave blank.'
+              : 'Maximum upload size in bytes.'
+          }
+          label="Maximum file size"
+          size="small"
+          slotProps={{ htmlInput: { min: 0 } }}
+          type="number"
+          value={maximumFileSizeBytes}
+          onChange={(event) => setMaximumFileSizeBytes(event.target.value)}
+        />
+        <TextField
+          fullWidth
+          disabled={!canUpdate || mutation.isPending}
+          error={retentionInvalid}
+          helperText={
+            retentionInvalid
+              ? 'Enter whole retention days or leave blank.'
+              : 'Use 0 for no automatic retention expiry.'
+          }
+          label="Retention days"
+          size="small"
+          slotProps={{ htmlInput: { min: 0 } }}
+          type="number"
+          value={retentionDays}
+          onChange={(event) => setRetentionDays(event.target.value)}
+        />
+      </Stack>
+      <Button
+        disabled={saveDisabled}
+        onClick={() => mutation.mutate(model)}
+        variant="outlined"
+      >
+        Save folder policy
+      </Button>
+      {mutation.error ? (
+        <Alert severity="error">
+          {mutation.error instanceof Error
+            ? mutation.error.message
+            : 'Folder policy update failed.'}
+        </Alert>
+      ) : null}
+      {mutation.data ? (
+        <Alert severity="success">Folder policy was submitted to nMedia.</Alert>
+      ) : null}
+    </Stack>
+  );
+}
+
 function formatDimensions(record: WorkbenchRecord): string {
   const width = numberValue(record, 'width');
   const height = numberValue(record, 'height');
@@ -2225,6 +2386,17 @@ export function MediaManagementRoutePage(props: MediaManagementRoutePageProps) {
                             ) : null}
                             {currentItem.id === 'media-folders' ? (
                               <MediaFolderPolicyImpactPanel record={selectedRecord} />
+                            ) : null}
+                            {currentItem.id === 'media-folders' && currentSchema ? (
+                              <MediaFolderPolicyActionsPanel
+                                configuration={configuration}
+                                connection={connection}
+                                folderSchema={currentSchema}
+                                record={selectedRecord}
+                                onChanged={() => {
+                                  void records.refetch();
+                                }}
+                              />
                             ) : null}
                             {recordWorkspaceConfiguration.details.map((detail) => (
                               <Box key={detail.key}>

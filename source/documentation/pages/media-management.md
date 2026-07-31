@@ -168,9 +168,18 @@ When an employee selects a folder, Axis shows a policy-impact warning. The
 warning explains that changes to the folder policy affect future upload
 validation, default visibility, retention, and provider-relative routing. It
 also repeats the boundary: provider secrets, raw paths, and alternate
-browser-side upload rules must not be added to Axis. If editing is later
-enabled through authorized schema mutations, the backend remains the policy
-authority.
+browser-side upload rules must not be added to Axis.
+
+Folder policy editing is intentionally gated by the generated schema contract.
+If the discovered `mediaFolder` schema does not advertise `GENERATED_CRUD`
+update permission for the employee session, Axis shows the policy as read-only
+and directs administrators back to backend-approved media configuration or the
+Schema Workbench. When update is advertised, Axis exposes a small policy action
+panel for visibility, maximum upload size, and retention days. The panel submits
+only those fields through the generated `mediaFolder` schema mutation; it does
+not edit storage prefixes, resolved paths, provider secrets, provider
+configuration, or browser-side policy rules. nMedia remains responsible for
+validation, routing, provider behavior, tenant policy, and persistence.
 
 The **Media Formats** section is also operational. Axis discovers the
 `mediaFormat` schema from nMedia and shows reusable presentation or processing
