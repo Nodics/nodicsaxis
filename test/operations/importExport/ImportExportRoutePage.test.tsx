@@ -309,9 +309,7 @@ describe('ImportExportRoutePage', () => {
 
     const rendered = renderPage();
     await user.click(await screen.findByRole('tab', { name: 'File imports' }));
-    expect(
-      await screen.findByRole('combobox', { name: 'Target model' }),
-    ).toBeEnabled();
+    expect(await screen.findByRole('combobox', { name: 'Target model' })).toBeEnabled();
     expect(screen.getByRole('button', { name: 'Choose file' })).toHaveAttribute(
       'aria-disabled',
       'true',

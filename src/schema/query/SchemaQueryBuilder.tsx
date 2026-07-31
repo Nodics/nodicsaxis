@@ -389,12 +389,7 @@ function FilterGroupEditor({
             </Paper>
           );
         })}
-        <Stack
-          direction="row"
-          spacing={1}
-          sx={{ flexWrap: 'wrap' }}
-          useFlexGap
-        >
+        <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap' }} useFlexGap>
           <Button
             disabled={!firstField}
             size="small"
@@ -519,9 +514,7 @@ export function SchemaQueryBuilder({
                 }
               >
                 <MenuItem value="ASC">{copy.ascendingLabel ?? 'Ascending'}</MenuItem>
-                <MenuItem value="DESC">
-                  {copy.descendingLabel ?? 'Descending'}
-                </MenuItem>
+                <MenuItem value="DESC">{copy.descendingLabel ?? 'Descending'}</MenuItem>
               </TextField>
             </Stack>
           </Stack>
@@ -578,10 +571,7 @@ export function SchemaQueryBuilder({
                   onClick={() =>
                     setDraft({
                       operator: 'AND',
-                      items: [
-                        ...(draft?.items ?? []),
-                        initialCondition(firstField),
-                      ],
+                      items: [...(draft?.items ?? []), initialCondition(firstField)],
                     })
                   }
                 >
@@ -645,8 +635,7 @@ export function SchemaQueryBuilder({
               </>
             ) : (
               <Typography color="text.secondary" variant="body2">
-                {copy.noFiltersSummaryLabel ??
-                  'No advanced conditions are applied.'}
+                {copy.noFiltersSummaryLabel ?? 'No advanced conditions are applied.'}
               </Typography>
             )}
           </Box>

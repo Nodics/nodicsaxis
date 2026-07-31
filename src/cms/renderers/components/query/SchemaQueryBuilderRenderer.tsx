@@ -32,11 +32,7 @@ export function SchemaQueryBuilderRenderer({
         operatorLabel: stringProperty(component, 'filterOperatorLabel'),
         removeLabel: stringProperty(component, 'removeFilterLabel'),
         requestPreviewLabel: stringProperty(component, 'requestPreviewLabel'),
-        sortBuilderLabel: stringProperty(
-          component,
-          'sortBuilderLabel',
-          'Sort results',
-        ),
+        sortBuilderLabel: stringProperty(component, 'sortBuilderLabel', 'Sort results'),
         sortDirectionLabel: stringProperty(
           component,
           'sortDirectionLabel',

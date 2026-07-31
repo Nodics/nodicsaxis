@@ -199,12 +199,7 @@ function importFailureHowToFix(failure: ImportRunFailure): string {
 }
 
 export function FileImportWorkspace(props: FileImportWorkspaceProps) {
-  return (
-    <FileImportWorkspaceContent
-      key={props.enterpriseCode.trim()}
-      {...props}
-    />
-  );
+  return <FileImportWorkspaceContent key={props.enterpriseCode.trim()} {...props} />;
 }
 
 function FileImportWorkspaceContent(props: FileImportWorkspaceProps) {
@@ -279,12 +274,17 @@ function FileImportWorkspaceContent(props: FileImportWorkspaceProps) {
         throw new Error('Select the target enterprise before uploading');
       if (!selectedSchema) throw new Error('Choose a target model before uploading');
       if (!file) throw new Error('Select a file before uploading');
-      return uploadImportMedia(props.mediaConnection, selectedClientConfiguration, file, {
-        enterpriseCode: selectedEnterpriseCode,
-        moduleName: selectedSchema.moduleName,
-        schemaName: selectedSchema.schemaName,
-        tenantCode: props.tenantCode,
-      });
+      return uploadImportMedia(
+        props.mediaConnection,
+        selectedClientConfiguration,
+        file,
+        {
+          enterpriseCode: selectedEnterpriseCode,
+          moduleName: selectedSchema.moduleName,
+          schemaName: selectedSchema.schemaName,
+          tenantCode: props.tenantCode,
+        },
+      );
     },
     onSuccess: (media) => {
       setUploadedMedia(media);

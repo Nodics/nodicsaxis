@@ -117,12 +117,8 @@ export function ExportWorkspace(props: ExportWorkspaceProps) {
   );
   const [schemaSelection, setSchemaSelection] = useState('');
   const [search, setSearch] = useState('');
-  const [filters, setFilters] = useState<WorkbenchFilterGroup | undefined>(
-    undefined,
-  );
-  const [sort, setSort] = useState<WorkbenchRecordQuery['sort'] | undefined>(
-    undefined,
-  );
+  const [filters, setFilters] = useState<WorkbenchFilterGroup | undefined>(undefined);
+  const [sort, setSort] = useState<WorkbenchRecordQuery['sort'] | undefined>(undefined);
   const [format, setFormat] = useState<DataExportFileFormat>('csv');
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(10);

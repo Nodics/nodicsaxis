@@ -873,14 +873,17 @@ function defaultFormatForFolder(folderCode: string): string {
   if (['dataImport', 'dataImports', 'importSources'].includes(folderCode)) {
     return 'importFile';
   }
-  if (['dataExport', 'dataExports', 'exportFiles', 'exportResults'].includes(folderCode)) {
+  if (
+    ['dataExport', 'dataExports', 'exportFiles', 'exportResults'].includes(folderCode)
+  ) {
     return 'exportFile';
   }
   if (['cmsAssets', 'contentAssets', 'contentMedia'].includes(folderCode)) {
     return 'contentImage';
   }
   if (['productAssets', 'productMedia'].includes(folderCode)) return 'productImage';
-  if (['default', 'utilityFiles', 'utilityMedia'].includes(folderCode)) return 'utilityFile';
+  if (['default', 'utilityFiles', 'utilityMedia'].includes(folderCode))
+    return 'utilityFile';
   return 'original';
 }
 
@@ -920,10 +923,10 @@ function mediaReviewType(file: File): string {
 
 function sourceTypeStorageRouteLabel(sourceType: string): string {
   if (sourceType === 'Data imports') {
-    return 'media/data/import/{tenant}/{enterprise}/{schema}/{yyyy}/{mm}/{mediaCode}.{extension}';
+    return 'data/import/{tenant}/{enterprise}/{schema}/{yyyy}/{mm}/{mediaCode}.{extension}';
   }
   if (sourceType === 'Data exports') {
-    return 'media/data/export/{tenant}/{enterprise}/{schema}/{yyyy}/{mm}/{mediaCode}.{extension}';
+    return 'data/export/{tenant}/{enterprise}/{schema}/{yyyy}/{mm}/{mediaCode}.{extension}';
   }
   if (sourceType === 'Product media') {
     return 'media/product/{tenant}/{enterprise}/{schema}/{yyyy}/{mm}/{mediaCode}.{extension}';
@@ -965,21 +968,23 @@ function MediaUploadReview(props: {
   readonly policyIssue: string | undefined;
   readonly sourceType: string;
 }) {
-  const [textPreview, setTextPreview] = useState('');
-  const [previewError, setPreviewError] = useState('');
-  const [imagePreviewUrl, setImagePreviewUrl] = useState('');
+  const [textPreview, setTextPreview] = useState<
+    { readonly file: File; readonly value: string } | undefined
+  >(undefined);
+  const [previewError, setPreviewError] = useState<
+    { readonly file: File; readonly value: string } | undefined
+  >(undefined);
+  const imagePreviewUrl = useMemo(
+    () => (isImageFile(props.file) ? URL.createObjectURL(props.file) : ''),
+    [props.file],
+  );
 
   useEffect(() => {
-    setTextPreview('');
-    setPreviewError('');
-    setImagePreviewUrl('');
+    if (!imagePreviewUrl) return undefined;
+    return () => URL.revokeObjectURL(imagePreviewUrl);
+  }, [imagePreviewUrl]);
 
-    if (isImageFile(props.file)) {
-      const objectUrl = URL.createObjectURL(props.file);
-      setImagePreviewUrl(objectUrl);
-      return () => URL.revokeObjectURL(objectUrl);
-    }
-
+  useEffect(() => {
     if (isTextPreviewFile(props.file)) {
       let cancelled = false;
       props.file
@@ -987,11 +992,17 @@ function MediaUploadReview(props: {
         .then((content) => {
           if (cancelled) return;
           const lines = content.split(/\r?\n/).slice(0, 12).join('\n');
-          setTextPreview(lines || 'The selected text file is empty.');
+          setTextPreview({
+            file: props.file,
+            value: lines || 'The selected text file is empty.',
+          });
         })
         .catch(() => {
           if (!cancelled) {
-            setPreviewError('Axis could not read a local text preview for this file.');
+            setPreviewError({
+              file: props.file,
+              value: 'Axis could not read a local text preview for this file.',
+            });
           }
         });
       return () => {
@@ -1003,6 +1014,9 @@ function MediaUploadReview(props: {
   }, [props.file]);
 
   const extension = extensionFromFileName(props.file.name);
+  const currentTextPreview = textPreview?.file === props.file ? textPreview.value : '';
+  const currentPreviewError =
+    previewError?.file === props.file ? previewError.value : '';
   const reviewMessage = props.policyIssue
     ? props.policyIssue
     : isImageFile(props.file)
@@ -1047,14 +1061,18 @@ function MediaUploadReview(props: {
             label={`Format: ${mediaFormatLabel(defaultFormatForSourceType(props.sourceType, props.policy.folderCode))}`}
             size="small"
           />
-          <Chip label={`Extension: ${extension ? `.${extension}` : 'missing'}`} size="small" />
+          <Chip
+            label={`Extension: ${extension ? `.${extension}` : 'missing'}`}
+            size="small"
+          />
           <Chip label={`Size: ${formatBytes(props.file.size)}`} size="small" />
-          <Chip label={`Allowed: ${allowedExtensionLabel(props.policy)}`} size="small" />
+          <Chip
+            label={`Allowed: ${allowedExtensionLabel(props.policy)}`}
+            size="small"
+          />
         </Stack>
 
-        <Alert severity={props.policyIssue ? 'warning' : 'info'}>
-          {reviewMessage}
-        </Alert>
+        <Alert severity={props.policyIssue ? 'warning' : 'info'}>{reviewMessage}</Alert>
 
         {imagePreviewUrl ? (
           <Box
@@ -1074,7 +1092,7 @@ function MediaUploadReview(props: {
           />
         ) : null}
 
-        {textPreview ? (
+        {currentTextPreview ? (
           <Box
             component="pre"
             sx={{
@@ -1091,11 +1109,13 @@ function MediaUploadReview(props: {
               whiteSpace: 'pre-wrap',
             }}
           >
-            {textPreview}
+            {currentTextPreview}
           </Box>
         ) : null}
 
-        {previewError ? <Alert severity="warning">{previewError}</Alert> : null}
+        {currentPreviewError ? (
+          <Alert severity="warning">{currentPreviewError}</Alert>
+        ) : null}
       </Stack>
     </Box>
   );
@@ -1152,7 +1172,7 @@ function MediaUploadPanel(props: {
       if (policyIssue) throw new Error(policyIssue);
       const moduleName = moduleForSourceType(selectedSourceType);
       const schemaName = schemaForSourceType(selectedSourceType);
-      return uploadMedia(props.connection!, props.configuration, {
+      return uploadMedia(props.connection, props.configuration, {
         file: selectedFile,
         folderCode: selectedPolicy.folderCode,
         formatCode: defaultFormatForSourceType(
@@ -1172,10 +1192,10 @@ function MediaUploadPanel(props: {
   });
   const canUpload = Boolean(
     props.connection &&
-      selectedPolicy &&
-      selectedFile &&
-      !selectedFilePolicyIssue &&
-      !upload.isPending,
+    selectedPolicy &&
+    selectedFile &&
+    !selectedFilePolicyIssue &&
+    !upload.isPending,
   );
 
   return (
@@ -1232,8 +1252,8 @@ function MediaUploadPanel(props: {
                       1. Select source type
                     </Typography>
                     <Typography color="text.secondary">
-                      Source type tells the backend which governed storage route,
-                      folder policy, format, and allowed file types apply.
+                      Source type tells the backend which governed storage route, folder
+                      policy, format, and allowed file types apply.
                     </Typography>
                   </Box>
                   <TextField
@@ -1356,7 +1376,10 @@ function MediaUploadPanel(props: {
                   <Stack
                     direction={{ xs: 'column', sm: 'row' }}
                     spacing={1}
-                    sx={{ alignItems: { sm: 'center' }, justifyContent: 'space-between' }}
+                    sx={{
+                      alignItems: { sm: 'center' },
+                      justifyContent: 'space-between',
+                    }}
                   >
                     <Box>
                       <Typography sx={{ fontWeight: 700 }}>
@@ -1367,7 +1390,10 @@ function MediaUploadPanel(props: {
                         spacing={1}
                         sx={{ flexWrap: 'wrap', mt: 0.5 }}
                       >
-                        <Chip label={selectedFile.type || 'Unknown MIME'} size="small" />
+                        <Chip
+                          label={selectedFile.type || 'Unknown MIME'}
+                          size="small"
+                        />
                         <Chip label={formatBytes(selectedFile.size)} size="small" />
                         <Chip label="LOCAL SELECTION" size="small" />
                       </Stack>
@@ -1392,11 +1418,11 @@ function MediaUploadPanel(props: {
                   />
                 ) : null}
               </Stack>
-            ) : (
-              selectedPolicy ? (
-                <Alert severity="info">Choose a media file to review before upload.</Alert>
-              ) : null
-            )}
+            ) : selectedPolicy ? (
+              <Alert severity="info">
+                Choose a media file to review before upload.
+              </Alert>
+            ) : null}
 
             <Card variant="outlined">
               <CardContent>
@@ -1422,7 +1448,9 @@ function MediaUploadPanel(props: {
                     <Alert severity="warning">{selectedFilePolicyIssue}</Alert>
                   ) : null}
                   {upload.error ? (
-                    <Alert severity="error">{presentMediaUploadError(upload.error)}</Alert>
+                    <Alert severity="error">
+                      {presentMediaUploadError(upload.error)}
+                    </Alert>
                   ) : null}
                   {upload.data ? (
                     <Alert severity="success">
@@ -1594,8 +1622,7 @@ const recordWorkspaceConfigurations: Readonly<
     description:
       'Search uploaded and generated media metadata through the authorized media schema contract. Raw storage paths stay hidden from Axis.',
     recordCountLabel: 'records',
-    searchPlaceholder:
-      'Search by code, filename, folder, status, MIME type, or format',
+    searchPlaceholder: 'Search by code, filename, folder, status, MIME type, or format',
     emptyMessage: 'No media records match the current search.',
     detailEmptyMessage: 'Select a media record to review governed metadata.',
     hiddenPathNotice:
@@ -1662,7 +1689,6 @@ const recordWorkspaceConfigurations: Readonly<
       { label: 'Extension', key: 'extension' },
       { label: 'Checksum', key: 'checksum' },
       { label: 'Checksum algorithm', key: 'checksumAlgorithm' },
-      { label: 'Storage key', key: 'storageKey' },
     ],
   },
   'media-folders': {
@@ -2056,7 +2082,7 @@ export function MediaManagementRoutePage(props: MediaManagementRoutePageProps) {
     ? recordWorkspaceConfigurations[currentItem.id]
     : undefined;
   const currentFacetFilters = currentItem
-    ? recordWorkspaceFacetFilters[currentItem.id] ?? emptyFacetFilters
+    ? (recordWorkspaceFacetFilters[currentItem.id] ?? emptyFacetFilters)
     : emptyFacetFilters;
   const facetStateKey = (key: string) => `${currentItem?.id ?? 'none'}:${key}`;
   const schemas = useQuery({
@@ -2162,8 +2188,7 @@ export function MediaManagementRoutePage(props: MediaManagementRoutePageProps) {
       }
       return currentFacetFilters.every((filter) => {
         const selectedValue =
-          recordFacetFilters[`${currentItem?.id ?? 'none'}:${filter.key}`] ??
-          'ALL';
+          recordFacetFilters[`${currentItem?.id ?? 'none'}:${filter.key}`] ?? 'ALL';
         return selectedValue === 'ALL' || filter.value(record) === selectedValue;
       });
     });
@@ -2515,8 +2540,8 @@ export function MediaManagementRoutePage(props: MediaManagementRoutePageProps) {
                             Filter {recordWorkspaceConfiguration.title.toLowerCase()}
                           </Typography>
                           <Typography color="text.secondary" variant="body2">
-                            Narrow this workspace by source type. Search still covers code,
-                            filename, folder, status, MIME type, and format.
+                            Narrow this workspace by source type. Search still covers
+                            code, filename, folder, status, MIME type, and format.
                           </Typography>
                         </Box>
                         <Stack
@@ -2529,9 +2554,7 @@ export function MediaManagementRoutePage(props: MediaManagementRoutePageProps) {
                             size="small"
                           />
                           <Button
-                            disabled={
-                              !recordSearch.trim() && !hasActiveFacetFilters
-                            }
+                            disabled={!recordSearch.trim() && !hasActiveFacetFilters}
                             size="small"
                             variant="text"
                             onClick={() => {
@@ -2560,7 +2583,9 @@ export function MediaManagementRoutePage(props: MediaManagementRoutePageProps) {
                               label={filter.label}
                               select
                               size="small"
-                              value={recordFacetFilters[facetStateKey(filter.key)] ?? 'ALL'}
+                              value={
+                                recordFacetFilters[facetStateKey(filter.key)] ?? 'ALL'
+                              }
                               onChange={(event) => {
                                 setSelectedRecordCode(undefined);
                                 setRecordPage(0);
@@ -2827,7 +2852,6 @@ export function MediaManagementRoutePage(props: MediaManagementRoutePageProps) {
             policies={storagePolicies.data ?? []}
           />
         ) : null}
-
       </Stack>
     </WorkspaceContainer>
   );

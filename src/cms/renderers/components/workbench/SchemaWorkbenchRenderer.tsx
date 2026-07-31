@@ -374,10 +374,7 @@ export function SchemaWorkbenchRenderer({
                     disabled={selected.queryCapabilities.searchableFields.length === 0}
                     onChange={(event) => controller.setRecordSearch(event.target.value)}
                   />
-                  <SchemaQueryBuilderRenderer
-                    actions={actions}
-                    component={component}
-                  />
+                  <SchemaQueryBuilderRenderer actions={actions} component={component} />
                   <Paper sx={{ p: 1.5 }} variant="outlined">
                     <Stack spacing={1.25}>
                       <Typography component="h3" variant="subtitle1">

@@ -81,8 +81,8 @@ export const mediaFolderPolicyProbes: readonly MediaFolderPolicyProbe[] = Object
     Object.freeze({
       folderCode: 'default',
       label: 'Utility files',
-      fileName: 'policy-probe.txt',
-      mimeType: 'text/plain',
+      fileName: 'policy-probe.pdf',
+      mimeType: 'application/pdf',
       sizeBytes: 1,
     }),
   ],
