@@ -1,9 +1,10 @@
-import { Typography, type SxProps, type Theme } from '@mui/material';
+import { Button, Stack, Typography, type SxProps, type Theme } from '@mui/material';
 import { type ReactNode } from 'react';
 
 import type {
   WorkbenchField,
   WorkbenchRecord,
+  WorkbenchRelationship,
   WorkbenchSchema,
 } from '../../workbench/api/workbenchContracts';
 import { workbenchRecordValue } from '../../workbench/record/workbenchRecordPaths';
@@ -35,6 +36,14 @@ export interface AxisSchemaDataListingProps {
   readonly visibleColumnKeys?: readonly string[] | undefined;
   readonly fieldRenderers?:
     | Readonly<Record<string, AxisSchemaFieldRenderer>>
+    | undefined;
+  readonly onReferenceClick?:
+    | ((
+        relationship: WorkbenchRelationship,
+        reference: string,
+        record: WorkbenchRecord,
+        index: number,
+      ) => void)
     | undefined;
   readonly leadingColumns?:
     | readonly AxisDataListingColumn<WorkbenchRecord>[]
@@ -78,9 +87,44 @@ function fieldValue(record: WorkbenchRecord, field: WorkbenchField): string {
   return displayValue(value);
 }
 
+function referenceValue(value: unknown, referenceProperty: string): string | undefined {
+  if (typeof value === 'string' || typeof value === 'number') return String(value);
+  if (typeof value === 'boolean') return value ? 'true' : 'false';
+  if (value && typeof value === 'object' && !Array.isArray(value)) {
+    const objectValue = value as Readonly<Record<string, unknown>>;
+    return referenceValue(
+      objectValue[referenceProperty] ??
+        objectValue.code ??
+        objectValue.id ??
+        objectValue.name,
+      referenceProperty,
+    );
+  }
+  return undefined;
+}
+
+function relationshipValues(
+  value: unknown,
+  relationship: WorkbenchRelationship,
+): readonly { readonly label: string; readonly reference: string }[] {
+  const values = Array.isArray(value) ? value : [value];
+  return Object.freeze(
+    values
+      .map((item) => {
+        const reference = referenceValue(item, relationship.referenceProperty);
+        return reference
+          ? Object.freeze({ label: displayValue(item), reference })
+          : undefined;
+      })
+      .filter((item) => item !== undefined),
+  );
+}
+
 function schemaFieldColumn(
   field: WorkbenchField,
   renderer?: AxisSchemaFieldRenderer,
+  relationship?: WorkbenchRelationship | undefined,
+  onReferenceClick?: AxisSchemaDataListingProps['onReferenceClick'] | undefined,
 ): AxisDataListingColumn<WorkbenchRecord> {
   return {
     key: field.name,
@@ -91,12 +135,40 @@ function schemaFieldColumn(
     align: renderer?.align,
     cellSx: renderer?.cellSx,
     headerSx: renderer?.headerSx,
-    render: (record, index) =>
-      renderer?.render ? (
-        renderer.render(record, field, index)
-      ) : (
-        <Typography variant="body2">{fieldValue(record, field)}</Typography>
-      ),
+    render: (record, index) => {
+      if (renderer?.render) return renderer.render(record, field, index);
+      const value = workbenchRecordValue(record, field.name);
+      const referenceClick = onReferenceClick;
+      const references =
+        relationship && referenceClick
+          ? relationshipValues(value, relationship)
+          : Object.freeze([]);
+      if (relationship && referenceClick && references.length > 0) {
+        return (
+          <Stack direction="row" spacing={0.5} sx={{ flexWrap: 'wrap', rowGap: 0.5 }}>
+            {references.slice(0, 3).map((reference) => (
+              <Button
+                key={`${field.name}:${reference.reference}`}
+                size="small"
+                variant="text"
+                onClick={(event) => {
+                  event.stopPropagation();
+                  referenceClick(relationship, reference.reference, record, index);
+                }}
+              >
+                {reference.label}
+              </Button>
+            ))}
+            {references.length > 3 ? (
+              <Typography color="text.secondary" variant="body2">
+                +{String(references.length - 3)} more
+              </Typography>
+            ) : null}
+          </Stack>
+        );
+      }
+      return <Typography variant="body2">{fieldValue(record, field)}</Typography>;
+    },
     exportValue: (record, index) =>
       renderer?.exportValue
         ? renderer.exportValue(record, field, index)
@@ -120,6 +192,7 @@ export function AxisSchemaDataListing({
   defaultVisibleColumnKeys,
   visibleColumnKeys,
   fieldRenderers = {},
+  onReferenceClick,
   leadingColumns = [],
   trailingColumns = [],
   onColumnKeysChange,
@@ -138,8 +211,16 @@ export function AxisSchemaDataListing({
   size,
   tableSx,
 }: AxisSchemaDataListingProps) {
+  const relationships = new Map(
+    schema.relationships.map((relationship) => [relationship.field, relationship]),
+  );
   const availableColumns = schema.fields.map((field) =>
-    schemaFieldColumn(field, fieldRenderers[field.name]),
+    schemaFieldColumn(
+      field,
+      fieldRenderers[field.name],
+      relationships.get(field.name),
+      onReferenceClick,
+    ),
   );
   const availableKeys = new Set(availableColumns.map((column) => column.key));
   const selectedKeys = validColumnKeys(visibleColumnKeys, availableKeys);

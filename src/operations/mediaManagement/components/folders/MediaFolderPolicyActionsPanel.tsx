@@ -118,6 +118,7 @@ function MediaFolderPolicyActionsPanelBody(props: MediaFolderPolicyActionsPanelP
         props.folderSchema,
         props.record!,
         props.configuration,
+        `axis-${crypto.randomUUID()}`,
       ),
     onSuccess: () => {
       props.onModeChange('none');

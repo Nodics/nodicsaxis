@@ -64,6 +64,18 @@ const bootstrap = {
       catalog: 'nodicsDocumentationContentCatalog',
       defaultPage: '/docs',
       packCode: 'nodicsDocumentation',
+      dashboard: {
+        kind: 'Framework guide',
+        icon: 'content',
+        summary: 'Core framework documentation.',
+        audiences: ['developer'],
+        coverage: {
+          score: 85,
+          status: 'STRONG' as const,
+          signals: ['Architecture'],
+          gaps: ['Recipes'],
+        },
+      },
     },
     {
       id: 'swaggers',
@@ -75,6 +87,18 @@ const bootstrap = {
       connectionModule: 'system',
       openApiPath: '/nodics/system/v0/contract/openapi',
       swaggerPath: '/nodics/system/v0/contract/swagger',
+      dashboard: {
+        kind: 'API contracts',
+        icon: 'reference',
+        summary: 'Generated API contracts.',
+        audiences: ['developer'],
+        coverage: {
+          score: 100,
+          status: 'REFERENCE' as const,
+          signals: ['Generated contracts'],
+          gaps: ['Narrative examples'],
+        },
+      },
     },
   ],
   tenantCode: 'default',
@@ -123,6 +147,26 @@ function renderPage(path = '/docs') {
 }
 
 describe('DocumentationRoutePage', () => {
+  it('renders the documentation dashboard from registered documentation sources', () => {
+    renderPage('/docs');
+
+    expect(screen.getByRole('heading', { name: 'Nodics Documentation' })).toBeVisible();
+    expect(screen.getByText('Core framework documentation.')).toBeVisible();
+    expect(screen.getByText('Generated API contracts.')).toBeVisible();
+    expect(screen.getByText('85% documented')).toBeVisible();
+    expect(screen.getByText('100% documented')).toBeVisible();
+    expect(screen.queryByRole('tab', { name: 'Framework' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('tab', { name: 'Swaggers' })).not.toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Open Framework' })).toHaveAttribute(
+      'href',
+      '/docs/framework',
+    );
+    expect(screen.getByRole('link', { name: 'Open Swaggers' })).toHaveAttribute(
+      'href',
+      '/docs/swaggers',
+    );
+  });
+
   it('offers the governed import action when documentation is absent', async () => {
     const fetchMock = vi.spyOn(globalThis, 'fetch').mockResolvedValue(
       new Response(JSON.stringify(response), {
@@ -131,7 +175,7 @@ describe('DocumentationRoutePage', () => {
       }),
     );
     const user = userEvent.setup();
-    renderPage();
+    renderPage('/docs/framework');
 
     expect(
       await screen.findByText('Install documentation to use the Wiki.'),

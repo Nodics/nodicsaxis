@@ -1,4 +1,8 @@
-import type { WorkbenchRecord, WorkbenchSchema } from '../api/workbenchContracts';
+import type {
+  WorkbenchRecord,
+  WorkbenchRelationship,
+  WorkbenchSchema,
+} from '../api/workbenchContracts';
 
 export interface WorkbenchRelationshipRuntime {
   readonly schemas: readonly WorkbenchSchema[];
@@ -9,7 +13,14 @@ export interface WorkbenchRelationshipRuntime {
   ) => Promise<WorkbenchRecord>;
   readonly loadRecords: (
     schema: WorkbenchSchema,
+    options?: { readonly search?: string | undefined } | undefined,
   ) => Promise<readonly WorkbenchRecord[]>;
+  readonly resolveRecord?: (
+    relationship: WorkbenchRelationship,
+    reference: string,
+  ) => Promise<
+    { readonly record: WorkbenchRecord; readonly schema: WorkbenchSchema } | undefined
+  >;
   readonly updateRecord?: (
     schema: WorkbenchSchema,
     original: WorkbenchRecord,
@@ -22,6 +33,7 @@ export interface WorkbenchRelationshipCopy {
   readonly cancelLabel: string;
   readonly createRelatedLabel: string;
   readonly editRelatedLabel: string;
+  readonly missingReferencePropertyLabel: string;
   readonly noRelatedRecordsLabel: string;
   readonly relatedSearchLabel: string;
   readonly removeRelatedLabel: string;

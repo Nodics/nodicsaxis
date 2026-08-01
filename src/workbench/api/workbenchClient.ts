@@ -267,6 +267,7 @@ export async function deleteWorkbenchRecord(
   schema: WorkbenchSchema,
   original: WorkbenchRecord,
   configuration: WorkbenchClientConfiguration,
+  idempotencyKey: string,
   fetchImplementation: typeof fetch = fetch,
 ): Promise<void> {
   if (
@@ -275,16 +276,15 @@ export async function deleteWorkbenchRecord(
   ) {
     throw new Error('This schema does not allow generated record deletion');
   }
-  const identity = recordIdentity(schema, original);
   await request(
     connection,
-    `/${safeSegment(schema.schemaName, 'Workbench schema name')}`,
+    `/schema/workbench/${safeSegment(schema.schemaName, 'Workbench schema name')}/record`,
     configuration,
     {
       method: 'DELETE',
+      headers: { 'Idempotency-Key': idempotencyKey },
       body: JSON.stringify({
-        options: { returnModified: false },
-        query: identity,
+        identity: recordIdentity(schema, original),
       }),
     },
     fetchImplementation,

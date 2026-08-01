@@ -24,7 +24,12 @@ import {
   previewWorkbenchDeleteImpact,
   updateWorkbenchRecord,
 } from './api/workbenchClient';
-import type { WorkbenchFilterGroup, WorkbenchSchema } from './api/workbenchContracts';
+import type {
+  WorkbenchFilterGroup,
+  WorkbenchRecord,
+  WorkbenchRelationship,
+  WorkbenchSchema,
+} from './api/workbenchContracts';
 import type { WorkbenchRecordDetailPanel } from './detail/workbenchRecordDetailPanels';
 import {
   loadWorkbenchPreferences,
@@ -36,9 +41,12 @@ import {
 import {
   relatedRecordPanelFilter,
   resolveWorkbenchDeepLinkTarget,
+  resolveWorkbenchLookupPageSize,
   resolveWorkbenchRecordSort,
   resolveWorkbenchRouteTarget,
   schemaWithValidQueryCapabilities,
+  selectWorkbenchReferencedRecord,
+  workbenchReferenceLookupQuery,
   type WorkbenchRouteSchemaSelection,
 } from './workbenchRouteModel';
 
@@ -65,12 +73,21 @@ function workbenchRecordKey(
     : `record-${String(index)}`;
 }
 
+interface OpenedReferenceRecord {
+  readonly record: WorkbenchRecord;
+  readonly reference: string;
+  readonly relationship: WorkbenchRelationship;
+  readonly schema: WorkbenchSchema;
+}
+
 export function WorkbenchRoutePage(props: WorkbenchRoutePageProps) {
   const location = useLocation();
   const [selectedSchema, setSelectedSchema] = useState<WorkbenchSchema>();
   const [createOpen, setCreateOpen] = useState(false);
   const [selectedRecord, setSelectedRecord] =
     useState<Readonly<Record<string, unknown>>>();
+  const [openedReferenceRecord, setOpenedReferenceRecord] =
+    useState<OpenedReferenceRecord>();
   const [editOpen, setEditOpen] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [recordSearchInput, setRecordSearchInput] = useState('');
@@ -336,6 +353,7 @@ export function WorkbenchRoutePage(props: WorkbenchRoutePageProps) {
         normalizedSelectedSchema,
         selectedRecord,
         configuration,
+        `axis-${crypto.randomUUID()}`,
       );
     },
     onSuccess: async () => {
@@ -407,6 +425,7 @@ export function WorkbenchRoutePage(props: WorkbenchRoutePageProps) {
       setCreateOpen(Boolean(options.openCreate));
       setEditOpen(false);
       setSelectedRecord(undefined);
+      setOpenedReferenceRecord(undefined);
       setDeleteOpen(false);
       setRecordSearchInput('');
       setRecordSearch('');
@@ -491,7 +510,10 @@ export function WorkbenchRoutePage(props: WorkbenchRoutePageProps) {
           configuration,
         );
       },
-      loadRecords: (schema: WorkbenchSchema) => {
+      loadRecords: (
+        schema: WorkbenchSchema,
+        options?: { readonly search?: string | undefined } | undefined,
+      ) => {
         const normalizedSchema = schemaWithValidQueryCapabilities(schema);
         const connection = selectModuleConnection(
           props.bootstrap,
@@ -501,11 +523,39 @@ export function WorkbenchRoutePage(props: WorkbenchRoutePageProps) {
           return Promise.reject(new Error('The related schema module is unavailable'));
         }
         return loadWorkbenchRecords(connection, normalizedSchema, configuration, {
-          search: '',
+          search: options?.search ?? '',
           pageNumber: 1,
-          pageSize: normalizedSchema.queryCapabilities.defaultPageSize,
+          pageSize: resolveWorkbenchLookupPageSize(normalizedSchema),
           sort: resolveWorkbenchRecordSort(normalizedSchema, undefined),
         }).then((page) => page.records);
+      },
+      resolveRecord: async (relationship: WorkbenchRelationship, reference: string) => {
+        const schema = (schemas.data ?? []).find(
+          (candidate) =>
+            candidate.moduleName === relationship.targetModule &&
+            candidate.schemaName === relationship.targetSchema,
+        );
+        if (!schema) return undefined;
+        const normalizedSchema = schemaWithValidQueryCapabilities(schema);
+        const connection = selectModuleConnection(
+          props.bootstrap,
+          normalizedSchema.moduleName,
+        );
+        if (!connection) {
+          throw new Error('The related schema module is unavailable');
+        }
+        const page = await loadWorkbenchRecords(
+          connection,
+          normalizedSchema,
+          configuration,
+          workbenchReferenceLookupQuery(normalizedSchema, relationship, reference),
+        );
+        const record = selectWorkbenchReferencedRecord(
+          page.records,
+          relationship.referenceProperty,
+          reference,
+        );
+        return record ? { record, schema: normalizedSchema } : undefined;
       },
       updateRecord: (
         schema: WorkbenchSchema,
@@ -530,6 +580,29 @@ export function WorkbenchRoutePage(props: WorkbenchRoutePageProps) {
       },
     }),
     [configuration, props.bootstrap, props.runtime.enterpriseCode, schemas.data],
+  );
+  const openReferenceRecord = useCallback(
+    async (relationship: WorkbenchRelationship, reference: string) => {
+      if (!relationshipRuntime.resolveRecord) {
+        throw new Error('Referenced records are not available');
+      }
+      const result = await relationshipRuntime.resolveRecord(relationship, reference);
+      if (!result) {
+        throw new Error('Referenced record was not found or is not authorized');
+      }
+      updateRecord.reset();
+      deleteRecord.reset();
+      deleteImpact.reset();
+      setEditOpen(false);
+      setDeleteOpen(false);
+      setOpenedReferenceRecord({
+        record: result.record,
+        reference,
+        relationship,
+        schema: result.schema,
+      });
+    },
+    [deleteImpact, deleteRecord, relationshipRuntime, updateRecord],
   );
 
   return (
@@ -576,6 +649,7 @@ export function WorkbenchRoutePage(props: WorkbenchRoutePageProps) {
           creating: createRecord.isPending,
           createOpen,
           relationshipRuntime,
+          openedReferenceRecord,
           selectedRecord,
           selectedRecordDetailPanels,
           editOpen,
@@ -709,10 +783,13 @@ export function WorkbenchRoutePage(props: WorkbenchRoutePageProps) {
           },
           createRecord: (model) =>
             createRecord.mutateAsync(model).then(() => undefined),
+          openReferenceRecord,
+          closeReferenceRecord: () => setOpenedReferenceRecord(undefined),
           selectRecord: (record) => {
             updateRecord.reset();
             deleteRecord.reset();
             setEditOpen(false);
+            setOpenedReferenceRecord(undefined);
             setSelectedRecord(record);
             setDeleteOpen(false);
           },
@@ -721,6 +798,7 @@ export function WorkbenchRoutePage(props: WorkbenchRoutePageProps) {
             deleteRecord.reset();
             setEditOpen(false);
             setSelectedRecord(undefined);
+            setOpenedReferenceRecord(undefined);
             setDeleteOpen(false);
           },
           beginEdit: () => {

@@ -105,6 +105,21 @@ export interface AxisModuleConnection {
   readonly state: AxisModuleAvailability;
 }
 
+export interface AxisDocumentationCoverage {
+  readonly score: number;
+  readonly status: 'STRONG' | 'PARTIAL' | 'NEEDS_WORK' | 'REFERENCE';
+  readonly signals: readonly string[];
+  readonly gaps: readonly string[];
+}
+
+export interface AxisDocumentationDashboardMetadata {
+  readonly summary?: string | undefined;
+  readonly kind?: string | undefined;
+  readonly icon?: string | undefined;
+  readonly audiences: readonly string[];
+  readonly coverage?: AxisDocumentationCoverage | undefined;
+}
+
 export interface AxisAuthenticatedBootstrap {
   readonly axisPolicy: AxisEmployeePolicy;
   readonly navigation: readonly AxisNavigationItem[];
@@ -129,6 +144,7 @@ export type AxisDocumentationSource =
       readonly defaultPage: string;
       readonly packCode: string;
       readonly labelKey?: string | undefined;
+      readonly dashboard: AxisDocumentationDashboardMetadata;
     }
   | {
       readonly id: string;
@@ -141,6 +157,7 @@ export type AxisDocumentationSource =
       readonly openApiPath: string;
       readonly swaggerPath: string;
       readonly labelKey?: string | undefined;
+      readonly dashboard: AxisDocumentationDashboardMetadata;
     };
 
 export function selectModuleConnection(
@@ -610,6 +627,7 @@ function parseDocumentationSources(value: unknown): readonly AxisDocumentationSo
         `${id} documentation connection module`,
       ),
       labelKey: optionalText(source.labelKey, `${id} documentation label key`),
+      dashboard: parseDocumentationDashboard(source.dashboard, `${id} documentation`),
     };
     if (source.type === 'CMS') {
       return Object.freeze({
@@ -637,6 +655,58 @@ function parseDocumentationSources(value: unknown): readonly AxisDocumentationSo
         left.order - right.order || left.label.localeCompare(right.label),
     ),
   );
+}
+
+function parseDocumentationDashboard(
+  value: unknown,
+  name: string,
+): AxisDocumentationDashboardMetadata {
+  if (value === undefined) {
+    return Object.freeze({ audiences: Object.freeze([]) });
+  }
+  const dashboard = record(value, `${name} dashboard`);
+  return Object.freeze({
+    summary: optionalText(dashboard.summary, `${name} dashboard summary`),
+    kind: optionalText(dashboard.kind, `${name} dashboard kind`),
+    icon: optionalText(dashboard.icon, `${name} dashboard icon`),
+    audiences:
+      dashboard.audiences === undefined
+        ? Object.freeze([])
+        : stringList(dashboard.audiences, `${name} dashboard audiences`),
+    coverage:
+      dashboard.coverage === undefined
+        ? undefined
+        : parseDocumentationCoverage(dashboard.coverage, `${name} dashboard coverage`),
+  });
+}
+
+function parseDocumentationCoverage(
+  value: unknown,
+  name: string,
+): AxisDocumentationCoverage {
+  const coverage = record(value, name);
+  const score = nonNegativeInteger(coverage.score, `${name} score`);
+  if (score > 100) {
+    throw new Error(`${name} score must be between 0 and 100`);
+  }
+  if (
+    typeof coverage.status !== 'string' ||
+    !['STRONG', 'PARTIAL', 'NEEDS_WORK', 'REFERENCE'].includes(coverage.status)
+  ) {
+    throw new Error(`${name} status is unsupported`);
+  }
+  return Object.freeze({
+    score,
+    status: coverage.status as AxisDocumentationCoverage['status'],
+    signals:
+      coverage.signals === undefined
+        ? Object.freeze([])
+        : stringList(coverage.signals, `${name} signals`),
+    gaps:
+      coverage.gaps === undefined
+        ? Object.freeze([])
+        : stringList(coverage.gaps, `${name} gaps`),
+  });
 }
 
 export function parseEmployeePolicy(value: unknown): AxisEmployeePolicy {

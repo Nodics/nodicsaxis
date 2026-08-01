@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
@@ -206,11 +206,67 @@ const employee: WorkbenchSchema = {
   relationships: [],
 };
 
+const tenant: WorkbenchSchema = {
+  ...contact,
+  schemaName: 'tenant',
+  label: 'Tenant',
+  displayProperties: ['code', 'description'],
+  fields: [
+    contact.fields[1]!,
+    {
+      name: 'description',
+      label: 'Description',
+      type: 'string',
+      required: false,
+      readOnly: false,
+      primary: false,
+      description: '',
+      searchable: true,
+    },
+  ],
+  relationships: [],
+};
+
+const enterprise: WorkbenchSchema = {
+  ...address,
+  schemaName: 'enterprise',
+  label: 'Enterprise',
+  fields: [
+    address.fields[0]!,
+    {
+      name: 'tenant',
+      label: 'Tenant',
+      type: 'string',
+      required: true,
+      readOnly: false,
+      primary: false,
+      description: '',
+      searchable: true,
+    },
+  ],
+  relationships: [
+    {
+      field: 'tenant',
+      label: 'Tenant',
+      description: 'Owning tenant',
+      targetModule: 'profile',
+      targetSchema: 'tenant',
+      cardinality: 'ONE',
+      referenceProperty: 'code',
+      resolution: 'LOCAL_OR_REMOTE',
+      actions: ['SELECT_EXISTING'],
+      required: true,
+    },
+  ],
+};
+
 const relationshipCopy = {
   addToDraftLabel: 'Add to draft',
   cancelLabel: 'Cancel',
   createRelatedLabel: 'Create related',
   editRelatedLabel: 'Edit related',
+  missingReferencePropertyLabel:
+    'Related records were found, but none expose the required reference property: {property}.',
   noRelatedRecordsLabel: 'No related records',
   relatedSearchLabel: 'Search related records',
   removeRelatedLabel: 'Close',
@@ -454,6 +510,102 @@ describe('WorkbenchRecordForm', () => {
       code: 'DXB-OFFICE',
       contacts: ['DXB-PHONE'],
     });
+  });
+
+  it('edits one-to-one references through backend-searchable lookup values', async () => {
+    const user = userEvent.setup();
+    const submit = vi.fn();
+    const loadRecords = vi.fn().mockResolvedValue([
+      {
+        code: 'default',
+        description: 'Default tenant',
+      },
+      {
+        code: 'qa',
+        description: 'QA tenant',
+      },
+    ]);
+    const queryClient = new QueryClient({
+      defaultOptions: { queries: { retry: false } },
+    });
+    render(
+      <QueryClientProvider client={queryClient}>
+        <WorkbenchRecordForm
+          cancelLabel="Cancel"
+          initialModel={{ code: 'defaultEnterprise', tenant: 'default' }}
+          relationshipCopy={relationshipCopy}
+          relationshipRuntime={{
+            schemas: [tenant],
+            queryScope: ['default'],
+            createRecord: vi.fn(),
+            loadRecords,
+          }}
+          saving={false}
+          savingLabel="Updating"
+          schema={enterprise}
+          submitLabel="Update"
+          onCancel={vi.fn()}
+          onSubmit={submit}
+        />
+      </QueryClientProvider>,
+    );
+
+    expect(screen.queryByLabelText(/^Tenant$/)).not.toBeInTheDocument();
+    expect(screen.getByText('default')).toBeVisible();
+
+    await user.click(screen.getByRole('button', { name: 'Select existing' }));
+    await user.type(screen.getByLabelText('Search related records'), 'qa');
+
+    await waitFor(() =>
+      expect(loadRecords).toHaveBeenCalledWith(tenant, { search: 'qa' }),
+    );
+    await user.click(screen.getByRole('checkbox', { name: 'qa - QA tenant' }));
+    await user.click(screen.getByRole('button', { name: 'Update' }));
+
+    expect(submit).toHaveBeenCalledWith({
+      code: 'defaultEnterprise',
+      tenant: 'qa',
+    });
+  });
+
+  it('warns when related records do not expose the configured reference property', async () => {
+    const user = userEvent.setup();
+    const queryClient = new QueryClient({
+      defaultOptions: { queries: { retry: false } },
+    });
+    render(
+      <QueryClientProvider client={queryClient}>
+        <WorkbenchRecordForm
+          cancelLabel="Cancel"
+          relationshipCopy={relationshipCopy}
+          relationshipRuntime={{
+            schemas: [tenant],
+            queryScope: ['default'],
+            createRecord: vi.fn(),
+            loadRecords: vi.fn().mockResolvedValue([
+              {
+                description: 'Default tenant without projected code',
+              },
+            ]),
+          }}
+          saving={false}
+          savingLabel="Saving"
+          schema={enterprise}
+          submitLabel="Create"
+          onCancel={vi.fn()}
+          onSubmit={vi.fn()}
+        />
+      </QueryClientProvider>,
+    );
+
+    await user.click(screen.getByRole('button', { name: 'Select existing' }));
+
+    expect(
+      await screen.findByText(
+        'Related records were found, but none expose the required reference property: code.',
+      ),
+    ).toBeVisible();
+    expect(screen.queryByRole('checkbox')).not.toBeInTheDocument();
   });
 
   it('stops nested creation when a relationship would repeat the schema path', () => {

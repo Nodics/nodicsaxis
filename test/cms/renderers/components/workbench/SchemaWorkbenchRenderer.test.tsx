@@ -367,6 +367,40 @@ describe('SchemaWorkbenchRenderer', () => {
     });
   });
 
+  it('keeps the selected schema list visible while rendering the update form', async () => {
+    const user = userEvent.setup();
+    const updateRecord = vi.fn();
+
+    render(
+      <SchemaWorkbenchRenderer
+        actions={{
+          workbench: workbenchController({
+            editOpen: true,
+            records: [{ code: 'DXB-OFFICE', city: 'Dubai' }],
+            recordTotalCount: 1,
+            selectedRecord: { code: 'DXB-OFFICE', city: 'Dubai' },
+            updateRecord,
+          }),
+        }}
+        component={component}
+      />,
+    );
+
+    expect(screen.getByRole('columnheader', { name: 'Code' })).toBeVisible();
+    expect(screen.getByRole('cell', { name: 'DXB-OFFICE' })).toBeVisible();
+
+    const city = screen.getByDisplayValue('Dubai');
+    expect(city).toBeVisible();
+    await user.clear(city);
+    await user.type(city, 'Abu Dhabi');
+    await user.click(screen.getByRole('button', { name: 'Update' }));
+
+    expect(updateRecord).toHaveBeenCalledWith({
+      city: 'Abu Dhabi',
+      code: 'DXB-OFFICE',
+    });
+  });
+
   it('shows a retryable safe discovery failure', () => {
     render(
       <SchemaWorkbenchRenderer
@@ -770,5 +804,111 @@ describe('SchemaWorkbenchRenderer', () => {
     ).toBeVisible();
     expect(screen.getByRole('table', { name: 'Slots related records' })).toBeVisible();
     expect(screen.getByRole('cell', { name: 'header-slot' })).toBeVisible();
+  });
+
+  it('shows selected record detail before opened reference detail', () => {
+    const workflowAction: WorkbenchSchema = {
+      ...schemaVariant('Workflow Action', 'workflow', 'workflowAction'),
+      label: 'Workflow Action',
+      description: 'Workflow action schema.',
+      fields: [
+        {
+          name: 'code',
+          label: 'Code',
+          type: 'string',
+          required: true,
+          readOnly: false,
+          primary: true,
+          description: '',
+          searchable: true,
+        },
+        {
+          name: 'channels',
+          label: 'Channels',
+          type: 'array',
+          required: false,
+          readOnly: false,
+          primary: false,
+          description: '',
+          searchable: false,
+        },
+      ],
+      relationships: [
+        {
+          field: 'channels',
+          label: 'Channels',
+          description: 'Action channels.',
+          cardinality: 'MANY',
+          targetModule: 'workflow',
+          targetSchema: 'workflowChannel',
+          referenceProperty: 'code',
+          resolution: 'LOCAL_OR_REMOTE',
+          actions: ['SELECT_EXISTING'],
+          required: false,
+        },
+      ],
+    };
+    const workflowChannel: WorkbenchSchema = {
+      ...schemaVariant('Workflow Channel', 'workflow', 'workflowChannel'),
+      label: 'Workflow Channel',
+      relationships: [],
+      fields: [
+        workflowAction.fields[0]!,
+        {
+          name: 'target',
+          label: 'Target',
+          type: 'string',
+          required: false,
+          readOnly: false,
+          primary: false,
+          description: '',
+          searchable: true,
+        },
+      ],
+    };
+    const selectedRecord = {
+      code: 'cmsPagesApprovalFlowHead',
+      channels: ['reviewCmsPageChannel'],
+    };
+    const referenceRecord = {
+      code: 'reviewCmsPageChannel',
+      target: 'reviewCmsPageAction',
+    };
+
+    render(
+      <SchemaWorkbenchRenderer
+        actions={{
+          workbench: workbenchController({
+            schemas: [workflowAction, workflowChannel],
+            selectedSchema: workflowAction,
+            selectedRecord,
+            openedReferenceRecord: {
+              relationship: workflowAction.relationships[0]!,
+              reference: 'reviewCmsPageChannel',
+              schema: workflowChannel,
+              record: referenceRecord,
+            },
+            records: [selectedRecord],
+            recordTotalCount: 1,
+            visibleColumns: ['code', 'channels'],
+            relationshipRuntime: {
+              ...relationshipRuntime,
+              schemas: [workflowChannel],
+            },
+          }),
+        }}
+        component={component}
+      />,
+    );
+
+    const selectedDetail = screen.getByRole('heading', {
+      name: 'cmsPagesApprovalFlowHead',
+    });
+    const referenceDetail = screen.getByRole('heading', {
+      name: 'Workflow Channel: reviewCmsPageChannel',
+    });
+    expect(selectedDetail.compareDocumentPosition(referenceDetail)).toBe(
+      Node.DOCUMENT_POSITION_FOLLOWING,
+    );
   });
 });

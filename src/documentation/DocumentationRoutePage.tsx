@@ -23,6 +23,7 @@ import {
 } from '../bootstrap/publicBootstrap';
 import type { AxisRuntimeConfig } from '../runtime/runtimeConfig';
 import { createDocumentationContentPackClient } from './api/documentationContentPackClient';
+import { DocumentationDashboard } from './DocumentationDashboard';
 import { DocumentationSourceNavigation } from './DocumentationSourceNavigation';
 import { OpenApiDocumentationRenderer } from './OpenApiDocumentationRenderer';
 
@@ -236,6 +237,13 @@ function CmsDocumentationRoutePage(props: CmsDocumentationRoutePageProps) {
 }
 
 export function DocumentationRoutePage(props: DocumentationRoutePageProps) {
+  if (props.path === '/docs') {
+    return (
+      <WorkspaceContainer horizontalPadding="3px" verticalPadding="3px">
+        <DocumentationDashboard bootstrap={props.bootstrap} />
+      </WorkspaceContainer>
+    );
+  }
   const source = sourceForPath(props.bootstrap.documentationSources, props.path);
   if (!source) {
     return (

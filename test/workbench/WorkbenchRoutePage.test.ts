@@ -3,9 +3,12 @@ import { describe, expect, it } from 'vitest';
 import {
   resolveWorkbenchRecordSort,
   resolveWorkbenchDeepLinkTarget,
+  resolveWorkbenchLookupPageSize,
   resolveWorkbenchRouteTarget,
   relatedRecordPanelFilter,
   schemaWithValidQueryCapabilities,
+  selectWorkbenchReferencedRecord,
+  workbenchReferenceLookupQuery,
   type WorkbenchDeepLinkTarget,
 } from '../../src/workbench/workbenchRouteModel';
 import type { WorkbenchSchema } from '../../src/workbench/api/workbenchContracts';
@@ -186,6 +189,116 @@ describe('resolveWorkbenchRecordSort', () => {
       sortableFields: ['employeeId'],
       defaultSort: { field: 'employeeId', direction: 'ASC' },
     });
+  });
+});
+
+describe('resolveWorkbenchLookupPageSize', () => {
+  it('uses the smallest backend-advertised page size for reference lookups', () => {
+    expect(
+      resolveWorkbenchLookupPageSize(schema('workflow', 'workflowChannel', ['search'])),
+    ).toBe(10);
+  });
+
+  it('falls back to the default page size when no allow-list is advertised', () => {
+    const fallbackSchema = {
+      ...schema('workflow', 'workflowChannel', ['search']),
+      queryCapabilities: {
+        ...schema('workflow', 'workflowChannel', ['search']).queryCapabilities,
+        allowedPageSizes: [],
+        defaultPageSize: 25,
+      },
+    };
+    expect(resolveWorkbenchLookupPageSize(fallbackSchema)).toBe(25);
+  });
+});
+
+describe('workbenchReferenceLookupQuery', () => {
+  it('uses backend filter capabilities when the reference field supports equality', () => {
+    const targetSchema = {
+      ...schema('profile', 'tenant', ['search', 'read']),
+      queryCapabilities: {
+        ...schema('profile', 'tenant', ['search', 'read']).queryCapabilities,
+        filterFields: [
+          {
+            field: 'code',
+            label: 'Code',
+            type: 'string',
+            operators: ['EQUALS'],
+          },
+        ],
+      },
+    } satisfies WorkbenchSchema;
+
+    expect(
+      workbenchReferenceLookupQuery(
+        targetSchema,
+        {
+          field: 'tenant',
+          label: 'Tenant',
+          description: '',
+          targetModule: 'profile',
+          targetSchema: 'tenant',
+          cardinality: 'ONE',
+          referenceProperty: 'code',
+          resolution: 'LOCAL_OR_REMOTE',
+          actions: ['SELECT_EXISTING'],
+          required: true,
+        },
+        'default',
+      ),
+    ).toMatchObject({
+      search: '',
+      filters: {
+        operator: 'AND',
+        items: [{ field: 'code', operator: 'EQUALS', value: 'default' }],
+      },
+      pageNumber: 1,
+      pageSize: 10,
+    });
+  });
+
+  it('falls back to text search when the reference field is not a backend filter', () => {
+    const query = workbenchReferenceLookupQuery(
+      schema('profile', 'tenant', ['search', 'read']),
+      {
+        field: 'tenant',
+        label: 'Tenant',
+        description: '',
+        targetModule: 'profile',
+        targetSchema: 'tenant',
+        cardinality: 'ONE',
+        referenceProperty: 'code',
+        resolution: 'LOCAL_OR_REMOTE',
+        actions: ['SELECT_EXISTING'],
+        required: true,
+      },
+      'default',
+    );
+
+    expect(query).toMatchObject({
+      search: 'default',
+      pageNumber: 1,
+      pageSize: 10,
+    });
+    expect(query.filters).toBeUndefined();
+  });
+});
+
+describe('selectWorkbenchReferencedRecord', () => {
+  it('selects the exact referenced record from text-search results', () => {
+    expect(
+      selectWorkbenchReferencedRecord(
+        [{ code: 'default-copy' }, { code: 'default' }],
+        'code',
+        'default',
+      ),
+    ).toEqual({ code: 'default' });
+  });
+
+  it('uses the only returned record when no exact reference field is projected', () => {
+    expect(
+      selectWorkbenchReferencedRecord([{ name: 'Default tenant' }], 'code', 'default'),
+    ).toEqual({ name: 'Default tenant' });
   });
 });
 

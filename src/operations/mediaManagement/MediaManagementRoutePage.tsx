@@ -1515,6 +1515,7 @@ function SchemaRecordManagementPanel(props: {
         props.schema,
         props.record!,
         props.configuration,
+        `axis-${crypto.randomUUID()}`,
       ),
     onSuccess: () => {
       props.onModeChange('none');

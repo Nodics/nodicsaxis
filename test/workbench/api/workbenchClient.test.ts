@@ -51,6 +51,12 @@ const address: WorkbenchSchema = {
   },
   mutationMode: 'GENERATED_CRUD',
   operations: ['search', 'read', 'create', 'update', 'delete'],
+  bulkCapabilities: {
+    operations: ['DELETE'],
+    maximumItems: 100,
+    idempotencyRequired: true,
+    outcomeMode: 'AUTHORITATIVE_RESULT',
+  },
   fields: [
     {
       name: 'code',
@@ -213,9 +219,9 @@ describe('Schema Workbench API client', () => {
     });
   });
 
-  it('deletes through one bounded original-identity query', async () => {
+  it('deletes through the bounded Workbench selected-record contract', async () => {
     const request = vi.fn<typeof fetch>().mockResolvedValue(
-      new Response(JSON.stringify({ code: 'SUC_DEL_00000' }), {
+      new Response(JSON.stringify({ code: 'SUC_DBS_00000' }), {
         status: 200,
         headers: { 'Content-Type': 'application/json' },
       }),
@@ -227,18 +233,23 @@ describe('Schema Workbench API client', () => {
         address,
         { code: 'DXB-OFFICE' },
         configuration,
+        'axis-delete-0001',
         request,
       ),
     ).resolves.toBeUndefined();
 
     const [url, options] = request.mock.calls[0] ?? [];
-    expect((url as URL).pathname).toBe('/nodics/profile/v0/address');
+    expect((url as URL).pathname).toBe(
+      '/nodics/profile/v0/schema/workbench/address/record',
+    );
     expect(options?.method).toBe('DELETE');
+    expect(new Headers(options?.headers).get('Idempotency-Key')).toBe(
+      'axis-delete-0001',
+    );
     const body = options?.body;
     if (typeof body !== 'string') throw new Error('Expected a JSON request body');
     expect(JSON.parse(body)).toEqual({
-      options: { returnModified: false },
-      query: { code: 'DXB-OFFICE' },
+      identity: { code: 'DXB-OFFICE' },
     });
   });
 
@@ -278,12 +289,15 @@ describe('Schema Workbench API client', () => {
       revisionAddress,
       { code: 'DXB', revision: 7 },
       configuration,
+      'axis-delete-revision-0001',
       deleteRequest,
     );
     const deleteBody = deleteRequest.mock.calls[0]?.[1]?.body;
     if (typeof deleteBody !== 'string') throw new Error('Expected delete body');
     expect(JSON.parse(deleteBody)).toEqual(
-      expect.objectContaining({ query: { code: 'DXB', revision: 7 } }),
+      expect.objectContaining({
+        identity: { code: 'DXB', revision: 7 },
+      }),
     );
   });
 
@@ -312,7 +326,14 @@ describe('Schema Workbench API client', () => {
   it('rejects deletion without a safe identity before sending a request', async () => {
     const request = vi.fn<typeof fetch>();
     await expect(
-      deleteWorkbenchRecord(connection, address, {}, configuration, request),
+      deleteWorkbenchRecord(
+        connection,
+        address,
+        {},
+        configuration,
+        'axis-delete-invalid-0001',
+        request,
+      ),
     ).rejects.toThrow('safe identity');
     expect(request).not.toHaveBeenCalled();
   });
@@ -339,6 +360,7 @@ describe('Schema Workbench API client', () => {
         address,
         { code: 'DXB-OFFICE' },
         configuration,
+        'axis-delete-integrity-0001',
         request,
       ),
     ).rejects.toMatchObject({

@@ -5,6 +5,7 @@ import { AxisSchemaRecordDetail } from '../../app/schema/AxisSchemaRecordDetail'
 import { axisSchemaRecordDisplayValue } from '../../app/schema/axisSchemaRecordValues';
 import { AxisSchemaDataListing } from '../../app/table/AxisSchemaDataListing';
 import type { WorkbenchRecord, WorkbenchSchema } from '../api/workbenchContracts';
+import type { WorkbenchRelationshipRuntime } from '../form/WorkbenchRelationshipRuntime';
 import { workbenchRecordValue } from '../record/workbenchRecordPaths';
 import type { WorkbenchRecordDetailPanel } from './workbenchRecordDetailPanels';
 
@@ -15,6 +16,7 @@ interface WorkbenchRecordDetailProps {
   readonly falseLabel: string;
   readonly detailPanels?: readonly WorkbenchRecordDetailPanel[] | undefined;
   readonly record: WorkbenchRecord;
+  readonly relationshipRuntime?: WorkbenchRelationshipRuntime | undefined;
   readonly schema: WorkbenchSchema;
   readonly trueLabel: string;
   readonly onClose: () => void;
@@ -136,6 +138,11 @@ export function WorkbenchRecordDetail(props: WorkbenchRecordDetailProps) {
         }
         falseLabel={props.falseLabel}
         record={props.record}
+        referenceResolver={
+          props.relationshipRuntime?.resolveRecord
+            ? { resolveReference: props.relationshipRuntime.resolveRecord }
+            : undefined
+        }
         schema={props.schema}
         title={title}
         trueLabel={props.trueLabel}

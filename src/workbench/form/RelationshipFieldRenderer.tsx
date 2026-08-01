@@ -86,6 +86,7 @@ export function RelationshipFieldRenderer(props: RelationshipFieldRendererProps)
   const [createOpen, setCreateOpen] = useState(false);
   const [search, setSearch] = useState('');
   const [editRecord, setEditRecord] = useState<Readonly<Record<string, unknown>>>();
+  const backendSearch = search.trim();
   const records = useQuery({
     enabled: selectOpen,
     queryKey: [
@@ -94,8 +95,10 @@ export function RelationshipFieldRenderer(props: RelationshipFieldRendererProps)
       ...props.runtime.queryScope,
       props.targetSchema.moduleName,
       props.targetSchema.schemaName,
+      backendSearch,
     ],
-    queryFn: () => props.runtime.loadRecords(props.targetSchema),
+    queryFn: () =>
+      props.runtime.loadRecords(props.targetSchema, { search: backendSearch }),
   });
   const selected = new Set(props.draft.references);
   const label = props.relationship.label;
@@ -108,6 +111,16 @@ export function RelationshipFieldRenderer(props: RelationshipFieldRendererProps)
       .toLocaleLowerCase()
       .includes(normalizedSearch);
   });
+  const selectableRecords = (visibleRecords ?? []).flatMap((record, index) => {
+    const reference = referenceValue(record, props.relationship.referenceProperty);
+    if (!reference) return [];
+    return [{ index, record, reference }];
+  });
+  const missingReferenceProperty =
+    !records.isLoading &&
+    !records.error &&
+    (visibleRecords?.length ?? 0) > 0 &&
+    selectableRecords.length === 0;
   const targetKey = `${props.targetSchema.moduleName}:${props.targetSchema.schemaName}`;
   const nestedCreateAllowed =
     props.depth < (props.relationship.maximumDepth ?? 3) &&
@@ -236,12 +249,15 @@ export function RelationshipFieldRenderer(props: RelationshipFieldRendererProps)
                 {props.copy.noRelatedRecordsLabel}
               </Typography>
             ) : null}
-            {visibleRecords?.map((record, index) => {
-              const reference = referenceValue(
-                record,
-                props.relationship.referenceProperty,
-              );
-              if (!reference) return null;
+            {missingReferenceProperty ? (
+              <Alert severity="warning">
+                {props.copy.missingReferencePropertyLabel.replace(
+                  '{property}',
+                  props.relationship.referenceProperty,
+                )}
+              </Alert>
+            ) : null}
+            {selectableRecords.map(({ index, record, reference }) => {
               const checked = selected.has(reference);
               const description = descriptionValue(record);
               const hasDescription = description.length > 0;

@@ -14,6 +14,11 @@ export function ModuleWorkspacePlaceholder({ item }: ModuleWorkspacePlaceholderP
       <Box component="section" aria-label={`${item.label} workspace`}>
         <Stack spacing={3}>
           <Stack spacing={1}>
+            <WorkspaceHeading
+              description="This authorized module capability was discovered through BackOffice."
+              help={item.help}
+              title={item.label}
+            />
             <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap' }}>
               <Chip label={item.moduleName} size="small" variant="outlined" />
               <Chip
@@ -22,11 +27,6 @@ export function ModuleWorkspacePlaceholder({ item }: ModuleWorkspacePlaceholderP
                 size="small"
               />
             </Stack>
-            <WorkspaceHeading
-              description="This authorized module capability was discovered through BackOffice."
-              help={item.help}
-              title={item.label}
-            />
           </Stack>
           <Alert severity="info">
             The workspace renderer is not implemented yet. Axis has not inferred

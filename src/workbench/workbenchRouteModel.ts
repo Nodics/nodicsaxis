@@ -3,6 +3,8 @@ import type { AxisNavigationItem } from '../bootstrap/publicBootstrap';
 import type {
   WorkbenchFilterGroup,
   WorkbenchRecord,
+  WorkbenchRecordQuery,
+  WorkbenchRelationship,
   WorkbenchSchema,
 } from './api/workbenchContracts';
 
@@ -104,6 +106,13 @@ export function resolveWorkbenchRecordSort(
   return Object.freeze({ field: fallback, direction: defaultSort.direction });
 }
 
+export function resolveWorkbenchLookupPageSize(schema: WorkbenchSchema): number {
+  const firstAllowed = schema.queryCapabilities.allowedPageSizes[0];
+  return typeof firstAllowed === 'number'
+    ? firstAllowed
+    : schema.queryCapabilities.defaultPageSize;
+}
+
 export function schemaWithValidQueryCapabilities(
   schema: WorkbenchSchema,
 ): WorkbenchSchema {
@@ -125,6 +134,54 @@ function workbenchFilterValue(value: unknown): string | number | boolean | undef
     typeof value === 'boolean'
     ? value
     : undefined;
+}
+
+export function workbenchReferenceLookupQuery(
+  schema: WorkbenchSchema,
+  relationship: WorkbenchRelationship,
+  reference: string,
+): WorkbenchRecordQuery {
+  const field = schema.queryCapabilities.filterFields.find(
+    (candidate) => candidate.field === relationship.referenceProperty,
+  );
+  const baseQuery = {
+    pageNumber: 1,
+    pageSize: resolveWorkbenchLookupPageSize(schema),
+    sort: resolveWorkbenchRecordSort(schema, undefined),
+  };
+  if (field?.operators.includes('EQUALS')) {
+    return Object.freeze({
+      ...baseQuery,
+      search: '',
+      filters: Object.freeze({
+        operator: 'AND',
+        items: Object.freeze([
+          Object.freeze({
+            field: relationship.referenceProperty,
+            operator: 'EQUALS',
+            value: reference,
+          }),
+        ]),
+      }),
+    });
+  }
+  return Object.freeze({
+    ...baseQuery,
+    search: reference,
+  });
+}
+
+export function selectWorkbenchReferencedRecord(
+  records: readonly WorkbenchRecord[],
+  referenceProperty: string,
+  reference: string,
+): WorkbenchRecord | undefined {
+  const exact = records.find((record) => {
+    const value = workbenchFilterValue(record[referenceProperty]);
+    return value !== undefined && String(value) === reference;
+  });
+  if (exact) return exact;
+  return records.length === 1 ? records[0] : undefined;
 }
 
 export function relatedRecordPanelFilter(

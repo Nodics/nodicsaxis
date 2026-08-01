@@ -24,6 +24,7 @@ import {
 import { useState } from 'react';
 
 import { WorkspaceHelpActions } from '../../../../app/help/WorkspaceHelp';
+import { AxisSchemaRecordDetail } from '../../../../app/schema/AxisSchemaRecordDetail';
 import { ShellIcon } from '../../../../app/shell/ShellIcon';
 import { type AxisDataListingColumn } from '../../../../app/table/AxisDataListing';
 import { AxisSchemaDataListing } from '../../../../app/table/AxisSchemaDataListing';
@@ -327,6 +328,11 @@ export function SchemaWorkbenchRenderer({
                           'createRelatedLabel',
                         ),
                         editRelatedLabel: stringProperty(component, 'editRelatedLabel'),
+                        missingReferencePropertyLabel: stringProperty(
+                          component,
+                          'missingReferencePropertyLabel',
+                          'Related records were found, but none expose the required reference property: {property}.',
+                        ),
                         noRelatedRecordsLabel: stringProperty(
                           component,
                           'noRelatedRecordsLabel',
@@ -355,7 +361,7 @@ export function SchemaWorkbenchRenderer({
                     <Divider />
                   </>
                 ) : null}
-                <Box hidden={controller.createOpen || controller.editOpen}>
+                <Box hidden={controller.createOpen}>
                   <Stack spacing={1.25}>
                     <Box
                       sx={{
@@ -521,6 +527,13 @@ export function SchemaWorkbenchRenderer({
                         onColumnKeysChange={(columnKeys) =>
                           controller.setVisibleColumns(columnKeys)
                         }
+                        onReferenceClick={(relationship, reference, record) => {
+                          controller.selectRecord(record);
+                          void controller.openReferenceRecord?.(
+                            relationship,
+                            reference,
+                          );
+                        }}
                         onRowClick={(record) => controller.selectRecord(record)}
                         onSortOverrideChange={controller.setRecordSortOverride}
                         visibleColumnKeys={controller.visibleColumns}
@@ -579,6 +592,11 @@ export function SchemaWorkbenchRenderer({
                               component,
                               'editRelatedLabel',
                             ),
+                            missingReferencePropertyLabel: stringProperty(
+                              component,
+                              'missingReferencePropertyLabel',
+                              'Related records were found, but none expose the required reference property: {property}.',
+                            ),
                             noRelatedRecordsLabel: stringProperty(
                               component,
                               'noRelatedRecordsLabel',
@@ -612,6 +630,7 @@ export function SchemaWorkbenchRenderer({
                           falseLabel={stringProperty(component, 'falseLabel')}
                           detailPanels={controller.selectedRecordDetailPanels}
                           record={controller.selectedRecord}
+                          relationshipRuntime={controller.relationshipRuntime}
                           schema={selected}
                           trueLabel={stringProperty(component, 'trueLabel')}
                           onClose={controller.closeRecord}
@@ -619,6 +638,30 @@ export function SchemaWorkbenchRenderer({
                           onEdit={controller.beginEdit}
                         />
                       )}
+                    </Box>
+                  ) : null}
+                  {controller.openedReferenceRecord ? (
+                    <Box sx={{ mt: 2 }}>
+                      <AxisSchemaRecordDetail
+                        actions={
+                          <Button onClick={controller.closeReferenceRecord}>
+                            {stringProperty(component, 'closeLabel')}
+                          </Button>
+                        }
+                        falseLabel={stringProperty(component, 'falseLabel')}
+                        record={controller.openedReferenceRecord.record}
+                        referenceResolver={
+                          controller.relationshipRuntime.resolveRecord
+                            ? {
+                                resolveReference:
+                                  controller.relationshipRuntime.resolveRecord,
+                              }
+                            : undefined
+                        }
+                        schema={controller.openedReferenceRecord.schema}
+                        title={`${controller.openedReferenceRecord.schema.label}: ${controller.openedReferenceRecord.reference}`}
+                        trueLabel={stringProperty(component, 'trueLabel')}
+                      />
                     </Box>
                   ) : null}
                 </Box>

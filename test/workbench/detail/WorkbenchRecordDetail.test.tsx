@@ -1,4 +1,5 @@
 import { render, screen } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
 
 import type { WorkbenchSchema } from '../../../src/workbench/api/workbenchContracts';
@@ -181,5 +182,189 @@ describe('WorkbenchRecordDetail', () => {
     expect(screen.getByText('Admin')).toBeVisible();
     expect(screen.getByText('User')).toBeVisible();
     expect(screen.queryByText('Related data')).not.toBeInTheDocument();
+  });
+
+  it('opens referenced schema records from backend relationship descriptors', async () => {
+    const user = userEvent.setup();
+    const enterpriseSchema: WorkbenchSchema = {
+      ...schema,
+      schemaName: 'enterprise',
+      label: 'Enterprise',
+      fields: [
+        ...schema.fields,
+        {
+          name: 'tenant',
+          label: 'Tenant',
+          type: 'string',
+          required: true,
+          readOnly: false,
+          primary: false,
+          description: '',
+          searchable: true,
+        },
+      ],
+      relationships: [
+        {
+          field: 'tenant',
+          label: 'Tenant',
+          description: '',
+          targetModule: 'profile',
+          targetSchema: 'tenant',
+          cardinality: 'ONE',
+          referenceProperty: 'code',
+          resolution: 'LOCAL_OR_REMOTE',
+          actions: ['SELECT_EXISTING'],
+          required: true,
+          maximumDepth: 3,
+        },
+      ],
+    };
+    const tenantSchema: WorkbenchSchema = {
+      ...schema,
+      schemaName: 'tenant',
+      label: 'Tenant',
+      fields: [
+        ...schema.fields,
+        {
+          name: 'description',
+          label: 'Description',
+          type: 'string',
+          required: false,
+          readOnly: false,
+          primary: false,
+          description: '',
+          searchable: true,
+        },
+      ],
+    };
+    const resolveRecord = vi.fn().mockResolvedValue({
+      record: { code: 'default', description: 'Default tenant' },
+      schema: tenantSchema,
+    });
+
+    render(
+      <WorkbenchRecordDetail
+        closeLabel="Close"
+        deleteLabel="Delete"
+        editLabel="Edit"
+        falseLabel="No"
+        record={{ code: 'defaultEnterprise', tenant: 'default' }}
+        relationshipRuntime={{
+          schemas: [tenantSchema],
+          queryScope: ['default'],
+          createRecord: vi.fn(),
+          loadRecords: vi.fn(),
+          resolveRecord,
+        }}
+        schema={enterpriseSchema}
+        trueLabel="Yes"
+        onClose={vi.fn()}
+        onDelete={vi.fn()}
+        onEdit={vi.fn()}
+      />,
+    );
+
+    await user.click(screen.getByRole('button', { name: 'default' }));
+
+    expect(resolveRecord).toHaveBeenCalledWith(
+      enterpriseSchema.relationships[0],
+      'default',
+    );
+    expect(await screen.findByText('Default tenant')).toBeVisible();
+  });
+
+  it('opens individual references from one-to-many relationship fields', async () => {
+    const user = userEvent.setup();
+    const workflowActionSchema: WorkbenchSchema = {
+      ...schema,
+      moduleName: 'workflow',
+      schemaName: 'workflowAction',
+      label: 'Workflow Action',
+      fields: [
+        ...schema.fields,
+        {
+          name: 'channels',
+          label: 'Channels',
+          type: 'array',
+          required: false,
+          readOnly: false,
+          primary: false,
+          description: '',
+          searchable: false,
+        },
+      ],
+      relationships: [
+        {
+          field: 'channels',
+          label: 'Channels',
+          description: '',
+          targetModule: 'workflow',
+          targetSchema: 'workflowChannel',
+          cardinality: 'MANY',
+          referenceProperty: 'code',
+          resolution: 'LOCAL_OR_REMOTE',
+          actions: ['SELECT_EXISTING'],
+          required: false,
+          maximumDepth: 3,
+        },
+      ],
+    };
+    const workflowChannelSchema: WorkbenchSchema = {
+      ...schema,
+      moduleName: 'workflow',
+      schemaName: 'workflowChannel',
+      label: 'Channels',
+      fields: [
+        ...schema.fields,
+        {
+          name: 'target',
+          label: 'Target',
+          type: 'string',
+          required: false,
+          readOnly: false,
+          primary: false,
+          description: '',
+          searchable: false,
+        },
+      ],
+    };
+    const resolveRecord = vi.fn().mockResolvedValue({
+      record: { code: 'defaultRejectChannel', target: 'defaultRejectAction' },
+      schema: workflowChannelSchema,
+    });
+
+    render(
+      <WorkbenchRecordDetail
+        closeLabel="Close"
+        deleteLabel="Delete"
+        editLabel="Edit"
+        falseLabel="No"
+        record={{
+          code: 'reviewCmsPageAction',
+          channels: ['publishCmsPageChannel', 'defaultRejectChannel'],
+        }}
+        relationshipRuntime={{
+          schemas: [workflowChannelSchema],
+          queryScope: ['default'],
+          createRecord: vi.fn(),
+          loadRecords: vi.fn(),
+          resolveRecord,
+        }}
+        schema={workflowActionSchema}
+        trueLabel="Yes"
+        onClose={vi.fn()}
+        onDelete={vi.fn()}
+        onEdit={vi.fn()}
+      />,
+    );
+
+    await user.click(screen.getByRole('button', { name: 'defaultRejectChannel' }));
+
+    expect(resolveRecord).toHaveBeenCalledWith(
+      workflowActionSchema.relationships[0],
+      'defaultRejectChannel',
+    );
+    expect(await screen.findByText('Channels: defaultRejectChannel')).toBeVisible();
+    expect(screen.getByText('defaultRejectAction')).toBeVisible();
   });
 });

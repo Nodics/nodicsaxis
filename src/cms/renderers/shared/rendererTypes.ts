@@ -8,6 +8,7 @@ import type { AxisRuntimeConfig } from '../../../runtime/runtimeConfig';
 import type {
   WorkbenchFilterGroup,
   WorkbenchRecord,
+  WorkbenchRelationship,
   WorkbenchSchema,
   WorkbenchDeleteImpact,
 } from '../../../workbench/api/workbenchContracts';
@@ -54,6 +55,14 @@ export interface WorkbenchRendererController {
   readonly creating: boolean;
   readonly createOpen: boolean;
   readonly relationshipRuntime: WorkbenchRelationshipRuntime;
+  readonly openedReferenceRecord?:
+    | {
+        readonly record: WorkbenchRecord;
+        readonly reference: string;
+        readonly relationship: WorkbenchRelationship;
+        readonly schema: WorkbenchSchema;
+      }
+    | undefined;
   readonly selectedRecord?: WorkbenchRecord | undefined;
   readonly selectedRecordDetailPanels?:
     | readonly WorkbenchRecordDetailPanel[]
@@ -86,6 +95,11 @@ export interface WorkbenchRendererController {
   readonly beginCreate: () => void;
   readonly cancelCreate: () => void;
   readonly createRecord: (model: Readonly<Record<string, unknown>>) => Promise<void>;
+  readonly openReferenceRecord?: (
+    relationship: WorkbenchRelationship,
+    reference: string,
+  ) => Promise<void>;
+  readonly closeReferenceRecord?: () => void;
   readonly selectRecord: (record: WorkbenchRecord) => void;
   readonly closeRecord: () => void;
   readonly beginEdit: () => void;
