@@ -437,6 +437,110 @@ describe('WorkbenchRecordForm', () => {
     expect(submit).toHaveBeenCalledTimes(2);
   });
 
+  it('previews and edits pending related records before parent save', async () => {
+    const user = userEvent.setup();
+    const createRelated = vi.fn().mockResolvedValue({ code: 'DXB-EMAIL' });
+    const submit = vi.fn();
+    const queryClient = new QueryClient({
+      defaultOptions: { queries: { retry: false } },
+    });
+    render(
+      <QueryClientProvider client={queryClient}>
+        <WorkbenchRecordForm
+          cancelLabel="Cancel"
+          relationshipCopy={relationshipCopy}
+          relationshipRuntime={{
+            schemas: [address, contact],
+            queryScope: ['default'],
+            createRecord: createRelated,
+            loadRecords: vi.fn().mockResolvedValue([]),
+          }}
+          saving={false}
+          savingLabel="Saving"
+          schema={address}
+          submitLabel="Create"
+          onCancel={vi.fn()}
+          onSubmit={submit}
+        />
+      </QueryClientProvider>,
+    );
+
+    await user.type(screen.getByLabelText(/Code/), 'DXB-OFFICE');
+    await user.click(
+      screen.getByRole('button', { name: 'Create related Contact methods' }),
+    );
+    await user.type(screen.getAllByLabelText(/Code/)[1]!, 'DXB-EMAIL');
+    await user.click(screen.getByLabelText(/Type/));
+    await user.click(screen.getByRole('option', { name: 'EMAIL' }));
+    await user.click(screen.getByRole('button', { name: 'Add to draft' }));
+
+    await user.click(screen.getByRole('button', { name: 'DXB-EMAIL' }));
+    expect(await screen.findByText('Pending Contact methods: DXB-EMAIL')).toBeVisible();
+    expect(screen.getByText('EMAIL')).toBeVisible();
+
+    await user.click(screen.getByRole('button', { name: 'Edit related' }));
+    await user.click(screen.getByLabelText(/Type/));
+    await user.click(screen.getByRole('option', { name: 'PHONE' }));
+    await user.click(screen.getByRole('button', { name: 'Edit related' }));
+    await user.click(screen.getByRole('button', { name: 'Create' }));
+
+    expect(createRelated).toHaveBeenCalledWith(contact, {
+      code: 'DXB-EMAIL',
+      type: 'PHONE',
+      priority: 0,
+    });
+    expect(submit).toHaveBeenCalledWith({
+      code: 'DXB-OFFICE',
+      contacts: ['DXB-EMAIL'],
+    });
+  });
+
+  it('removes pending related records before parent save', async () => {
+    const user = userEvent.setup();
+    const createRelated = vi.fn().mockResolvedValue({ code: 'DXB-EMAIL' });
+    const submit = vi.fn();
+    const queryClient = new QueryClient({
+      defaultOptions: { queries: { retry: false } },
+    });
+    render(
+      <QueryClientProvider client={queryClient}>
+        <WorkbenchRecordForm
+          cancelLabel="Cancel"
+          relationshipCopy={relationshipCopy}
+          relationshipRuntime={{
+            schemas: [address, contact],
+            queryScope: ['default'],
+            createRecord: createRelated,
+            loadRecords: vi.fn().mockResolvedValue([]),
+          }}
+          saving={false}
+          savingLabel="Saving"
+          schema={address}
+          submitLabel="Create"
+          onCancel={vi.fn()}
+          onSubmit={submit}
+        />
+      </QueryClientProvider>,
+    );
+
+    await user.type(screen.getByLabelText(/Code/), 'DXB-OFFICE');
+    await user.click(
+      screen.getByRole('button', { name: 'Create related Contact methods' }),
+    );
+    await user.type(screen.getAllByLabelText(/Code/)[1]!, 'DXB-EMAIL');
+    await user.click(screen.getByLabelText(/Type/));
+    await user.click(screen.getByRole('option', { name: 'EMAIL' }));
+    await user.click(screen.getByRole('button', { name: 'Add to draft' }));
+
+    await user.click(screen.getByTestId('CancelIcon'));
+    await user.click(screen.getByRole('button', { name: 'Create' }));
+
+    expect(createRelated).not.toHaveBeenCalled();
+    expect(submit).toHaveBeenCalledWith({
+      code: 'DXB-OFFICE',
+    });
+  });
+
   it('selects an existing related record without creating a duplicate', async () => {
     const user = userEvent.setup();
     const createRelated = vi.fn();

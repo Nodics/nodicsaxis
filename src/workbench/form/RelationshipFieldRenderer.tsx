@@ -3,7 +3,6 @@ import {
   Box,
   Button,
   Checkbox,
-  Chip,
   CircularProgress,
   FormControlLabel,
   Stack,
@@ -22,7 +21,12 @@ import type {
   WorkbenchRelationshipRuntime,
 } from './WorkbenchRelationshipRuntime';
 import { WorkbenchRecordForm } from './WorkbenchRecordForm';
+import { RelationshipPendingRecordChips } from './RelationshipPendingRecordChips';
 import { RelationshipReferenceChips } from './RelationshipReferenceChips';
+import {
+  workbenchRelationshipDescriptionValue,
+  workbenchRelationshipRecordLabel,
+} from './workbenchRelationshipLabels';
 
 interface RelationshipFieldRendererProps {
   readonly copy: WorkbenchRelationshipCopy;
@@ -51,37 +55,6 @@ function unique(values: readonly string[]): readonly string[] {
   return Object.freeze([...new Set(values)]);
 }
 
-function displayValue(value: unknown, fallback: string): string {
-  return typeof value === 'string' || typeof value === 'number'
-    ? String(value)
-    : fallback;
-}
-
-function truncateWords(value: string, limit: number): string {
-  const words = value.trim().split(/\s+/u).filter(Boolean);
-  return words.length > limit
-    ? `${words.slice(0, limit).join(' ')}...`
-    : words.join(' ');
-}
-
-function descriptionValue(record: Readonly<Record<string, unknown>>): string {
-  return displayValue(record.description, '').trim();
-}
-
-function recordLabel(
-  record: Readonly<Record<string, unknown>>,
-  schema: WorkbenchSchema,
-  fallback: string,
-): string {
-  const values = schema.displayProperties
-    .map((property) => {
-      const value = displayValue(workbenchRecordValue(record, property), '').trim();
-      return property === 'description' ? truncateWords(value, 5) : value;
-    })
-    .filter(Boolean);
-  return unique(values).join(' - ') || fallback;
-}
-
 export function RelationshipFieldRenderer(props: RelationshipFieldRendererProps) {
   const [selectOpen, setSelectOpen] = useState(false);
   const [createOpen, setCreateOpen] = useState(false);
@@ -107,7 +80,7 @@ export function RelationshipFieldRenderer(props: RelationshipFieldRendererProps)
   const visibleRecords = records.data?.filter((record) => {
     if (!normalizedSearch) return true;
     const reference = referenceValue(record, props.relationship.referenceProperty);
-    const display = recordLabel(record, props.targetSchema, '');
+    const display = workbenchRelationshipRecordLabel(record, props.targetSchema, '');
     return `${display} ${reference ?? ''}`
       .toLocaleLowerCase()
       .includes(normalizedSearch);
@@ -170,32 +143,32 @@ export function RelationshipFieldRenderer(props: RelationshipFieldRendererProps)
             })
           }
         />
-        {props.draft.pending.length > 0 ? (
-          <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap', rowGap: 0.75 }}>
-            {props.draft.pending.map((model, index) => (
-              <Chip
-                key={`pending-${String(index)}`}
-                color="warning"
-                label={displayValue(
-                  recordLabel(model, props.targetSchema, ''),
-                  `${label} ${String(index + 1)}`,
-                )}
-                variant="outlined"
-                onDelete={
-                  props.disabled
-                    ? undefined
-                    : () =>
-                        props.onChange({
-                          ...props.draft,
-                          pending: props.draft.pending.filter(
-                            (_, candidate) => candidate !== index,
-                          ),
-                        })
-                }
-              />
-            ))}
-          </Stack>
-        ) : null}
+        <RelationshipPendingRecordChips
+          copy={props.copy}
+          depth={props.depth}
+          disabled={props.disabled}
+          lineage={props.lineage}
+          pendingRecords={props.draft.pending}
+          relationship={props.relationship}
+          runtime={props.runtime}
+          targetSchema={props.targetSchema}
+          onRemove={(index) =>
+            props.onChange({
+              ...props.draft,
+              pending: props.draft.pending.filter(
+                (_, candidate) => candidate !== index,
+              ),
+            })
+          }
+          onUpdate={(index, model) =>
+            props.onChange({
+              ...props.draft,
+              pending: props.draft.pending.map((candidate, candidateIndex) =>
+                candidateIndex === index ? model : candidate,
+              ),
+            })
+          }
+        />
         <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1}>
           {props.relationship.actions.includes('SELECT_EXISTING') ? (
             <Button
@@ -261,9 +234,9 @@ export function RelationshipFieldRenderer(props: RelationshipFieldRendererProps)
             ) : null}
             {selectableRecords.map(({ index, record, reference }) => {
               const checked = selected.has(reference);
-              const description = descriptionValue(record);
+              const description = workbenchRelationshipDescriptionValue(record);
               const hasDescription = description.length > 0;
-              const optionLabel = recordLabel(
+              const optionLabel = workbenchRelationshipRecordLabel(
                 record,
                 props.targetSchema,
                 reference ?? `${label} ${String(index + 1)}`,
