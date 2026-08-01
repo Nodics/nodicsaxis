@@ -22,6 +22,7 @@ import type {
   WorkbenchRelationshipRuntime,
 } from './WorkbenchRelationshipRuntime';
 import { WorkbenchRecordForm } from './WorkbenchRecordForm';
+import { RelationshipReferenceChips } from './RelationshipReferenceChips';
 
 interface RelationshipFieldRendererProps {
   readonly copy: WorkbenchRelationshipCopy;
@@ -153,47 +154,48 @@ export function RelationshipFieldRenderer(props: RelationshipFieldRendererProps)
       </Typography>
       <Stack spacing={1.5}>
         {props.error ? <Alert severity="error">{props.error}</Alert> : null}
-        <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap' }}>
-          {props.draft.references.map((reference) => (
-            <Chip
-              key={reference}
-              label={reference}
-              onDelete={
-                props.disabled
-                  ? undefined
-                  : () =>
-                      props.onChange({
-                        ...props.draft,
-                        references: props.draft.references.filter(
-                          (candidate) => candidate !== reference,
-                        ),
-                      })
-              }
-            />
-          ))}
-          {props.draft.pending.map((model, index) => (
-            <Chip
-              key={`pending-${String(index)}`}
-              color="warning"
-              label={displayValue(
-                recordLabel(model, props.targetSchema, ''),
-                `${label} ${String(index + 1)}`,
-              )}
-              variant="outlined"
-              onDelete={
-                props.disabled
-                  ? undefined
-                  : () =>
-                      props.onChange({
-                        ...props.draft,
-                        pending: props.draft.pending.filter(
-                          (_, candidate) => candidate !== index,
-                        ),
-                      })
-              }
-            />
-          ))}
-        </Stack>
+        <RelationshipReferenceChips
+          copy={props.copy}
+          disabled={props.disabled}
+          draftReferences={props.draft.references}
+          relationship={props.relationship}
+          runtime={props.runtime}
+          targetSchema={props.targetSchema}
+          onRemove={(reference) =>
+            props.onChange({
+              ...props.draft,
+              references: props.draft.references.filter(
+                (candidate) => candidate !== reference,
+              ),
+            })
+          }
+        />
+        {props.draft.pending.length > 0 ? (
+          <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap', rowGap: 0.75 }}>
+            {props.draft.pending.map((model, index) => (
+              <Chip
+                key={`pending-${String(index)}`}
+                color="warning"
+                label={displayValue(
+                  recordLabel(model, props.targetSchema, ''),
+                  `${label} ${String(index + 1)}`,
+                )}
+                variant="outlined"
+                onDelete={
+                  props.disabled
+                    ? undefined
+                    : () =>
+                        props.onChange({
+                          ...props.draft,
+                          pending: props.draft.pending.filter(
+                            (_, candidate) => candidate !== index,
+                          ),
+                        })
+                }
+              />
+            ))}
+          </Stack>
+        ) : null}
         <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1}>
           {props.relationship.actions.includes('SELECT_EXISTING') ? (
             <Button

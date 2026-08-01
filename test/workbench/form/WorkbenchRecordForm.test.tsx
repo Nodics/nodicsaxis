@@ -568,6 +568,47 @@ describe('WorkbenchRecordForm', () => {
     });
   });
 
+  it('opens selected reference chips through the shared schema detail preview', async () => {
+    const user = userEvent.setup();
+    const queryClient = new QueryClient({
+      defaultOptions: { queries: { retry: false } },
+    });
+    render(
+      <QueryClientProvider client={queryClient}>
+        <WorkbenchRecordForm
+          cancelLabel="Cancel"
+          initialModel={{ code: 'defaultEnterprise', tenant: 'default' }}
+          relationshipCopy={relationshipCopy}
+          relationshipRuntime={{
+            schemas: [tenant],
+            queryScope: ['default'],
+            createRecord: vi.fn(),
+            loadRecords: vi.fn().mockResolvedValue([]),
+            resolveRecord: vi.fn().mockResolvedValue({
+              record: {
+                code: 'default',
+                description: 'Default tenant',
+              },
+              schema: tenant,
+            }),
+          }}
+          saving={false}
+          savingLabel="Updating"
+          schema={enterprise}
+          submitLabel="Update"
+          onCancel={vi.fn()}
+          onSubmit={vi.fn()}
+        />
+      </QueryClientProvider>,
+    );
+
+    await user.click(screen.getByRole('button', { name: 'default' }));
+
+    expect(await screen.findByText('Tenant: default')).toBeVisible();
+    expect(screen.getByText('Description')).toBeVisible();
+    expect(screen.getByText('Default tenant')).toBeVisible();
+  });
+
   it('warns when related records do not expose the configured reference property', async () => {
     const user = userEvent.setup();
     const queryClient = new QueryClient({
