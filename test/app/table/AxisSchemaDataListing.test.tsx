@@ -237,4 +237,92 @@ describe('AxisSchemaDataListing', () => {
     );
     expect(onRowClick).not.toHaveBeenCalled();
   });
+
+  it('expands additional one-to-many reference links inside table cells', async () => {
+    const user = userEvent.setup();
+    const onReferenceClick = vi.fn();
+    const workflowActionSchema: WorkbenchSchema = {
+      ...employeeSchema,
+      moduleName: 'workflow',
+      schemaName: 'workflowAction',
+      label: 'Workflow Action',
+      displayProperty: 'code',
+      displayProperties: ['code'],
+      fields: [
+        {
+          name: 'code',
+          label: 'Code',
+          type: 'string',
+          required: true,
+          readOnly: false,
+          primary: true,
+          description: '',
+          searchable: true,
+        },
+        {
+          name: 'channels',
+          label: 'Channels',
+          type: 'array',
+          required: false,
+          readOnly: false,
+          primary: false,
+          description: '',
+          searchable: false,
+        },
+      ],
+      relationships: [
+        {
+          field: 'channels',
+          label: 'Channels',
+          description: '',
+          targetModule: 'workflow',
+          targetSchema: 'workflowChannel',
+          cardinality: 'MANY',
+          referenceProperty: 'code',
+          resolution: 'LOCAL_OR_REMOTE',
+          actions: ['SELECT_EXISTING'],
+          required: false,
+          maximumDepth: 3,
+        },
+      ],
+    };
+
+    render(
+      <AxisSchemaDataListing
+        ariaLabel="Workflow action records"
+        defaultVisibleColumnKeys={['code', 'channels']}
+        emptyMessage="No records"
+        getRowKey={(record) => String(record.code)}
+        records={[
+          {
+            code: 'reviewCmsPageAction',
+            channels: [
+              'successChannel',
+              'rejectChannel',
+              'errorChannel',
+              'auditChannel',
+            ],
+          },
+        ]}
+        schema={workflowActionSchema}
+        onReferenceClick={onReferenceClick}
+      />,
+    );
+
+    expect(
+      screen.queryByRole('button', { name: 'auditChannel' }),
+    ).not.toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: '+1 more' }));
+    await user.click(screen.getByRole('button', { name: 'auditChannel' }));
+
+    expect(onReferenceClick).toHaveBeenCalledWith(
+      workflowActionSchema.relationships[0],
+      'auditChannel',
+      {
+        code: 'reviewCmsPageAction',
+        channels: ['successChannel', 'rejectChannel', 'errorChannel', 'auditChannel'],
+      },
+      0,
+    );
+  });
 });

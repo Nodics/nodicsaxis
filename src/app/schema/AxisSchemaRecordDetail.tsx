@@ -15,6 +15,11 @@ import {
   axisSchemaRecordDisplayValue,
   isLongSchemaDetailField,
 } from './axisSchemaRecordValues';
+import {
+  AxisSchemaReferenceValues,
+  axisSchemaRelationshipReferences,
+  type AxisSchemaReferenceValue,
+} from './AxisSchemaReferenceValues';
 
 export interface AxisSchemaRecordDetailProps {
   readonly actions?: ReactNode | undefined;
@@ -40,51 +45,9 @@ export interface AxisSchemaRecordReferenceResolver {
   ) => Promise<AxisSchemaRecordReferenceResult | undefined>;
 }
 
-interface AxisSchemaSelectedReference {
-  readonly displayValue: string;
-  readonly relationship: WorkbenchRelationship;
-  readonly reference: string;
-}
-
-interface AxisSchemaLoadedReference extends AxisSchemaSelectedReference {
+interface AxisSchemaLoadedReference extends AxisSchemaReferenceValue {
   readonly record: WorkbenchRecord;
   readonly schema: WorkbenchSchema;
-}
-
-function referenceValue(value: unknown, referenceProperty: string): string | undefined {
-  if (typeof value === 'string' || typeof value === 'number') return String(value);
-  if (typeof value === 'boolean') return value ? 'true' : 'false';
-  if (value && typeof value === 'object' && !Array.isArray(value)) {
-    const objectValue = value as Readonly<Record<string, unknown>>;
-    return referenceValue(
-      objectValue[referenceProperty] ??
-        objectValue.code ??
-        objectValue.id ??
-        objectValue.name,
-      referenceProperty,
-    );
-  }
-  return undefined;
-}
-
-function relationshipReferences(
-  value: unknown,
-  relationship: WorkbenchRelationship,
-): readonly AxisSchemaSelectedReference[] {
-  const values = Array.isArray(value) ? value : [value];
-  return Object.freeze(
-    values
-      .map((item) => {
-        const reference = referenceValue(item, relationship.referenceProperty);
-        if (!reference) return undefined;
-        return Object.freeze({
-          displayValue: axisSchemaRecordDisplayValue(item),
-          reference,
-          relationship,
-        });
-      })
-      .filter((item) => item !== undefined),
-  );
 }
 
 function schemaDetailFields(
@@ -94,7 +57,7 @@ function schemaDetailFields(
   falseLabel: string,
   referenceResolver: AxisSchemaRecordReferenceResolver | undefined,
   referenceDepth: number,
-  onReferenceOpen: (reference: AxisSchemaSelectedReference) => void,
+  onReferenceOpen: (reference: AxisSchemaReferenceValue) => void,
 ): readonly AxisMetadataField[] {
   const containerFields = containerFieldNames(schema.fields);
   const relationships = new Map(
@@ -110,22 +73,15 @@ function schemaDetailFields(
         referenceResolver &&
         referenceDepth < Math.max(0, relationship.maximumDepth ?? 3);
       const references = relationshipCanOpen
-        ? relationshipReferences(rawValue, relationship)
+        ? axisSchemaRelationshipReferences(rawValue, relationship)
         : Object.freeze([]);
       const value =
         relationship && references.length > 0 ? (
-          <Stack direction="row" spacing={0.75} sx={{ flexWrap: 'wrap', rowGap: 0.75 }}>
-            {references.map((reference) => (
-              <Button
-                key={`${relationship.field}:${reference.reference}`}
-                size="small"
-                variant="outlined"
-                onClick={() => onReferenceOpen(reference)}
-              >
-                {reference.displayValue}
-              </Button>
-            ))}
-          </Stack>
+          <AxisSchemaReferenceValues
+            references={references}
+            variant="outlined"
+            onReferenceClick={onReferenceOpen}
+          />
         ) : (
           axisSchemaRecordDisplayValue(rawValue, field, trueLabel, falseLabel)
         );
@@ -156,7 +112,7 @@ export function AxisSchemaRecordDetail({
   const [loadingReference, setLoadingReference] = useState(false);
   const [referenceError, setReferenceError] = useState<string>();
   const canOpenReferences = Boolean(referenceResolver);
-  const openReference = (reference: AxisSchemaSelectedReference) => {
+  const openReference = (reference: AxisSchemaReferenceValue) => {
     const maximumReferenceDepth = Math.max(0, reference.relationship.maximumDepth ?? 3);
     if (!referenceResolver || referenceDepth >= maximumReferenceDepth) return;
     setLoadedReference(undefined);

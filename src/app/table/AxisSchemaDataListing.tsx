@@ -1,6 +1,10 @@
-import { Button, Stack, Typography, type SxProps, type Theme } from '@mui/material';
+import { Typography, type SxProps, type Theme } from '@mui/material';
 import { type ReactNode } from 'react';
 
+import {
+  AxisSchemaReferenceValues,
+  axisSchemaRelationshipReferences,
+} from '../schema/AxisSchemaReferenceValues';
 import type {
   WorkbenchField,
   WorkbenchRecord,
@@ -87,39 +91,6 @@ function fieldValue(record: WorkbenchRecord, field: WorkbenchField): string {
   return displayValue(value);
 }
 
-function referenceValue(value: unknown, referenceProperty: string): string | undefined {
-  if (typeof value === 'string' || typeof value === 'number') return String(value);
-  if (typeof value === 'boolean') return value ? 'true' : 'false';
-  if (value && typeof value === 'object' && !Array.isArray(value)) {
-    const objectValue = value as Readonly<Record<string, unknown>>;
-    return referenceValue(
-      objectValue[referenceProperty] ??
-        objectValue.code ??
-        objectValue.id ??
-        objectValue.name,
-      referenceProperty,
-    );
-  }
-  return undefined;
-}
-
-function relationshipValues(
-  value: unknown,
-  relationship: WorkbenchRelationship,
-): readonly { readonly label: string; readonly reference: string }[] {
-  const values = Array.isArray(value) ? value : [value];
-  return Object.freeze(
-    values
-      .map((item) => {
-        const reference = referenceValue(item, relationship.referenceProperty);
-        return reference
-          ? Object.freeze({ label: displayValue(item), reference })
-          : undefined;
-      })
-      .filter((item) => item !== undefined),
-  );
-}
-
 function schemaFieldColumn(
   field: WorkbenchField,
   renderer?: AxisSchemaFieldRenderer,
@@ -141,30 +112,16 @@ function schemaFieldColumn(
       const referenceClick = onReferenceClick;
       const references =
         relationship && referenceClick
-          ? relationshipValues(value, relationship)
+          ? axisSchemaRelationshipReferences(value, relationship)
           : Object.freeze([]);
       if (relationship && referenceClick && references.length > 0) {
         return (
-          <Stack direction="row" spacing={0.5} sx={{ flexWrap: 'wrap', rowGap: 0.5 }}>
-            {references.slice(0, 3).map((reference) => (
-              <Button
-                key={`${field.name}:${reference.reference}`}
-                size="small"
-                variant="text"
-                onClick={(event) => {
-                  event.stopPropagation();
-                  referenceClick(relationship, reference.reference, record, index);
-                }}
-              >
-                {reference.label}
-              </Button>
-            ))}
-            {references.length > 3 ? (
-              <Typography color="text.secondary" variant="body2">
-                +{String(references.length - 3)} more
-              </Typography>
-            ) : null}
-          </Stack>
+          <AxisSchemaReferenceValues
+            references={references}
+            onReferenceClick={(reference) =>
+              referenceClick(relationship, reference.reference, record, index)
+            }
+          />
         );
       }
       return <Typography variant="body2">{fieldValue(record, field)}</Typography>;
