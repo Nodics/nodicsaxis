@@ -328,6 +328,16 @@ export function SchemaWorkbenchRenderer({
                           'createRelatedLabel',
                         ),
                         editRelatedLabel: stringProperty(component, 'editRelatedLabel'),
+                        loadMoreRelatedLabel: stringProperty(
+                          component,
+                          'loadMoreRelatedLabel',
+                          'Load more',
+                        ),
+                        manySelectionHintLabel: stringProperty(
+                          component,
+                          'manySelectionHintLabel',
+                          'Select one or more related records.',
+                        ),
                         missingReferencePropertyLabel: stringProperty(
                           component,
                           'missingReferencePropertyLabel',
@@ -346,6 +356,11 @@ export function SchemaWorkbenchRenderer({
                           component,
                           'relatedSearchLabel',
                         ),
+                        relatedResultsLabel: stringProperty(
+                          component,
+                          'relatedResultsLabel',
+                          '{shown} shown from {total}',
+                        ),
                         removeReferenceLabel: stringProperty(
                           component,
                           'removeReferenceLabel',
@@ -363,6 +378,11 @@ export function SchemaWorkbenchRenderer({
                         selectExistingLabel: stringProperty(
                           component,
                           'selectExistingLabel',
+                        ),
+                        singleSelectionHintLabel: stringProperty(
+                          component,
+                          'singleSelectionHintLabel',
+                          'Selecting a record replaces the current reference.',
                         ),
                       }}
                       relationshipRuntime={controller.relationshipRuntime}
@@ -607,6 +627,16 @@ export function SchemaWorkbenchRenderer({
                               component,
                               'editRelatedLabel',
                             ),
+                            loadMoreRelatedLabel: stringProperty(
+                              component,
+                              'loadMoreRelatedLabel',
+                              'Load more',
+                            ),
+                            manySelectionHintLabel: stringProperty(
+                              component,
+                              'manySelectionHintLabel',
+                              'Select one or more related records.',
+                            ),
                             missingReferencePropertyLabel: stringProperty(
                               component,
                               'missingReferencePropertyLabel',
@@ -625,6 +655,11 @@ export function SchemaWorkbenchRenderer({
                               component,
                               'relatedSearchLabel',
                             ),
+                            relatedResultsLabel: stringProperty(
+                              component,
+                              'relatedResultsLabel',
+                              '{shown} shown from {total}',
+                            ),
                             removeReferenceLabel: stringProperty(
                               component,
                               'removeReferenceLabel',
@@ -642,6 +677,11 @@ export function SchemaWorkbenchRenderer({
                             selectExistingLabel: stringProperty(
                               component,
                               'selectExistingLabel',
+                            ),
+                            singleSelectionHintLabel: stringProperty(
+                              component,
+                              'singleSelectionHintLabel',
+                              'Selecting a record replaces the current reference.',
                             ),
                           }}
                           relationshipRuntime={controller.relationshipRuntime}

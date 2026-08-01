@@ -1,8 +1,19 @@
 import type {
   WorkbenchRecord,
+  WorkbenchRecordPage,
   WorkbenchRelationship,
   WorkbenchSchema,
 } from '../api/workbenchContracts';
+
+export interface WorkbenchRelationshipLoadOptions {
+  readonly search?: string | undefined;
+  readonly pageNumber?: number | undefined;
+  readonly pageSize?: number | undefined;
+}
+
+export type WorkbenchRelationshipLoadResult =
+  | readonly WorkbenchRecord[]
+  | Pick<WorkbenchRecordPage, 'records' | 'totalCount' | 'pageNumber' | 'pageSize'>;
 
 export interface WorkbenchRelationshipRuntime {
   readonly schemas: readonly WorkbenchSchema[];
@@ -13,8 +24,8 @@ export interface WorkbenchRelationshipRuntime {
   ) => Promise<WorkbenchRecord>;
   readonly loadRecords: (
     schema: WorkbenchSchema,
-    options?: { readonly search?: string | undefined } | undefined,
-  ) => Promise<readonly WorkbenchRecord[]>;
+    options?: WorkbenchRelationshipLoadOptions | undefined,
+  ) => Promise<WorkbenchRelationshipLoadResult>;
   readonly resolveRecord?: (
     relationship: WorkbenchRelationship,
     reference: string,
@@ -33,14 +44,18 @@ export interface WorkbenchRelationshipCopy {
   readonly cancelLabel: string;
   readonly createRelatedLabel: string;
   readonly editRelatedLabel: string;
+  readonly loadMoreRelatedLabel: string;
+  readonly manySelectionHintLabel: string;
   readonly missingReferencePropertyLabel: string;
   readonly noRelatedRecordsLabel: string;
   readonly pendingReferencesLabel: string;
   readonly relatedSearchLabel: string;
+  readonly relatedResultsLabel: string;
   readonly removeReferenceLabel: string;
   readonly removeRelatedLabel: string;
   readonly selectedReferencesLabel: string;
   readonly selectExistingLabel: string;
+  readonly singleSelectionHintLabel: string;
 }
 
 export interface WorkbenchRelationshipDraft {

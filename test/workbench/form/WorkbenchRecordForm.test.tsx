@@ -265,15 +265,19 @@ const relationshipCopy = {
   cancelLabel: 'Cancel',
   createRelatedLabel: 'Create related',
   editRelatedLabel: 'Edit related',
+  loadMoreRelatedLabel: 'Load more',
+  manySelectionHintLabel: 'Select one or more related records.',
   missingReferencePropertyLabel:
     'Related records were found, but none expose the required reference property: {property}.',
   noRelatedRecordsLabel: 'No related records',
   pendingReferencesLabel: 'Pending create',
   relatedSearchLabel: 'Search related records',
+  relatedResultsLabel: '{shown} shown from {total}',
   removeReferenceLabel: 'Remove',
   removeRelatedLabel: 'Close',
   selectedReferencesLabel: 'Selected existing',
   selectExistingLabel: 'Select existing',
+  singleSelectionHintLabel: 'Selecting a record replaces the current reference.',
 };
 
 describe('WorkbenchRecordForm', () => {
@@ -668,14 +672,107 @@ describe('WorkbenchRecordForm', () => {
     await user.type(screen.getByLabelText('Search related records'), 'qa');
 
     await waitFor(() =>
-      expect(loadRecords).toHaveBeenCalledWith(tenant, { search: 'qa' }),
+      expect(loadRecords).toHaveBeenCalledWith(tenant, {
+        search: 'qa',
+        pageNumber: 1,
+        pageSize: 10,
+      }),
     );
+    expect(
+      screen.getByText('Selecting a record replaces the current reference.'),
+    ).toBeVisible();
     await user.click(screen.getByRole('checkbox', { name: 'qa - QA tenant' }));
     await user.click(screen.getByRole('button', { name: 'Update' }));
 
     expect(submit).toHaveBeenCalledWith({
       code: 'defaultEnterprise',
       tenant: 'qa',
+    });
+  });
+
+  it('loads additional backend pages while selecting many related records', async () => {
+    const user = userEvent.setup();
+    const submit = vi.fn();
+    const loadRecords = vi
+      .fn()
+      .mockResolvedValueOnce({
+        records: [
+          {
+            code: 'DXB-PHONE',
+            description: 'Dubai phone contact',
+            type: 'PHONE',
+          },
+        ],
+        totalCount: 2,
+        pageNumber: 1,
+        pageSize: 10,
+      })
+      .mockResolvedValueOnce({
+        records: [
+          {
+            code: 'DXB-EMAIL',
+            description: 'Dubai email contact',
+            type: 'EMAIL',
+          },
+        ],
+        totalCount: 2,
+        pageNumber: 2,
+        pageSize: 10,
+      });
+    const queryClient = new QueryClient({
+      defaultOptions: { queries: { retry: false } },
+    });
+    render(
+      <QueryClientProvider client={queryClient}>
+        <WorkbenchRecordForm
+          cancelLabel="Cancel"
+          relationshipCopy={relationshipCopy}
+          relationshipRuntime={{
+            schemas: [address, contact],
+            queryScope: ['default'],
+            createRecord: vi.fn(),
+            loadRecords,
+          }}
+          saving={false}
+          savingLabel="Saving"
+          schema={address}
+          submitLabel="Create"
+          onCancel={vi.fn()}
+          onSubmit={submit}
+        />
+      </QueryClientProvider>,
+    );
+
+    await user.type(screen.getByLabelText(/Code/), 'DXB-OFFICE');
+    await user.click(screen.getByRole('button', { name: 'Select existing' }));
+
+    expect(await screen.findByText('Select one or more related records.')).toBeVisible();
+    expect(screen.getByText('1 shown from 2')).toBeVisible();
+    await user.click(screen.getByRole('button', { name: 'Load more' }));
+
+    expect(await screen.findByText('DXB-EMAIL - Dubai email contact')).toBeVisible();
+    expect(screen.getByText('2 shown from 2')).toBeVisible();
+    await user.click(
+      screen.getByRole('checkbox', { name: 'DXB-PHONE - Dubai phone contact' }),
+    );
+    await user.click(
+      screen.getByRole('checkbox', { name: 'DXB-EMAIL - Dubai email contact' }),
+    );
+    await user.click(screen.getByRole('button', { name: 'Create' }));
+
+    expect(loadRecords).toHaveBeenNthCalledWith(1, contact, {
+      search: '',
+      pageNumber: 1,
+      pageSize: 10,
+    });
+    expect(loadRecords).toHaveBeenNthCalledWith(2, contact, {
+      search: '',
+      pageNumber: 2,
+      pageSize: 10,
+    });
+    expect(submit).toHaveBeenCalledWith({
+      code: 'DXB-OFFICE',
+      contacts: ['DXB-PHONE', 'DXB-EMAIL'],
     });
   });
 

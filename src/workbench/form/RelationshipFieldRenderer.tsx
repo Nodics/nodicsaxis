@@ -4,20 +4,27 @@ import {
   Button,
   Checkbox,
   CircularProgress,
+  Divider,
   FormControlLabel,
   Stack,
   TextField,
   Tooltip,
   Typography,
 } from '@mui/material';
-import { useQuery } from '@tanstack/react-query';
-import { useState } from 'react';
+import { useInfiniteQuery } from '@tanstack/react-query';
+import { useEffect, useMemo, useState } from 'react';
 
-import type { WorkbenchRelationship, WorkbenchSchema } from '../api/workbenchContracts';
+import type {
+  WorkbenchRecord,
+  WorkbenchRelationship,
+  WorkbenchSchema,
+} from '../api/workbenchContracts';
 import { workbenchRecordValue } from '../record/workbenchRecordPaths';
+import { resolveWorkbenchLookupPageSize } from '../workbenchRouteModel';
 import type {
   WorkbenchRelationshipCopy,
   WorkbenchRelationshipDraft,
+  WorkbenchRelationshipLoadResult,
   WorkbenchRelationshipRuntime,
 } from './WorkbenchRelationshipRuntime';
 import { WorkbenchRecordForm } from './WorkbenchRecordForm';
@@ -55,13 +62,58 @@ function unique(values: readonly string[]): readonly string[] {
   return Object.freeze([...new Set(values)]);
 }
 
+function isWorkbenchRecordList(
+  result: WorkbenchRelationshipLoadResult,
+): result is readonly WorkbenchRecord[] {
+  return Array.isArray(result);
+}
+
+interface NormalizedRelationshipPage {
+  readonly records: readonly WorkbenchRecord[];
+  readonly totalCount: number;
+  readonly pageNumber: number;
+  readonly pageSize: number;
+}
+
+function normalizeRelationshipPage(
+  result: WorkbenchRelationshipLoadResult,
+  pageNumber: number,
+  pageSize: number,
+): NormalizedRelationshipPage {
+  if (isWorkbenchRecordList(result)) {
+    return Object.freeze({
+      records: result,
+      totalCount: result.length,
+      pageNumber,
+      pageSize,
+    });
+  }
+  return Object.freeze({
+    records: result.records,
+    totalCount: result.totalCount,
+    pageNumber: result.pageNumber,
+    pageSize: result.pageSize,
+  });
+}
+
+function relationshipResultsLabel(
+  template: string,
+  shown: number,
+  total: number,
+): string {
+  return template
+    .replace('{shown}', String(shown))
+    .replace('{total}', String(total));
+}
+
 export function RelationshipFieldRenderer(props: RelationshipFieldRendererProps) {
   const [selectOpen, setSelectOpen] = useState(false);
   const [createOpen, setCreateOpen] = useState(false);
   const [search, setSearch] = useState('');
   const [editRecord, setEditRecord] = useState<Readonly<Record<string, unknown>>>();
   const backendSearch = search.trim();
-  const records = useQuery({
+  const pageSize = resolveWorkbenchLookupPageSize(props.targetSchema);
+  const records = useInfiniteQuery({
     enabled: selectOpen,
     queryKey: [
       'schema-workbench',
@@ -70,14 +122,37 @@ export function RelationshipFieldRenderer(props: RelationshipFieldRendererProps)
       props.targetSchema.moduleName,
       props.targetSchema.schemaName,
       backendSearch,
+      pageSize,
     ],
-    queryFn: () =>
-      props.runtime.loadRecords(props.targetSchema, { search: backendSearch }),
+    initialPageParam: 1,
+    queryFn: async ({ pageParam }) =>
+      normalizeRelationshipPage(
+        await props.runtime.loadRecords(props.targetSchema, {
+          search: backendSearch,
+          pageNumber: pageParam,
+          pageSize,
+        }),
+        pageParam,
+        pageSize,
+      ),
+    getNextPageParam: (lastPage, pages) => {
+      const loaded = pages.reduce((sum, page) => sum + page.records.length, 0);
+      return loaded < lastPage.totalCount ? lastPage.pageNumber + 1 : undefined;
+    },
   });
+  useEffect(() => {
+    if (!selectOpen) setSearch('');
+  }, [selectOpen]);
   const selected = new Set(props.draft.references);
   const label = props.relationship.label;
+  const allRecords = useMemo(
+    () => records.data?.pages.flatMap((page) => [...page.records]) ?? [],
+    [records.data],
+  );
+  const loadedCount = allRecords.length;
+  const totalCount = records.data?.pages.at(-1)?.totalCount ?? loadedCount;
   const normalizedSearch = search.trim().toLocaleLowerCase();
-  const visibleRecords = records.data?.filter((record) => {
+  const visibleRecords = allRecords.filter((record) => {
     if (!normalizedSearch) return true;
     const reference = referenceValue(record, props.relationship.referenceProperty);
     const display = workbenchRelationshipRecordLabel(record, props.targetSchema, '');
@@ -188,7 +263,7 @@ export function RelationshipFieldRenderer(props: RelationshipFieldRendererProps)
         {selectOpen ? (
           <Stack
             aria-label={`${props.copy.selectExistingLabel} ${label}`}
-            spacing={0.5}
+            spacing={1}
           >
             <Stack
               direction={{ xs: 'column', sm: 'row' }}
@@ -213,6 +288,27 @@ export function RelationshipFieldRenderer(props: RelationshipFieldRendererProps)
                 </Button>
               ) : null}
             </Stack>
+            <Stack
+              direction={{ xs: 'column', sm: 'row' }}
+              spacing={1}
+              sx={{ alignItems: { sm: 'center' }, justifyContent: 'space-between' }}
+            >
+              <Typography color="text.secondary" variant="body2">
+                {props.relationship.cardinality === 'ONE'
+                  ? props.copy.singleSelectionHintLabel
+                  : props.copy.manySelectionHintLabel}
+              </Typography>
+              {!records.isLoading && !records.error ? (
+                <Typography color="text.secondary" variant="body2">
+                  {relationshipResultsLabel(
+                    props.copy.relatedResultsLabel,
+                    selectableRecords.length,
+                    totalCount,
+                  )}
+                </Typography>
+              ) : null}
+            </Stack>
+            <Divider />
             {records.isLoading ? <CircularProgress size={22} /> : null}
             {records.error ? (
               <Alert severity="error">{records.error.message}</Alert>
@@ -245,7 +341,14 @@ export function RelationshipFieldRenderer(props: RelationshipFieldRendererProps)
                 <Stack
                   key={reference}
                   direction="row"
-                  sx={{ alignItems: 'center', justifyContent: 'space-between' }}
+                  sx={{
+                    alignItems: 'center',
+                    border: 1,
+                    borderColor: checked ? 'warning.light' : 'divider',
+                    borderRadius: 1.25,
+                    justifyContent: 'space-between',
+                    px: 1,
+                  }}
                 >
                   <FormControlLabel
                     control={
@@ -293,6 +396,21 @@ export function RelationshipFieldRenderer(props: RelationshipFieldRendererProps)
                 </Stack>
               );
             })}
+            {records.hasNextPage ? (
+              <Box>
+                <Button
+                  disabled={props.disabled || records.isFetchingNextPage}
+                  size="small"
+                  variant="outlined"
+                  onClick={() => void records.fetchNextPage()}
+                >
+                  {records.isFetchingNextPage ? (
+                    <CircularProgress size={16} sx={{ mr: 1 }} />
+                  ) : null}
+                  {props.copy.loadMoreRelatedLabel}
+                </Button>
+              </Box>
+            ) : null}
           </Stack>
         ) : null}
         {editRecord ? (

@@ -512,7 +512,13 @@ export function WorkbenchRoutePage(props: WorkbenchRoutePageProps) {
       },
       loadRecords: (
         schema: WorkbenchSchema,
-        options?: { readonly search?: string | undefined } | undefined,
+        options?:
+          | {
+              readonly search?: string | undefined;
+              readonly pageNumber?: number | undefined;
+              readonly pageSize?: number | undefined;
+            }
+          | undefined,
       ) => {
         const normalizedSchema = schemaWithValidQueryCapabilities(schema);
         const connection = selectModuleConnection(
@@ -524,10 +530,10 @@ export function WorkbenchRoutePage(props: WorkbenchRoutePageProps) {
         }
         return loadWorkbenchRecords(connection, normalizedSchema, configuration, {
           search: options?.search ?? '',
-          pageNumber: 1,
-          pageSize: resolveWorkbenchLookupPageSize(normalizedSchema),
+          pageNumber: options?.pageNumber ?? 1,
+          pageSize: options?.pageSize ?? resolveWorkbenchLookupPageSize(normalizedSchema),
           sort: resolveWorkbenchRecordSort(normalizedSchema, undefined),
-        }).then((page) => page.records);
+        });
       },
       resolveRecord: async (relationship: WorkbenchRelationship, reference: string) => {
         const schema = (schemas.data ?? []).find(
