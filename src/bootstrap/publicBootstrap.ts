@@ -40,6 +40,18 @@ export interface AxisNavigationBadgeProvider {
   readonly operationId: string;
 }
 
+export interface AxisWorkbenchTarget {
+  readonly moduleName: string;
+  readonly schemaName: string;
+  readonly mode?: 'create' | undefined;
+}
+
+export interface AxisNavigationHelp {
+  readonly summary: string;
+  readonly documentationRoute?: string | undefined;
+  readonly documentationFragment?: string | undefined;
+}
+
 export interface AxisNavigationItem {
   readonly id: string;
   readonly label: string;
@@ -56,6 +68,8 @@ export interface AxisNavigationItem {
   readonly contexts?: readonly string[] | undefined;
   readonly featureState?: AxisNavigationFeatureState | undefined;
   readonly badgeProvider?: AxisNavigationBadgeProvider | undefined;
+  readonly workbenchTarget?: AxisWorkbenchTarget | undefined;
+  readonly help?: AxisNavigationHelp | undefined;
 }
 
 export interface AxisModuleCatalogEntry {
@@ -168,8 +182,16 @@ function stringList(value: unknown, name: string): readonly string[] {
 
 function relativeRoute(value: unknown, name: string): string {
   const route = text(value, name);
-  if (!route.startsWith('/') || route.startsWith('//')) {
+  if (!route.startsWith('/') || route.startsWith('//') || route.includes('://')) {
     throw new Error(`${name} must be an application-relative route`);
+  }
+  return route;
+}
+
+function documentationRoute(value: unknown, name: string): string {
+  const route = relativeRoute(value, name);
+  if (route !== '/docs' && !route.startsWith('/docs/')) {
+    throw new Error(`${name} must target Axis documentation`);
   }
   return route;
 }
@@ -224,6 +246,66 @@ function parseBadgeProvider(
       provider.operationId,
       `${moduleName} navigation badge provider operation`,
     ),
+  });
+}
+
+function parseWorkbenchTarget(
+  value: unknown,
+  moduleName: string,
+): AxisWorkbenchTarget | undefined {
+  if (value === undefined) return undefined;
+  const target = record(value, `${moduleName} navigation workbench target`);
+  const schemaName = text(
+    target.schemaName,
+    `${moduleName} navigation workbench target schema`,
+  );
+  if (!/^[A-Za-z][A-Za-z0-9._-]{0,127}$/.test(schemaName)) {
+    throw new Error(`${moduleName} navigation workbench target schema is unsafe`);
+  }
+  const mode = optionalText(
+    target.mode,
+    `${moduleName} navigation workbench target mode`,
+  );
+  if (mode !== undefined && mode !== 'create') {
+    throw new Error(`${moduleName} navigation workbench target mode is unsupported`);
+  }
+  return Object.freeze({
+    moduleName: text(
+      target.moduleName,
+      `${moduleName} navigation workbench target module`,
+    ),
+    schemaName,
+    ...(mode === undefined ? {} : { mode }),
+  });
+}
+
+function parseNavigationHelp(
+  value: unknown,
+  moduleName: string,
+): AxisNavigationHelp | undefined {
+  if (value === undefined) return undefined;
+  const help = record(value, `${moduleName} navigation help`);
+  const summary = text(help.summary, `${moduleName} navigation help summary`);
+  if (summary.length > 320) {
+    throw new Error(`${moduleName} navigation help summary is too long`);
+  }
+  const fragment = optionalText(
+    help.documentationFragment,
+    `${moduleName} navigation help documentation fragment`,
+  );
+  if (fragment !== undefined && !/^[A-Za-z0-9._:-]{1,128}$/.test(fragment)) {
+    throw new Error(`${moduleName} navigation help documentation fragment is unsafe`);
+  }
+  return Object.freeze({
+    summary,
+    documentationRoute:
+      help.documentationRoute === undefined
+        ? undefined
+        : documentationRoute(
+            help.documentationRoute,
+            `${moduleName} navigation help documentation route`,
+          ),
+    documentationFragment: fragment,
   });
 }
 
@@ -287,6 +369,8 @@ function parseNavigation(
               : stringList(item.contexts, `${moduleName} navigation contexts`),
           featureState: navigationFeatureState(item.featureState),
           badgeProvider: parseBadgeProvider(item.badgeProvider, moduleName),
+          workbenchTarget: parseWorkbenchTarget(item.workbenchTarget, moduleName),
+          help: parseNavigationHelp(item.help, moduleName),
         }),
       );
     });

@@ -1,6 +1,7 @@
-import { Box, Paper, Stack, Typography } from '@mui/material';
+import { Box, Paper, Stack } from '@mui/material';
 
-import { stringProperty } from '../../shared/rendererProperties';
+import { WorkspaceHeading } from '../../../../app/help/WorkspaceHelp';
+import { helpProperty, stringProperty } from '../../shared/rendererProperties';
 import type { CmsComponentRendererProps } from '../../shared/rendererTypes';
 import { AssistantComposer } from './AssistantComposer';
 import { AssistantConversationHistory } from './AssistantConversationHistory';
@@ -84,10 +85,12 @@ export function AssistantWorkspaceRenderer({
           spacing={0.75}
           sx={{ borderBottom: '1px solid', borderColor: 'divider', p: 3 }}
         >
-          <Typography component="h1" variant="h4">
-            {title}
-          </Typography>
-          <Typography color="text.secondary">{welcomeMessage}</Typography>
+          <WorkspaceHeading
+            description={welcomeMessage}
+            headingVariant="h4"
+            help={helpProperty(component)}
+            title={title}
+          />
         </Stack>
         <Box
           sx={{

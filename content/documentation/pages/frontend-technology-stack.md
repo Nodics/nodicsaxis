@@ -111,6 +111,19 @@ workbench capability: Schema Workbench, Imports and Exports, and future
 schema-backed pages should reuse the same implementation instead of creating
 separate query widgets.
 
+Workspace title help follows the same reusable rule. Use the shared
+`WorkspaceHelpActions` or `WorkspaceHeading` primitives for page, workspace,
+and major component headings that need business context or a documentation
+handoff. BackOffice navigation and CMS component content may provide bounded
+`help.summary`, `help.documentationRoute`, and `help.documentationFragment`
+metadata. Axis renders the reusable info and documentation icons, opens docs
+links in a new tab, and must not replace those metadata contracts with
+hardcoded per-page tooltip maps. For business objects and framework-owned
+capabilities, documentation routes should point to the canonical framework or
+module documentation that explains concept, implementation, lifecycle,
+configuration, customization, security, and verification. Short Nodics Axis
+documentation is appropriate only for Axis-specific UI behavior.
+
 The content catalog may declare that a generic component is needed and may
 provide labels, placeholders, help text, default presentation options, and a
 logical renderer key. It must not become the query authority. Searchable

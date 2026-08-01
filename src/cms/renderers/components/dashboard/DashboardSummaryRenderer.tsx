@@ -1,6 +1,11 @@
 import { Box, Card, CardContent, Stack, Typography } from '@mui/material';
 
-import { booleanProperty, stringProperty } from '../../shared/rendererProperties';
+import { WorkspaceHelpActions } from '../../../../app/help/WorkspaceHelp';
+import {
+  booleanProperty,
+  helpProperty,
+  stringProperty,
+} from '../../shared/rendererProperties';
 import type { CmsComponentRendererProps } from '../../shared/rendererTypes';
 
 const placeholderMetrics = Object.freeze([
@@ -16,6 +21,7 @@ const placeholderMetrics = Object.freeze([
 
 export function DashboardSummaryRenderer({ component }: CmsComponentRendererProps) {
   const placeholder = booleanProperty(component, 'placeholder');
+  const title = stringProperty(component, 'title');
   return (
     <Stack component="section" spacing={1.5}>
       <Stack
@@ -23,9 +29,12 @@ export function DashboardSummaryRenderer({ component }: CmsComponentRendererProp
         spacing={2}
         sx={{ alignItems: 'center', justifyContent: 'space-between' }}
       >
-        <Typography component="h2" variant="h5">
-          {stringProperty(component, 'title')}
-        </Typography>
+        <Stack direction="row" spacing={0.5} sx={{ alignItems: 'center' }}>
+          <Typography component="h2" variant="h5">
+            {title}
+          </Typography>
+          <WorkspaceHelpActions help={helpProperty(component)} label={title} />
+        </Stack>
         <Typography color="text.secondary" variant="caption">
           Operational overview
         </Typography>

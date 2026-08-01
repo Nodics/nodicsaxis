@@ -1,6 +1,7 @@
-import { Alert, Box, Chip, Stack, Typography } from '@mui/material';
+import { Alert, Box, Chip, Stack } from '@mui/material';
 
 import type { AxisNavigationItem } from '../bootstrap/publicBootstrap';
+import { WorkspaceHeading } from './help/WorkspaceHelp';
 import { WorkspaceContainer } from './shell/ShellPrimitives';
 
 interface ModuleWorkspacePlaceholderProps {
@@ -21,12 +22,11 @@ export function ModuleWorkspacePlaceholder({ item }: ModuleWorkspacePlaceholderP
                 size="small"
               />
             </Stack>
-            <Typography component="h1" variant="h2">
-              {item.label}
-            </Typography>
-            <Typography color="text.secondary">
-              This authorized module capability was discovered through BackOffice.
-            </Typography>
+            <WorkspaceHeading
+              description="This authorized module capability was discovered through BackOffice."
+              help={item.help}
+              title={item.label}
+            />
           </Stack>
           <Alert severity="info">
             The workspace renderer is not implemented yet. Axis has not inferred

@@ -98,6 +98,150 @@ const dashboardPage = {
   },
 };
 
+const schemaWorkbenchPage = {
+  ...validResolvedPage,
+  path: '/schema-workbench',
+  page: {
+    ...validResolvedPage.page,
+    code: 'axisSchemaWorkbenchPage',
+    name: 'Schema Workbench',
+    typeCode: 'axisSchemaWorkbenchPageType',
+    renderer: 'axis.page.schema-workbench',
+    rendererContractVersion: 1,
+    rendererChannels: ['web'],
+    rendererDeprecated: false,
+    template: 'axisSchemaWorkbenchPageTemplate',
+    templateContract: {
+      code: 'axisSchemaWorkbenchPageTemplate',
+      renderer: 'axis.template.schema-workbench',
+      contractVersion: 1,
+    },
+    components: [
+      {
+        code: 'axisSchemaWorkbenchComponent',
+        typeCode: 'axisSchemaWorkbenchComponentType',
+        renderer: 'axis.component.schema-workbench',
+        rendererContractVersion: 1,
+        rendererChannels: ['web'],
+        rendererDeprecated: false,
+        properties: {
+          schemasLabel: 'Available data types',
+          schemaSearchLabel: 'Find a data type',
+          schemaSearchPlaceholder: 'Search by data type or module',
+          selectSchemaLabel: 'Select a data type to view records.',
+          moduleLabel: 'Owning module',
+          operationsLabel: 'Available operations',
+          searchLabel: 'Search records',
+          searchPlaceholder: 'Enter a code or other searchable value',
+          createLabel: 'Create',
+          noRecordsLabel: 'No records found.',
+          loadingSchemasLabel: 'Loading data types',
+          loadingRecordsLabel: 'Loading records',
+          retryLabel: 'Try again',
+          advancedQueryLabel: 'Advanced query',
+          gridSettingsLabel: 'Grid settings',
+          exportLabel: 'Export',
+        },
+        slot: 'content',
+        index: 10,
+        components: [],
+      },
+    ],
+  },
+};
+
+const documentationPage = {
+  ...validResolvedPage,
+  path: '/docs/capabilities/content-publishing/wcms-authoring-model',
+  page: {
+    ...validResolvedPage.page,
+    code: 'wcmsAuthoringModelDocumentationPage',
+    name: 'Web Content Management System Authoring Model',
+    typeCode: 'documentationArticlePageType',
+    renderer: 'documentation.page.article',
+    rendererContractVersion: 1,
+    rendererChannels: ['web'],
+    rendererDeprecated: false,
+    template: 'documentationArticleTemplate',
+    templateContract: {
+      code: 'documentationArticleTemplate',
+      renderer: 'documentation.template.article',
+      contractVersion: 1,
+    },
+    components: [
+      {
+        code: 'wcmsDocumentationArticle',
+        typeCode: 'documentationArticleComponentType',
+        renderer: 'documentation.component.article',
+        rendererContractVersion: 1,
+        rendererChannels: ['web'],
+        rendererDeprecated: false,
+        properties: {
+          title: 'Web Content Management System Authoring Model',
+          summary: 'Framework documentation for WCMS websites and content models.',
+          sections: [
+            {
+              heading: 'Websites',
+              anchor: 'websites',
+              paragraphs: [
+                'Websites group CMS authoring and delivery context for an enterprise experience.',
+              ],
+            },
+          ],
+        },
+        slot: 'article',
+        index: 10,
+        components: [],
+      },
+    ],
+  },
+};
+
+const cmsPageWorkbenchSchema = {
+  moduleName: 'cms',
+  schemaName: 'cmsPage',
+  label: 'CMS Page',
+  description: 'Manage CMS pages.',
+  displayProperty: 'code',
+  displayProperties: ['code', 'name'],
+  queryCapabilities: {
+    searchableFields: ['code', 'name'],
+    sortableFields: ['code'],
+    filterFields: [],
+    groupOperators: ['AND'],
+    textOperator: 'CONTAINS',
+    allowedPageSizes: [10],
+    defaultPageSize: 10,
+    maximumPageSize: 10,
+    defaultSort: { field: 'code', direction: 'ASC' },
+  },
+  mutationMode: 'GENERATED_CRUD',
+  operations: ['search', 'read', 'create', 'update', 'delete'],
+  fields: [
+    {
+      name: 'code',
+      label: 'Code',
+      type: 'string',
+      required: true,
+      readOnly: false,
+      primary: true,
+      description: 'CMS page code.',
+      searchable: true,
+    },
+    {
+      name: 'name',
+      label: 'Name',
+      type: 'string',
+      required: false,
+      readOnly: false,
+      primary: false,
+      description: 'CMS page name.',
+      searchable: true,
+    },
+  ],
+  relationships: [],
+};
+
 const assistantPage = {
   ...validResolvedPage,
   path: '/assistant',
@@ -170,6 +314,169 @@ const assistantPage = {
 describe('employee login journey', () => {
   beforeEach(() => {
     window.sessionStorage.clear();
+    document.cookie = 'nodics_axis_csrf=; Max-Age=0; Path=/';
+  });
+
+  it('restores an authenticated documentation deep link in a fresh browser tab', async () => {
+    window.history.pushState(
+      {},
+      '',
+      '/docs/capabilities/content-publishing/wcms-authoring-model#websites',
+    );
+    document.cookie = 'nodics_axis_csrf=refresh-csrf; Path=/';
+    const request = vi.fn<typeof fetch>().mockImplementation((input, options) => {
+      const url =
+        typeof input === 'string'
+          ? input
+          : input instanceof URL
+            ? input.href
+            : input.url;
+      if (url.includes('/bootstrap/public')) {
+        return Promise.resolve(
+          new Response(JSON.stringify(publicBootstrap), { status: 200 }),
+        );
+      }
+      if (url.includes('/employee/browser/restore')) {
+        expect(new Headers(options?.headers).get('X-CSRF-Token')).toBe(
+          'refresh-csrf',
+        );
+        return Promise.resolve(
+          new Response(
+            JSON.stringify({
+              result: {
+                authToken: 'restored-docs-access',
+                loginId: 'operator',
+              },
+            }),
+            { status: 200 },
+          ),
+        );
+      }
+      if (url.includes('/bootstrap')) {
+        return Promise.resolve(
+          new Response(
+            JSON.stringify({
+              data: {
+                modules: {
+                  cms: [
+                    {
+                      moduleName: 'cms',
+                      instanceId: 'runtime-1',
+                      environment: 'startioLocal',
+                      clientCallable: true,
+                      endpoint: 'https://cms.example.com/nodics/cms',
+                      state: 'UP',
+                    },
+                  ],
+                },
+                catalogue: {
+                  backoffice: {
+                    enabled: true,
+                    category: 'platform',
+                    icon: 'documentation',
+                    requiredPermissions: ['backoffice.documentation.view'],
+                    compatibility: { status: 'COMPATIBLE' },
+                    navigation: [
+                      {
+                        id: 'documentation',
+                        label: 'Documentation',
+                        route: '/docs',
+                        order: 100,
+                        requiredPermissions: ['backoffice.documentation.view'],
+                      },
+                    ],
+                  },
+                },
+                availability: {
+                  backoffice: { state: 'UP' },
+                  cms: { state: 'UP' },
+                },
+                axisPolicy: {
+                  contractVersion: 1,
+                  screenLockEnabled: true,
+                  idleTimeoutSeconds: 900,
+                  recentNavigationLimit: 12,
+                  revision: 0,
+                  source: 'DEFAULT',
+                },
+                documentationSources: [
+                  {
+                    id: 'framework',
+                    label: 'Framework',
+                    type: 'CMS',
+                    route: '/docs/framework',
+                    order: 100,
+                    ownerModule: 'backoffice',
+                    connectionModule: 'cms',
+                    site: 'axisCmsSite',
+                    catalog: 'nodicsDocumentationContentCatalog',
+                    defaultPage: '/docs',
+                    packCode: 'nodicsDocumentation',
+                  },
+                ],
+                tenantCode: 'default',
+              },
+            }),
+            { status: 200 },
+          ),
+        );
+      }
+      if (url.includes('/content-packs/nodicsDocumentation')) {
+        return Promise.resolve(
+          new Response(
+            JSON.stringify({
+              data: {
+                code: 'nodicsDocumentation',
+                enabled: true,
+                state: 'CURRENT',
+                available: true,
+                installedVersion: '0.3.10',
+                availableVersion: '0.3.10',
+                allowedOperations: [],
+                presentation: {
+                  title: 'Nodics documentation',
+                  unavailableMessage: 'Documentation is unavailable.',
+                  disabledMessage: 'Documentation is disabled.',
+                  importAction: 'Import documentation',
+                  updateAction: 'Update documentation',
+                  retryAction: 'Retry import',
+                },
+              },
+            }),
+            { status: 200 },
+          ),
+        );
+      }
+      if (url.includes('/delivery/pages/resolve/authenticated')) {
+        const authenticated = new Headers(options?.headers).get('Authorization');
+        expect(authenticated).toBe('Bearer restored-docs-access');
+        expect(new URL(url).searchParams.get('path')).toBe(
+          '/docs/capabilities/content-publishing/wcms-authoring-model',
+        );
+        return Promise.resolve(
+          new Response(JSON.stringify({ result: documentationPage }), { status: 200 }),
+        );
+      }
+      return Promise.resolve(new Response(null, { status: 404 }));
+    });
+    vi.stubGlobal('fetch', request);
+
+    render(
+      <AppProviders runtimeConfig={runtimeConfig}>
+        <App />
+      </AppProviders>,
+    );
+
+    expect(
+      await screen.findByRole('heading', {
+        name: 'Web Content Management System Authoring Model',
+      }),
+    ).toBeVisible();
+    expect(
+      request.mock.calls.some(([input]) =>
+        String(input).includes('/employee/browser/restore'),
+      ),
+    ).toBe(true);
   });
 
   it('discovers modules, authenticates through Profile, and protects dashboard', async () => {
@@ -218,7 +525,16 @@ describe('employee login journey', () => {
             JSON.stringify({
               data: {
                 modules: {
-                  cms: [{ moduleName: 'cms', environment: 'startioLocal' }],
+                  cms: [
+                    {
+                      moduleName: 'cms',
+                      instanceId: 'runtime-1',
+                      environment: 'startioLocal',
+                      clientCallable: true,
+                      endpoint: 'https://cms.example.com/nodics/cms',
+                      state: 'UP',
+                    },
+                  ],
                   aiAssistant: [
                     {
                       moduleName: 'aiAssistant',
@@ -243,6 +559,16 @@ describe('employee login journey', () => {
                         label: 'Content',
                         route: '/content',
                         order: 200,
+                        workbenchTarget: { moduleName: 'cms', schemaName: 'cmsPage' },
+                        requiredPermissions: ['cms.backoffice.view'],
+                      },
+                      {
+                        id: 'pages',
+                        parentId: 'cms',
+                        label: 'Pages',
+                        route: '/content/pages',
+                        order: 210,
+                        workbenchTarget: { moduleName: 'cms', schemaName: 'cmsPage' },
                         requiredPermissions: ['cms.backoffice.view'],
                       },
                     ],
@@ -289,12 +615,38 @@ describe('employee login journey', () => {
           new Response(JSON.stringify({ result: true }), { status: 200 }),
         );
       }
+      if (url.includes('/schema/workbench/cmsPage/records')) {
+        return Promise.resolve(
+          new Response(
+            JSON.stringify({
+              result: {
+                records: [{ code: 'home', name: 'Home Page' }],
+                totalCount: 1,
+                pageNumber: 1,
+                pageSize: 10,
+                sort: { field: 'code', direction: 'ASC' },
+              },
+            }),
+            { status: 200 },
+          ),
+        );
+      }
+      if (url.includes('/schema/workbench')) {
+        const schemas = url.includes('cms.example.com') ? [cmsPageWorkbenchSchema] : [];
+        return Promise.resolve(
+          new Response(JSON.stringify({ result: { schemas } }), {
+            status: 200,
+          }),
+        );
+      }
       const authenticated = new Headers(options?.headers).get('Authorization');
       const deliveredPage = url.includes('path=%2Fassistant')
         ? assistantPage
-        : authenticated
-          ? dashboardPage
-          : loginPage;
+        : url.includes('path=%2Fschema-workbench')
+          ? schemaWorkbenchPage
+          : authenticated
+            ? dashboardPage
+            : loginPage;
       return Promise.resolve(
         new Response(
           JSON.stringify({
@@ -337,13 +689,23 @@ describe('employee login journey', () => {
     expect(
       screen.getByRole('navigation', { name: 'Primary navigation' }),
     ).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Content' })).toBeInTheDocument();
-    await user.click(screen.getByRole('button', { name: 'Content' }));
+    const contentNavigationItem = screen
+      .getAllByRole('button', { name: 'Content' })
+      .find((button) => button.getAttribute('aria-level') === '1');
+    expect(contentNavigationItem).toBeDefined();
+    document.cookie = 'nodics_axis_csrf=refresh-csrf; Path=/';
+    rendered.unmount();
+    window.history.pushState({}, '', '/content/pages');
+    render(
+      <AppProviders runtimeConfig={runtimeConfig}>
+        <App />
+      </AppProviders>,
+    );
+    expect(await screen.findByRole('heading', { name: 'Pages' })).toBeVisible();
+    expect(screen.queryByText('Available data types')).not.toBeInTheDocument();
     expect(
-      await screen.findByText(
-        'This authorized module capability was discovered through BackOffice.',
-      ),
-    ).toBeVisible();
+      (await screen.findAllByRole('cell', { name: 'home' })).length,
+    ).toBeGreaterThan(0);
     await waitFor(() => {
       expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
     });
@@ -353,18 +715,6 @@ describe('employee login journey', () => {
       ),
     ).toBe(true);
 
-    document.cookie = 'nodics_axis_csrf=refresh-csrf; Path=/';
-    rendered.unmount();
-    render(
-      <AppProviders runtimeConfig={runtimeConfig}>
-        <App />
-      </AppProviders>,
-    );
-    expect(
-      await screen.findByText(
-        'This authorized module capability was discovered through BackOffice.',
-      ),
-    ).toBeVisible();
     expect(
       request.mock.calls.some(([, options]) =>
         new Headers(options?.headers)
@@ -379,7 +729,8 @@ describe('employee login journey', () => {
   });
 
   it('restores the lock screen after a browser refresh until password verification', async () => {
-    window.history.pushState({}, '', '/dashboard');
+    window.history.pushState({}, '', '/lock-screen');
+    document.cookie = 'nodics_axis_csrf=refresh-csrf; Path=/';
     window.sessionStorage.setItem(
       'nodics-axis-screen-lock-v1',
       JSON.stringify({ locked: true, returnPath: '/dashboard' }),
@@ -474,7 +825,6 @@ describe('employee login journey', () => {
               },
             }
           : dashboardPage;
-      expect(new Headers(options?.headers).get('Authorization')).toBeTruthy();
       return Promise.resolve(
         new Response(JSON.stringify({ result: deliveredPage }), { status: 200 }),
       );

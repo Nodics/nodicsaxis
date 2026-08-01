@@ -1,7 +1,12 @@
 import { Button, Card, CardContent, Divider, Stack, Typography } from '@mui/material';
 
+import { WorkspaceHelpActions } from '../../../../app/help/WorkspaceHelp';
 import { ShellIcon } from '../../../../app/shell/ShellIcon';
-import { booleanProperty, stringProperty } from '../../shared/rendererProperties';
+import {
+  booleanProperty,
+  helpProperty,
+  stringProperty,
+} from '../../shared/rendererProperties';
 import type { CmsComponentRendererProps } from '../../shared/rendererTypes';
 
 const placeholderActions = Object.freeze([
@@ -13,14 +18,18 @@ const placeholderActions = Object.freeze([
 
 export function DashboardActionsRenderer({ component }: CmsComponentRendererProps) {
   const placeholder = booleanProperty(component, 'placeholder');
+  const title = stringProperty(component, 'title');
   return (
     <Card component="section" variant="outlined">
       <CardContent>
         <Stack spacing={2}>
           <Stack spacing={0.5}>
-            <Typography component="h2" variant="h5">
-              {stringProperty(component, 'title')}
-            </Typography>
+            <Stack direction="row" spacing={0.5} sx={{ alignItems: 'center' }}>
+              <Typography component="h2" variant="h5">
+                {title}
+              </Typography>
+              <WorkspaceHelpActions help={helpProperty(component)} label={title} />
+            </Stack>
             <Typography color="text.secondary" variant="body2">
               Start common authorized operations.
             </Typography>

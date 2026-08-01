@@ -9,17 +9,21 @@ import {
   CircularProgress,
   Collapse,
   Divider,
+  IconButton,
   InputAdornment,
   List,
   ListItemButton,
   ListItemText,
+  MenuItem,
   Stack,
   TablePagination,
   TextField,
+  Tooltip,
   Typography,
 } from '@mui/material';
 import { useState } from 'react';
 
+import { WorkspaceHelpActions } from '../../../../app/help/WorkspaceHelp';
 import { ShellIcon } from '../../../../app/shell/ShellIcon';
 import { type AxisDataListingColumn } from '../../../../app/table/AxisDataListing';
 import { AxisSchemaDataListing } from '../../../../app/table/AxisSchemaDataListing';
@@ -49,18 +53,33 @@ function recordKey(record: WorkbenchRecord, index: number): string {
     : `record-${String(index)}`;
 }
 
+const schemaBrowserPageSize = 20;
+const allSchemaModules = '__all__';
+
 export function SchemaWorkbenchRenderer({
   component,
   actions,
 }: CmsComponentRendererProps) {
   const controller = actions?.workbench;
   const [schemaQuery, setSchemaQuery] = useState('');
+  const [schemaModuleFilter, setSchemaModuleFilter] = useState(allSchemaModules);
+  const [schemaVisibleCount, setSchemaVisibleCount] = useState(schemaBrowserPageSize);
   const [advancedQueryOpen, setAdvancedQueryOpen] = useState(false);
+  const [schemaPanelOpen, setSchemaPanelOpen] = useState(true);
   if (!controller) {
     throw new Error('Schema Workbench renderer requires its presentation controller');
   }
   const normalizedSchemaQuery = schemaQuery.trim().toLocaleLowerCase();
+  const scopedToNavigation = controller.scope?.kind === 'navigation';
+  const schemaModules = Array.from(
+    new Set(controller.schemas.map((schema) => schema.moduleName)),
+  ).sort((left, right) => left.localeCompare(right));
   const visibleSchemas = controller.schemas
+    .filter((schema) =>
+      schemaModuleFilter === allSchemaModules
+        ? true
+        : schema.moduleName === schemaModuleFilter,
+    )
     .filter((schema) =>
       normalizedSchemaQuery
         ? `${schema.label} ${schema.moduleName} ${schema.schemaName}`
@@ -81,7 +100,14 @@ export function SchemaWorkbenchRenderer({
         left.label.localeCompare(right.label)
       );
     });
+  const displayedSchemas = visibleSchemas.slice(0, schemaVisibleCount);
+  const hasMoreSchemas = displayedSchemas.length < visibleSchemas.length;
   const selected = controller.selectedSchema;
+  const workspaceLabel =
+    controller.scope?.label ??
+    selected?.label ??
+    stringProperty(component, 'selectSchemaLabel');
+  const workspaceHelp = controller.scope?.help;
   const columns =
     selected?.fields.filter((field) =>
       controller.visibleColumns.includes(field.name),
@@ -144,7 +170,8 @@ export function SchemaWorkbenchRenderer({
                     },
                   }}
                   checked={controller.selectedRecordKeys.includes(key)}
-                  onChange={() => {
+                  onChange={(event) => {
+                    event.stopPropagation();
                     controller.setSelectedRecordKeys(
                       controller.selectedRecordKeys.includes(key)
                         ? controller.selectedRecordKeys.filter(
@@ -159,23 +186,6 @@ export function SchemaWorkbenchRenderer({
           },
         ]
       : [];
-  const trailingRecordColumns: readonly AxisDataListingColumn<WorkbenchRecord>[] =
-    selected
-      ? [
-          {
-            key: '__actions',
-            label: stringProperty(component, 'actionsLabel'),
-            width: 120,
-            minWidth: 120,
-            exportable: false,
-            render: (record) => (
-              <Button size="small" onClick={() => controller.selectRecord(record)}>
-                {stringProperty(component, 'viewLabel')}
-              </Button>
-            ),
-          },
-        ]
-      : [];
   const pageCount = Math.max(
     1,
     Math.ceil(controller.recordTotalCount / controller.recordPageSize),
@@ -187,116 +197,13 @@ export function SchemaWorkbenchRenderer({
         sx={{
           display: 'grid',
           gap: 2,
-          gridTemplateColumns: { xs: '1fr', lg: '360px minmax(0, 1fr)' },
+          gridTemplateColumns: scopedToNavigation
+            ? 'minmax(0, 1fr)'
+            : schemaPanelOpen
+              ? { xs: '1fr', lg: 'minmax(0, 1fr) 360px' }
+              : { xs: '1fr', lg: 'minmax(0, 1fr) 64px' },
         }}
       >
-        <Card component="aside" variant="outlined">
-          <CardContent>
-            <Stack spacing={1.5}>
-              <Typography component="h2" variant="h6">
-                {stringProperty(component, 'schemasLabel')}
-              </Typography>
-              <TextField
-                fullWidth
-                label={stringProperty(component, 'schemaSearchLabel')}
-                placeholder={stringProperty(component, 'schemaSearchPlaceholder')}
-                size="small"
-                sx={{
-                  '& .MuiInputBase-input': {
-                    minWidth: 0,
-                    textOverflow: 'ellipsis',
-                  },
-                }}
-                value={schemaQuery}
-                slotProps={{
-                  input: {
-                    startAdornment: (
-                      <InputAdornment position="start">
-                        <ShellIcon fontSize="small" name="search" />
-                      </InputAdornment>
-                    ),
-                  },
-                }}
-                onChange={(event) => setSchemaQuery(event.target.value)}
-              />
-              {controller.schemasLoading ? (
-                <Stack
-                  direction="row"
-                  spacing={1.5}
-                  sx={{ alignItems: 'center', py: 3 }}
-                >
-                  <CircularProgress size={22} />
-                  <Typography>{stringProperty(component, 'loadingLabel')}</Typography>
-                </Stack>
-              ) : null}
-              {controller.schemasError ? (
-                <Alert
-                  action={
-                    <Button
-                      color="inherit"
-                      size="small"
-                      onClick={controller.retrySchemas}
-                    >
-                      {stringProperty(component, 'retryLabel')}
-                    </Button>
-                  }
-                  severity="error"
-                >
-                  {controller.schemasError}
-                </Alert>
-              ) : null}
-              {!controller.schemasLoading &&
-              !controller.schemasError &&
-              visibleSchemas.length === 0 ? (
-                <Typography color="text.secondary">
-                  {stringProperty(component, 'noSchemasLabel')}
-                </Typography>
-              ) : null}
-              <List
-                disablePadding
-                aria-label={stringProperty(component, 'schemasLabel')}
-              >
-                {visibleSchemas.map((schema) => {
-                  const key = `${schema.moduleName}:${schema.schemaName}`;
-                  const favorite = controller.favoriteSchemas.includes(key);
-                  return (
-                    <Stack
-                      key={key}
-                      direction="row"
-                      sx={{ alignItems: 'center', mb: 0.5 }}
-                    >
-                      <ListItemButton
-                        selected={
-                          selected?.moduleName === schema.moduleName &&
-                          selected.schemaName === schema.schemaName
-                        }
-                        sx={{ borderRadius: 1.5 }}
-                        onClick={() => controller.selectSchema(schema)}
-                      >
-                        <ListItemText
-                          primary={schema.label}
-                          secondary={schema.moduleName}
-                          slotProps={{ primary: { sx: { fontWeight: 600 } } }}
-                        />
-                      </ListItemButton>
-                      <Button
-                        aria-label={`${stringProperty(
-                          component,
-                          favorite ? 'removeFavouriteLabel' : 'addFavouriteLabel',
-                        )} ${schema.label}`}
-                        color={favorite ? 'primary' : 'inherit'}
-                        sx={{ minWidth: 36, px: 0.5 }}
-                        onClick={() => controller.toggleFavoriteSchema(schema)}
-                      >
-                        {favorite ? '★' : '☆'}
-                      </Button>
-                    </Stack>
-                  );
-                })}
-              </List>
-            </Stack>
-          </CardContent>
-        </Card>
         <Card component="section" variant="outlined">
           <CardContent>
             {!selected ? (
@@ -319,9 +226,36 @@ export function SchemaWorkbenchRenderer({
                   }}
                 >
                   <Stack spacing={0.75} sx={{ minWidth: 0 }}>
-                    <Typography component="h2" variant="h5" sx={{ fontWeight: 750 }}>
-                      {selected.label}
-                    </Typography>
+                    {scopedToNavigation && controller.scope?.parentLabel ? (
+                      <Typography
+                        color="text.secondary"
+                        sx={{
+                          fontWeight: 700,
+                          letterSpacing: 1.8,
+                          textTransform: 'uppercase',
+                        }}
+                        variant="caption"
+                      >
+                        {controller.scope.parentLabel}
+                      </Typography>
+                    ) : null}
+                    <Stack
+                      direction="row"
+                      spacing={0.5}
+                      sx={{ alignItems: 'center', minWidth: 0 }}
+                    >
+                      <Typography
+                        component="h2"
+                        variant="h5"
+                        sx={{ fontWeight: 750, minWidth: 0 }}
+                      >
+                        {workspaceLabel}
+                      </Typography>
+                      <WorkspaceHelpActions
+                        help={workspaceHelp}
+                        label={workspaceLabel}
+                      />
+                    </Stack>
                     <Stack
                       direction="row"
                       spacing={0.75}
@@ -355,67 +289,6 @@ export function SchemaWorkbenchRenderer({
                   ) : null}
                 </Stack>
                 <Divider />
-                {controller.selectedRecord ? (
-                  <>
-                    {controller.editOpen ? (
-                      <WorkbenchRecordForm
-                        key={recordKey(controller.selectedRecord, 0)}
-                        cancelLabel={stringProperty(component, 'cancelLabel')}
-                        error={controller.updateError}
-                        initialModel={controller.selectedRecord}
-                        relationshipCopy={{
-                          addToDraftLabel: stringProperty(component, 'addToDraftLabel'),
-                          cancelLabel: stringProperty(component, 'cancelLabel'),
-                          createRelatedLabel: stringProperty(
-                            component,
-                            'createRelatedLabel',
-                          ),
-                          editRelatedLabel: stringProperty(
-                            component,
-                            'editRelatedLabel',
-                          ),
-                          noRelatedRecordsLabel: stringProperty(
-                            component,
-                            'noRelatedRecordsLabel',
-                          ),
-                          relatedSearchLabel: stringProperty(
-                            component,
-                            'relatedSearchLabel',
-                          ),
-                          removeRelatedLabel: stringProperty(
-                            component,
-                            'removeRelatedLabel',
-                          ),
-                          selectExistingLabel: stringProperty(
-                            component,
-                            'selectExistingLabel',
-                          ),
-                        }}
-                        relationshipRuntime={controller.relationshipRuntime}
-                        saving={controller.updating}
-                        savingLabel={stringProperty(component, 'updatingLabel')}
-                        schema={selected}
-                        submitLabel={stringProperty(component, 'updateLabel')}
-                        onCancel={controller.cancelEdit}
-                        onSubmit={controller.updateRecord}
-                      />
-                    ) : (
-                      <WorkbenchRecordDetail
-                        closeLabel={stringProperty(component, 'closeLabel')}
-                        deleteLabel={stringProperty(component, 'deleteLabel')}
-                        editLabel={stringProperty(component, 'editLabel')}
-                        falseLabel={stringProperty(component, 'falseLabel')}
-                        record={controller.selectedRecord}
-                        schema={selected}
-                        trueLabel={stringProperty(component, 'trueLabel')}
-                        onClose={controller.closeRecord}
-                        onDelete={controller.beginDelete}
-                        onEdit={controller.beginEdit}
-                      />
-                    )}
-                    <Divider />
-                  </>
-                ) : null}
                 {controller.createOpen ? (
                   <>
                     <WorkbenchRecordForm
@@ -509,11 +382,7 @@ export function SchemaWorkbenchRenderer({
                             endIcon={
                               <ShellIcon
                                 fontSize="small"
-                                name={
-                                  advancedQueryOpen
-                                    ? 'chevron-up'
-                                    : 'chevron-down'
-                                }
+                                name={advancedQueryOpen ? 'chevron-up' : 'chevron-down'}
                               />
                             }
                             sx={{ flex: { md: '0 0 auto' }, minHeight: 40 }}
@@ -608,9 +477,13 @@ export function SchemaWorkbenchRenderer({
                       maxBodyHeight="100%"
                       minTableWidth={Math.max(720, 220 + columns.length * 160)}
                       records={records}
+                      selectedRowKey={
+                        controller.selectedRecord
+                          ? recordKey(controller.selectedRecord, 0)
+                          : undefined
+                      }
                       schema={selected}
                       sortOverride={controller.recordSortOverride}
-                      trailingColumns={trailingRecordColumns}
                       toolbarStart={
                         <Typography color="text.secondary" variant="body2">
                           {controller.recordTotalCount}{' '}
@@ -620,6 +493,7 @@ export function SchemaWorkbenchRenderer({
                       onColumnKeysChange={(columnKeys) =>
                         controller.setVisibleColumns(columnKeys)
                       }
+                      onRowClick={(record) => controller.selectRecord(record)}
                       onSortOverrideChange={controller.setRecordSortOverride}
                       visibleColumnKeys={controller.visibleColumns}
                     />
@@ -650,11 +524,301 @@ export function SchemaWorkbenchRenderer({
                         )}`}
                     </Alert>
                   ) : null}
+                  {controller.selectedRecord ? (
+                    <Box
+                      sx={{
+                        borderTop: 1,
+                        borderColor: 'divider',
+                        mt: 0.75,
+                        pt: 1.75,
+                      }}
+                    >
+                      {controller.editOpen ? (
+                        <WorkbenchRecordForm
+                          key={recordKey(controller.selectedRecord, 0)}
+                          cancelLabel={stringProperty(component, 'cancelLabel')}
+                          error={controller.updateError}
+                          initialModel={controller.selectedRecord}
+                          relationshipCopy={{
+                            addToDraftLabel: stringProperty(
+                              component,
+                              'addToDraftLabel',
+                            ),
+                            cancelLabel: stringProperty(component, 'cancelLabel'),
+                            createRelatedLabel: stringProperty(
+                              component,
+                              'createRelatedLabel',
+                            ),
+                            editRelatedLabel: stringProperty(
+                              component,
+                              'editRelatedLabel',
+                            ),
+                            noRelatedRecordsLabel: stringProperty(
+                              component,
+                              'noRelatedRecordsLabel',
+                            ),
+                            relatedSearchLabel: stringProperty(
+                              component,
+                              'relatedSearchLabel',
+                            ),
+                            removeRelatedLabel: stringProperty(
+                              component,
+                              'removeRelatedLabel',
+                            ),
+                            selectExistingLabel: stringProperty(
+                              component,
+                              'selectExistingLabel',
+                            ),
+                          }}
+                          relationshipRuntime={controller.relationshipRuntime}
+                          saving={controller.updating}
+                          savingLabel={stringProperty(component, 'updatingLabel')}
+                          schema={selected}
+                          submitLabel={stringProperty(component, 'updateLabel')}
+                          onCancel={controller.cancelEdit}
+                          onSubmit={controller.updateRecord}
+                        />
+                      ) : (
+                        <WorkbenchRecordDetail
+                          closeLabel={stringProperty(component, 'closeLabel')}
+                          deleteLabel={stringProperty(component, 'deleteLabel')}
+                          editLabel={stringProperty(component, 'editLabel')}
+                          falseLabel={stringProperty(component, 'falseLabel')}
+                          record={controller.selectedRecord}
+                          schema={selected}
+                          trueLabel={stringProperty(component, 'trueLabel')}
+                          onClose={controller.closeRecord}
+                          onDelete={controller.beginDelete}
+                          onEdit={controller.beginEdit}
+                        />
+                      )}
+                    </Box>
+                  ) : null}
                 </Box>
               </Stack>
             )}
           </CardContent>
         </Card>
+        {!scopedToNavigation ? (
+          <Card
+            component="aside"
+            variant="outlined"
+            sx={{ alignSelf: 'start', overflow: 'hidden' }}
+          >
+            <CardContent sx={{ p: schemaPanelOpen ? undefined : 1 }}>
+              {schemaPanelOpen ? (
+                <Stack spacing={1.5}>
+                  <Stack
+                    direction="row"
+                    spacing={1}
+                    sx={{
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      minWidth: 0,
+                    }}
+                  >
+                    <Typography
+                      component="h2"
+                      variant="h6"
+                      sx={{ fontWeight: 750, minWidth: 0 }}
+                    >
+                      {stringProperty(component, 'schemasLabel')}
+                    </Typography>
+                    <Tooltip
+                      title={stringProperty(
+                        component,
+                        'collapseSchemasLabel',
+                        'Hide data types',
+                      )}
+                    >
+                      <IconButton
+                        aria-label={stringProperty(
+                          component,
+                          'collapseSchemasLabel',
+                          'Hide data types',
+                        )}
+                        size="small"
+                        onClick={() => setSchemaPanelOpen(false)}
+                      >
+                        <ShellIcon fontSize="small" name="chevron-right" />
+                      </IconButton>
+                    </Tooltip>
+                  </Stack>
+                  <TextField
+                    fullWidth
+                    label={stringProperty(component, 'schemaSearchLabel')}
+                    placeholder={stringProperty(component, 'schemaSearchPlaceholder')}
+                    size="small"
+                    sx={{
+                      '& .MuiInputBase-input': {
+                        minWidth: 0,
+                        textOverflow: 'ellipsis',
+                      },
+                    }}
+                    value={schemaQuery}
+                    slotProps={{
+                      input: {
+                        startAdornment: (
+                          <InputAdornment position="start">
+                            <ShellIcon fontSize="small" name="search" />
+                          </InputAdornment>
+                        ),
+                      },
+                    }}
+                    onChange={(event) => {
+                      setSchemaQuery(event.target.value);
+                      setSchemaVisibleCount(schemaBrowserPageSize);
+                    }}
+                  />
+                  <TextField
+                    fullWidth
+                    label={stringProperty(
+                      component,
+                      'schemaModuleFilterLabel',
+                      'Module',
+                    )}
+                    select
+                    size="small"
+                    value={schemaModuleFilter}
+                    onChange={(event) => {
+                      setSchemaModuleFilter(event.target.value);
+                      setSchemaVisibleCount(schemaBrowserPageSize);
+                    }}
+                  >
+                    <MenuItem value={allSchemaModules}>
+                      {stringProperty(component, 'allModulesLabel', 'All modules')}
+                    </MenuItem>
+                    {schemaModules.map((moduleName) => (
+                      <MenuItem key={moduleName} value={moduleName}>
+                        {moduleName}
+                      </MenuItem>
+                    ))}
+                  </TextField>
+                  {controller.schemasLoading ? (
+                    <Stack
+                      direction="row"
+                      spacing={1.5}
+                      sx={{ alignItems: 'center', py: 3 }}
+                    >
+                      <CircularProgress size={22} />
+                      <Typography>
+                        {stringProperty(component, 'loadingLabel')}
+                      </Typography>
+                    </Stack>
+                  ) : null}
+                  {controller.schemasError ? (
+                    <Alert
+                      action={
+                        <Button
+                          color="inherit"
+                          size="small"
+                          onClick={controller.retrySchemas}
+                        >
+                          {stringProperty(component, 'retryLabel')}
+                        </Button>
+                      }
+                      severity="error"
+                    >
+                      {controller.schemasError}
+                    </Alert>
+                  ) : null}
+                  {!controller.schemasLoading &&
+                  !controller.schemasError &&
+                  visibleSchemas.length === 0 ? (
+                    <Typography color="text.secondary">
+                      {stringProperty(component, 'noSchemasLabel')}
+                    </Typography>
+                  ) : null}
+                  <List
+                    disablePadding
+                    aria-label={stringProperty(component, 'schemasLabel')}
+                  >
+                    {displayedSchemas.map((schema) => {
+                      const key = `${schema.moduleName}:${schema.schemaName}`;
+                      const favorite = controller.favoriteSchemas.includes(key);
+                      return (
+                        <Stack
+                          key={key}
+                          direction="row"
+                          sx={{ alignItems: 'center', mb: 0.5 }}
+                        >
+                          <ListItemButton
+                            selected={
+                              selected?.moduleName === schema.moduleName &&
+                              selected.schemaName === schema.schemaName
+                            }
+                            sx={{ borderRadius: 1.5 }}
+                            onClick={() => controller.selectSchema(schema)}
+                          >
+                            <ListItemText
+                              primary={schema.label}
+                              secondary={schema.moduleName}
+                              slotProps={{ primary: { sx: { fontWeight: 600 } } }}
+                            />
+                          </ListItemButton>
+                          <Button
+                            aria-label={`${stringProperty(
+                              component,
+                              favorite ? 'removeFavouriteLabel' : 'addFavouriteLabel',
+                            )} ${schema.label}`}
+                            color={favorite ? 'primary' : 'inherit'}
+                            sx={{ minWidth: 36, px: 0.5 }}
+                            onClick={() => controller.toggleFavoriteSchema(schema)}
+                          >
+                            {favorite ? '★' : '☆'}
+                          </Button>
+                        </Stack>
+                      );
+                    })}
+                  </List>
+                  <Stack spacing={1} sx={{ alignItems: 'stretch' }}>
+                    <Typography color="text.secondary" variant="caption">
+                      {displayedSchemas.length} shown from {visibleSchemas.length}
+                    </Typography>
+                    {hasMoreSchemas ? (
+                      <Button
+                        size="small"
+                        variant="outlined"
+                        onClick={() =>
+                          setSchemaVisibleCount((count) =>
+                            Math.min(
+                              count + schemaBrowserPageSize,
+                              visibleSchemas.length,
+                            ),
+                          )
+                        }
+                      >
+                        {stringProperty(component, 'loadMoreSchemasLabel', 'Load more')}
+                      </Button>
+                    ) : null}
+                  </Stack>
+                </Stack>
+              ) : (
+                <Stack sx={{ alignItems: 'center' }}>
+                  <Tooltip
+                    title={stringProperty(
+                      component,
+                      'expandSchemasLabel',
+                      'Show data types',
+                    )}
+                  >
+                    <IconButton
+                      aria-label={stringProperty(
+                        component,
+                        'expandSchemasLabel',
+                        'Show data types',
+                      )}
+                      onClick={() => setSchemaPanelOpen(true)}
+                    >
+                      <ShellIcon name="chevron-left" />
+                    </IconButton>
+                  </Tooltip>
+                  <ShellIcon color="disabled" name="schema" sx={{ mt: 1 }} />
+                </Stack>
+              )}
+            </CardContent>
+          </Card>
+        ) : null}
       </Box>
       {controller.selectedRecord ? (
         <WorkbenchDeleteDialog

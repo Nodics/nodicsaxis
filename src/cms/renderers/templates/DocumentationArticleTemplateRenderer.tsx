@@ -1,7 +1,9 @@
-import { Box, Paper } from '@mui/material';
+import { Box, IconButton, Paper, Stack, Tooltip } from '@mui/material';
 import type { ReactNode } from 'react';
+import { useState } from 'react';
 
 import { axisTokens } from '../../../app/axisTheme';
+import { ShellIcon } from '../../../app/shell/ShellIcon';
 import { WorkspaceContainer } from '../../../app/shell/ShellPrimitives';
 import type { CmsPageContract } from '../../cmsContract';
 
@@ -19,6 +21,7 @@ export function DocumentationArticleTemplateRenderer({
   page,
   slots,
 }: DocumentationArticleTemplateRendererProps) {
+  const [navigationOpen, setNavigationOpen] = useState(true);
   return (
     <WorkspaceContainer horizontalPadding="3px" verticalPadding="3px">
       <Box
@@ -26,7 +29,9 @@ export function DocumentationArticleTemplateRenderer({
           alignItems: 'start',
           display: 'grid',
           gap: '3px',
-          gridTemplateColumns: { xs: 'minmax(0, 1fr)', lg: '300px minmax(0, 1fr)' },
+          gridTemplateColumns: navigationOpen
+            ? { xs: 'minmax(0, 1fr)', lg: '300px minmax(0, 1fr)' }
+            : { xs: '56px minmax(0, 1fr)', lg: '56px minmax(0, 1fr)' },
         }}
       >
         <Paper
@@ -39,12 +44,39 @@ export function DocumentationArticleTemplateRenderer({
               lg: `calc(100vh - ${String(axisTokens.spacing.header + 6)}px)`,
             },
             overflow: { lg: 'auto' },
-            p: 2,
+            p: navigationOpen ? 2 : 1,
             position: { lg: 'sticky' },
             top: { lg: `${String(axisTokens.spacing.header + 3)}px` },
           }}
         >
-          {slots.navigation}
+          {navigationOpen ? (
+            <Stack spacing={1.5}>
+              <Box sx={{ display: 'flex', justifyContent: 'flex-end' }}>
+                <Tooltip title="Hide documentation navigation">
+                  <IconButton
+                    aria-label="Hide documentation navigation"
+                    size="small"
+                    onClick={() => setNavigationOpen(false)}
+                  >
+                    <ShellIcon fontSize="small" name="chevron-left" />
+                  </IconButton>
+                </Tooltip>
+              </Box>
+              {slots.navigation}
+            </Stack>
+          ) : (
+            <Stack sx={{ alignItems: 'center' }}>
+              <Tooltip title="Show documentation navigation">
+                <IconButton
+                  aria-label="Show documentation navigation"
+                  onClick={() => setNavigationOpen(true)}
+                >
+                  <ShellIcon name="chevron-right" />
+                </IconButton>
+              </Tooltip>
+              <ShellIcon color="disabled" name="content" sx={{ mt: 1 }} />
+            </Stack>
+          )}
         </Paper>
         <Paper
           component="article"

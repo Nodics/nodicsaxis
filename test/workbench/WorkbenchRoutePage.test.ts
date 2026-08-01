@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import {
   resolveWorkbenchRecordSort,
   resolveWorkbenchDeepLinkTarget,
+  resolveWorkbenchRouteTarget,
   schemaWithValidQueryCapabilities,
   type WorkbenchDeepLinkTarget,
 } from '../../src/workbench/WorkbenchRoutePage';
@@ -114,6 +115,40 @@ describe('resolveWorkbenchDeepLinkTarget', () => {
         schema('media', 'mediaFolder', ['search', 'read']),
       ]),
     ).toBeUndefined();
+  });
+});
+
+describe('resolveWorkbenchRouteTarget', () => {
+  it('selects a schema from governed functional navigation route mapping', () => {
+    expect(
+      summarize(
+        resolveWorkbenchRouteTarget(
+          { moduleName: 'cms', schemaName: 'cmsNavigationNode' },
+          [schema('cms', 'cmsNavigationNode', ['search', 'read', 'create'])],
+        ),
+      ),
+    ).toEqual({
+      key: 'cms:cmsNavigationNode:browse:route',
+      mode: undefined,
+      moduleName: 'cms',
+      schemaName: 'cmsNavigationNode',
+    });
+  });
+
+  it('does not open create mode unless the backend schema advertises create', () => {
+    expect(
+      summarize(
+        resolveWorkbenchRouteTarget(
+          { moduleName: 'cms', schemaName: 'cmsRestriction', mode: 'create' },
+          [schema('cms', 'cmsRestriction', ['search', 'read'])],
+        ),
+      ),
+    ).toEqual({
+      key: 'cms:cmsRestriction:browse:route',
+      mode: undefined,
+      moduleName: 'cms',
+      schemaName: 'cmsRestriction',
+    });
   });
 });
 

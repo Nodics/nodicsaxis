@@ -7,6 +7,7 @@ import type { AxisSort } from '../app/table/axisTableSorting';
 import {
   selectModuleConnection,
   type AxisAuthenticatedBootstrap,
+  type AxisNavigationItem,
 } from '../bootstrap/publicBootstrap';
 import type { AxisRuntimeConfig } from '../runtime/runtimeConfig';
 import {
@@ -35,7 +36,15 @@ interface WorkbenchRoutePageProps {
   readonly employeeId: string;
   readonly locale: string;
   readonly runtime: AxisRuntimeConfig;
+  readonly routeNavigation?: AxisNavigationItem | undefined;
+  readonly routeSchema?: WorkbenchRouteSchemaSelection | undefined;
   readonly site: string;
+}
+
+export interface WorkbenchRouteSchemaSelection {
+  readonly moduleName: string;
+  readonly schemaName: string;
+  readonly mode?: 'create' | undefined;
 }
 
 function workbenchRecordKey(
@@ -74,6 +83,28 @@ export function resolveWorkbenchDeepLinkTarget(
       : undefined;
   return Object.freeze({
     key: `${schema.moduleName}:${schema.schemaName}:${mode ?? 'browse'}`,
+    ...(mode ? { mode } : {}),
+    schema,
+  });
+}
+
+export function resolveWorkbenchRouteTarget(
+  routeSchema: WorkbenchRouteSchemaSelection | undefined,
+  schemas: readonly WorkbenchSchema[],
+): WorkbenchDeepLinkTarget | undefined {
+  if (!routeSchema) return undefined;
+  const schema = schemas.find(
+    (candidate) =>
+      candidate.moduleName === routeSchema.moduleName &&
+      candidate.schemaName === routeSchema.schemaName,
+  );
+  if (!schema) return undefined;
+  const mode =
+    routeSchema.mode === 'create' && schema.operations.includes('create')
+      ? 'create'
+      : undefined;
+  return Object.freeze({
+    key: `${schema.moduleName}:${schema.schemaName}:${mode ?? 'browse'}:route`,
     ...(mode ? { mode } : {}),
     schema,
   });
@@ -410,8 +441,10 @@ export function WorkbenchRoutePage(props: WorkbenchRoutePageProps) {
     [bulkDelete, createRecord, deleteImpact, deleteRecord, preferences, updateRecord],
   );
   const deepLinkTarget = useMemo(
-    () => resolveWorkbenchDeepLinkTarget(location.search, schemas.data ?? []),
-    [location.search, schemas.data],
+    () =>
+      resolveWorkbenchDeepLinkTarget(location.search, schemas.data ?? []) ??
+      resolveWorkbenchRouteTarget(props.routeSchema, schemas.data ?? []),
+    [location.search, props.routeSchema, schemas.data],
   );
   useEffect(() => {
     if (!deepLinkTarget || consumedDeepLinkKey.current === deepLinkTarget.key) return;
@@ -436,7 +469,12 @@ export function WorkbenchRoutePage(props: WorkbenchRoutePageProps) {
         if (!connection) {
           return Promise.reject(new Error('The related schema module is unavailable'));
         }
-        return createWorkbenchRecord(connection, normalizedSchema, model, configuration);
+        return createWorkbenchRecord(
+          connection,
+          normalizedSchema,
+          model,
+          configuration,
+        );
       },
       loadRecords: (schema: WorkbenchSchema) => {
         const normalizedSchema = schemaWithValidQueryCapabilities(schema);
@@ -484,6 +522,20 @@ export function WorkbenchRoutePage(props: WorkbenchRoutePageProps) {
       accessToken={props.accessToken}
       actions={{
         workbench: {
+          scope: props.routeSchema
+            ? {
+                kind: 'navigation',
+                label: props.routeNavigation?.label,
+                parentLabel: props.routeNavigation?.parentId
+                  ? props.bootstrap.navigation.find(
+                      (item) =>
+                        item.moduleName === props.routeNavigation?.moduleName &&
+                        item.id === props.routeNavigation.parentId,
+                    )?.label
+                  : undefined,
+                help: props.routeNavigation?.help,
+              }
+            : { kind: 'global' },
           schemas: schemas.data ?? [],
           schemasError: schemas.error?.message,
           schemasLoading: schemas.isLoading,

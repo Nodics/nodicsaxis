@@ -102,6 +102,17 @@ describe('Axis application shell navigation', () => {
                 icon: 'cms',
                 availability: 'UP',
               },
+              {
+                id: 'sites',
+                parentId: 'cms',
+                label: 'Websites',
+                route: '/content/sites',
+                order: 20,
+                moduleName: 'cms',
+                category: 'content',
+                icon: 'cms',
+                availability: 'UP',
+              },
             ]}
           >
             <div>Workspace</div>
@@ -256,6 +267,17 @@ describe('Axis application shell navigation', () => {
                 icon: 'cms',
                 availability: 'UP',
               },
+              {
+                id: 'sites',
+                parentId: 'cms',
+                label: 'Websites',
+                route: '/content/sites',
+                order: 20,
+                moduleName: 'cms',
+                category: 'content',
+                icon: 'cms',
+                availability: 'UP',
+              },
             ]}
           >
             <div>Workspace</div>
@@ -269,6 +291,14 @@ describe('Axis application shell navigation', () => {
       name: 'Collapse Content and Experience',
     });
     expect(collapse).toHaveAttribute('aria-expanded', 'true');
+    expect(screen.getByRole('button', { name: 'Websites' })).toBeVisible();
+
+    await user.click(screen.getByRole('button', { name: 'Collapse Content' }));
+    expect(screen.getByRole('button', { name: 'Expand Content' })).toHaveAttribute(
+      'aria-expanded',
+      'false',
+    );
+    expect(screen.queryByRole('button', { name: 'Websites' })).not.toBeInTheDocument();
 
     await user.click(collapse);
     expect(

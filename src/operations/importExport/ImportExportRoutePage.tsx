@@ -1,9 +1,10 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Box, Paper, Stack, Tab, Tabs, Typography } from '@mui/material';
+import { Box, Paper, Stack, Tab, Tabs } from '@mui/material';
 import { useMemo, useState } from 'react';
 
+import { WorkspaceHeading } from '../../app/help/WorkspaceHelp';
+import type { AxisNavigationItem } from '../../bootstrap/publicBootstrap';
 import { WorkspaceContainer } from '../../app/shell/ShellPrimitives';
-import { axisTokens } from '../../app/axisTheme';
 import {
   selectModuleConnection,
   type AxisAuthenticatedBootstrap,
@@ -41,6 +42,7 @@ import {
 interface ImportExportRoutePageProps {
   readonly accessToken: string;
   readonly bootstrap: AxisAuthenticatedBootstrap;
+  readonly routeNavigation?: AxisNavigationItem | undefined;
   readonly runtime: AxisRuntimeConfig;
 }
 
@@ -217,26 +219,13 @@ export function ImportExportRoutePage(props: ImportExportRoutePageProps) {
             p: { xs: 2, md: 3 },
           }}
         >
-          <Stack spacing={0.4}>
-            <Typography
-              color="text.secondary"
-              sx={{
-                fontSize: '0.75rem',
-                fontWeight: axisTokens.typography.weight.bold,
-                letterSpacing: '0.18em',
-                textTransform: 'uppercase',
-              }}
-            >
-              Governed data operations
-            </Typography>
-            <Typography component="h1" id="imports-exports-title" variant="h2">
-              Imports and exports
-            </Typography>
-            <Typography color="text.secondary" sx={{ maxWidth: 980 }}>
-              Review immutable module releases, governed file intake, export readiness,
-              and secured run history through backend-owned Nodics contracts.
-            </Typography>
-          </Stack>
+          <WorkspaceHeading
+            description="Review immutable module releases, governed file intake, export readiness, and secured run history through backend-owned Nodics contracts."
+            eyebrow="Governed data operations"
+            help={props.routeNavigation?.help}
+            id="imports-exports-title"
+            title="Imports and exports"
+          />
 
           <Box
             sx={{

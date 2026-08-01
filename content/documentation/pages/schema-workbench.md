@@ -63,6 +63,23 @@ The authenticated `/schema-workbench` route:
 - supports reusable feature handoff links using
   `/schema-workbench?module=<moduleName>&schema=<schemaName>` to select an
   authorized schema after discovery;
+- renders WCMS and publishing management routes such as `/content/pages` and
+  `/publishing/requests` from BackOffice navigation `workbenchTarget` metadata
+  rather than frontend-owned route-to-schema maps;
+- renders those navigation-scoped routes as focused schema workspaces, hiding
+  the global data-type browser so a selected item such as Websites, Pages, or
+  Publishing Requests shows only its own records, detail, create, update, and
+  governed delete interactions;
+- renders route-scoped business help from BackOffice navigation `help`
+  metadata, including a short summary tooltip and a documentation link that
+  opens the configured Axis documentation route in a new browser tab;
+- uses the shared Axis listing interaction pattern: employees select a row
+  from the records table and Axis renders the selected record detail below the
+  list, instead of adding a one-action View column or moving detail above the
+  table;
+- preserves the authenticated shell hierarchy from BackOffice navigation and
+  lets any parent navigation item with children expand or collapse its children
+  independently of the top-level navigation group;
 - supports `/schema-workbench?module=<moduleName>&schema=<schemaName>&mode=create`
   only when the discovered schema advertises Create, so feature pages can hand
   users to generic generated CRUD without duplicating record forms;
@@ -122,7 +139,7 @@ Profile schema. The employee can open Create Address, complete required fields,
 select an existing Contact or add a new Contact draft, and submit the complete
 draft directly to Profile.
 
-For Update, the employee opens a record through **View**, chooses **Edit** when
+For Update, the employee selects a record row, chooses **Edit** when
 permitted, changes ordinary fields or relationship references, and submits.
 Axis uses the original primary identity as the update query even when the
 editable primary field changes. When the descriptor advertises required
@@ -159,10 +176,13 @@ English message.
 
 ## Boundary and responsive behavior
 
-At large widths, data-type navigation and records use two columns. At smaller
-widths they stack into one column. Record columns remain horizontally
-scrollable instead of shrinking into unreadable content. Controls retain
-labels, keyboard operation, and semantic list/table roles.
+At large widths, the global `/schema-workbench` route uses data-type
+navigation and records in two columns. Navigation-scoped workspaces such as
+`/content/sites` use a focused one-column record workspace because the selected
+BackOffice menu item already supplies the schema context. At smaller widths
+they stack into one column. Record columns remain horizontally scrollable
+instead of shrinking into unreadable content. Controls retain labels, keyboard
+operation, and semantic list/table roles.
 
 ## Failure and recovery
 
@@ -219,10 +239,12 @@ validation, default values, framework-managed field exclusion, selecting an
 existing relationship, related-record creation, duplicate-reference prevention,
 retry without duplicate related creation, backend conflict-message handling,
 diagnostic-context exclusion, malformed-error fallback, and locale-aware
-record formatting. Coverage also includes revision forwarding for Update and
-Delete, missing-revision rejection before network access, self-referential
-relationship cycle fallback, bounded nested relationship depth, full
-description tooltips, and five-word related-record summaries.
+record formatting. Coverage also includes route-scoped schema workspaces that
+hide the global schema browser, nested shell navigation expansion and collapse,
+revision forwarding for Update and Delete, missing-revision rejection before
+network access, self-referential relationship cycle fallback, bounded nested
+relationship depth, full description tooltips, and five-word related-record
+summaries.
 
 The authenticated local acceptance journey additionally verifies schema
 discovery across active modules, bounded search, unauthenticated rejection,

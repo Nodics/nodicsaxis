@@ -4,6 +4,7 @@ import { describe, expect, it, vi } from 'vitest';
 
 import type { CmsComponentContract } from '../../../../../src/cms/cmsContract';
 import { SchemaWorkbenchRenderer } from '../../../../../src/cms/renderers/components/workbench/SchemaWorkbenchRenderer';
+import type { WorkbenchRendererController } from '../../../../../src/cms/renderers/shared/rendererTypes';
 import type { WorkbenchSchema } from '../../../../../src/workbench/api/workbenchContracts';
 
 const component: CmsComponentContract = {
@@ -140,6 +141,77 @@ const relationshipRuntime = {
   createRecord: vi.fn(),
   loadRecords: vi.fn(),
 };
+
+function schemaVariant(
+  label: string,
+  moduleName: string,
+  schemaName: string,
+): WorkbenchSchema {
+  return {
+    ...address,
+    moduleName,
+    schemaName,
+    label,
+  };
+}
+
+function workbenchController(
+  overrides: Partial<WorkbenchRendererController> = {},
+): WorkbenchRendererController {
+  return {
+    schemas: [address],
+    schemasLoading: false,
+    selectedSchema: address,
+    records: [],
+    recordSearch: '',
+    recordPageNumber: 1,
+    recordPageSize: 25,
+    recordTotalCount: 0,
+    recordSort: { field: 'code', direction: 'ASC' },
+    visibleColumns: ['code', 'city'],
+    favoriteSchemas: [],
+    recentSchemas: [],
+    selectedRecordKeys: [],
+    savedViews: [],
+    recordsLoading: false,
+    creating: false,
+    createOpen: false,
+    relationshipRuntime,
+    editOpen: false,
+    updating: false,
+    deleteOpen: false,
+    deleting: false,
+    tenantCode: 'default',
+    enterpriseCode: 'default',
+    selectSchema: vi.fn(),
+    setRecordSearch: vi.fn(),
+    setRecordFilters: vi.fn(),
+    setRecordPageNumber: vi.fn(),
+    setRecordPageSize: vi.fn(),
+    setRecordSort: vi.fn(),
+    setRecordSortOverride: vi.fn(),
+    setVisibleColumns: vi.fn(),
+    toggleFavoriteSchema: vi.fn(),
+    setSelectedRecordKeys: vi.fn(),
+    saveView: vi.fn(),
+    deleteView: vi.fn(),
+    applyView: vi.fn(),
+    beginCreate: vi.fn(),
+    cancelCreate: vi.fn(),
+    createRecord: vi.fn(),
+    selectRecord: vi.fn(),
+    closeRecord: vi.fn(),
+    beginEdit: vi.fn(),
+    cancelEdit: vi.fn(),
+    updateRecord: vi.fn(),
+    beginDelete: vi.fn(),
+    cancelDelete: vi.fn(),
+    confirmDelete: vi.fn(),
+    retrySchemas: vi.fn(),
+    retryRecords: vi.fn(),
+    ...overrides,
+  };
+}
 
 describe('SchemaWorkbenchRenderer', () => {
   it('selects an authorized schema and renders its records', async () => {
@@ -287,7 +359,7 @@ describe('SchemaWorkbenchRenderer', () => {
       operator: 'AND',
       items: [{ field: 'city', operator: 'EQUALS', value: 'Dubai' }],
     });
-    await user.click(screen.getByRole('button', { name: 'View' }));
+    await user.click(screen.getByRole('cell', { name: 'DXB-OFFICE' }));
     expect(selectRecord).toHaveBeenCalledWith({
       code: 'DXB-OFFICE',
       city: 'Dubai',
@@ -359,5 +431,308 @@ describe('SchemaWorkbenchRenderer', () => {
       screen.getByText('Authorized schema discovery is currently unavailable'),
     ).toBeVisible();
     expect(screen.getByRole('button', { name: 'Try again' })).toBeVisible();
+  });
+
+  it('collapses and restores the right-side data type browser', async () => {
+    const user = userEvent.setup();
+    render(
+      <SchemaWorkbenchRenderer
+        actions={{
+          workbench: {
+            schemas: [address],
+            schemasLoading: false,
+            selectedSchema: address,
+            records: [{ code: 'DXB-OFFICE', city: 'Dubai' }],
+            recordSearch: '',
+            recordPageNumber: 1,
+            recordPageSize: 25,
+            recordTotalCount: 1,
+            recordSort: { field: 'code', direction: 'ASC' },
+            visibleColumns: ['code', 'city'],
+            favoriteSchemas: [],
+            recentSchemas: [],
+            selectedRecordKeys: [],
+            savedViews: [],
+            recordsLoading: false,
+            creating: false,
+            createOpen: false,
+            relationshipRuntime,
+            editOpen: false,
+            updating: false,
+            deleteOpen: false,
+            deleting: false,
+            tenantCode: 'default',
+            enterpriseCode: 'default',
+            selectSchema: vi.fn(),
+            setRecordSearch: vi.fn(),
+            setRecordFilters: vi.fn(),
+            setRecordPageNumber: vi.fn(),
+            setRecordPageSize: vi.fn(),
+            setRecordSort: vi.fn(),
+            setRecordSortOverride: vi.fn(),
+            setVisibleColumns: vi.fn(),
+            toggleFavoriteSchema: vi.fn(),
+            setSelectedRecordKeys: vi.fn(),
+            saveView: vi.fn(),
+            deleteView: vi.fn(),
+            applyView: vi.fn(),
+            beginCreate: vi.fn(),
+            cancelCreate: vi.fn(),
+            createRecord: vi.fn(),
+            selectRecord: vi.fn(),
+            closeRecord: vi.fn(),
+            beginEdit: vi.fn(),
+            cancelEdit: vi.fn(),
+            updateRecord: vi.fn(),
+            beginDelete: vi.fn(),
+            cancelDelete: vi.fn(),
+            confirmDelete: vi.fn(),
+            retrySchemas: vi.fn(),
+            retryRecords: vi.fn(),
+          },
+        }}
+        component={component}
+      />,
+    );
+
+    expect(screen.getByRole('heading', { name: 'Available data types' })).toBeVisible();
+
+    await user.click(screen.getByRole('button', { name: 'Hide data types' }));
+
+    expect(
+      screen.queryByRole('heading', { name: 'Available data types' }),
+    ).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Show data types' })).toBeVisible();
+
+    await user.click(screen.getByRole('button', { name: 'Show data types' }));
+
+    expect(screen.getByRole('heading', { name: 'Available data types' })).toBeVisible();
+  });
+
+  it('filters the data type browser by backend-discovered module', async () => {
+    const user = userEvent.setup();
+    const productSchema = schemaVariant('Product', 'catalog', 'product');
+
+    render(
+      <SchemaWorkbenchRenderer
+        actions={{
+          workbench: workbenchController({
+            schemas: [address, productSchema],
+            records: [{ code: 'DXB-OFFICE', city: 'Dubai' }],
+            recordTotalCount: 1,
+          }),
+        }}
+        component={component}
+      />,
+    );
+
+    expect(screen.getByRole('button', { name: /^Address profile$/ })).toBeVisible();
+    expect(screen.getByRole('button', { name: /^Product catalog$/ })).toBeVisible();
+
+    await user.click(screen.getByRole('combobox', { name: 'Module' }));
+    await user.click(screen.getByRole('option', { name: 'catalog' }));
+
+    expect(
+      screen.queryByRole('button', { name: /^Address profile$/ }),
+    ).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /^Product catalog$/ })).toBeVisible();
+  });
+
+  it('loads long schema browser lists incrementally', async () => {
+    const user = userEvent.setup();
+    const schemas = Array.from({ length: 22 }, (_value, index) =>
+      schemaVariant(
+        `Type ${String(index).padStart(2, '0')}`,
+        'profile',
+        `schema${String(index).padStart(2, '0')}`,
+      ),
+    );
+
+    render(
+      <SchemaWorkbenchRenderer
+        actions={{
+          workbench: workbenchController({
+            schemas,
+            selectedSchema: schemas[0],
+          }),
+        }}
+        component={component}
+      />,
+    );
+
+    expect(screen.getByText('20 shown from 22')).toBeVisible();
+    expect(
+      screen.queryByRole('button', { name: /^Type 21 profile$/ }),
+    ).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: 'Load more' }));
+
+    expect(screen.getByText('22 shown from 22')).toBeVisible();
+    expect(screen.getByRole('button', { name: /^Type 21 profile$/ })).toBeVisible();
+  });
+
+  it('renders a route-scoped schema workspace without the global schema browser', () => {
+    const selectRecord = vi.fn();
+    render(
+      <SchemaWorkbenchRenderer
+        actions={{
+          workbench: {
+            scope: {
+              kind: 'navigation',
+              label: 'Websites',
+              parentLabel: 'Web Content Management System',
+              help: {
+                summary: 'Manage CMS websites for an enterprise experience.',
+                documentationRoute:
+                  '/docs/capabilities/content-publishing/wcms-authoring-model',
+                documentationFragment: 'websites',
+              },
+            },
+            schemas: [address],
+            schemasLoading: false,
+            selectedSchema: address,
+            records: [{ code: 'axis-site', city: 'Dubai' }],
+            recordSearch: '',
+            recordPageNumber: 1,
+            recordPageSize: 25,
+            recordTotalCount: 1,
+            recordSort: { field: 'code', direction: 'ASC' },
+            visibleColumns: ['code', 'city'],
+            favoriteSchemas: [],
+            recentSchemas: [],
+            selectedRecordKeys: [],
+            savedViews: [],
+            recordsLoading: false,
+            creating: false,
+            createOpen: false,
+            relationshipRuntime,
+            editOpen: false,
+            updating: false,
+            deleteOpen: false,
+            deleting: false,
+            tenantCode: 'default',
+            enterpriseCode: 'default',
+            selectSchema: vi.fn(),
+            setRecordSearch: vi.fn(),
+            setRecordFilters: vi.fn(),
+            setRecordPageNumber: vi.fn(),
+            setRecordPageSize: vi.fn(),
+            setRecordSort: vi.fn(),
+            setRecordSortOverride: vi.fn(),
+            setVisibleColumns: vi.fn(),
+            toggleFavoriteSchema: vi.fn(),
+            setSelectedRecordKeys: vi.fn(),
+            saveView: vi.fn(),
+            deleteView: vi.fn(),
+            applyView: vi.fn(),
+            beginCreate: vi.fn(),
+            cancelCreate: vi.fn(),
+            createRecord: vi.fn(),
+            selectRecord,
+            closeRecord: vi.fn(),
+            beginEdit: vi.fn(),
+            cancelEdit: vi.fn(),
+            updateRecord: vi.fn(),
+            beginDelete: vi.fn(),
+            cancelDelete: vi.fn(),
+            confirmDelete: vi.fn(),
+            retrySchemas: vi.fn(),
+            retryRecords: vi.fn(),
+          },
+        }}
+        component={component}
+      />,
+    );
+
+    expect(screen.queryByText('Available data types')).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole('columnheader', { name: 'Actions' }),
+    ).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'View' })).not.toBeInTheDocument();
+    expect(screen.getByText('Web Content Management System')).toBeVisible();
+    expect(screen.getByRole('heading', { name: 'Websites' })).toBeVisible();
+    expect(screen.getByRole('button', { name: 'Websites help' })).toBeVisible();
+    expect(
+      screen.getByRole('link', { name: 'Open Websites documentation' }),
+    ).toHaveAttribute(
+      'href',
+      '/docs/capabilities/content-publishing/wcms-authoring-model#websites',
+    );
+    expect(screen.getByRole('cell', { name: 'axis-site' })).toBeVisible();
+    expect(selectRecord).not.toHaveBeenCalled();
+  });
+
+  it('shows selected record detail beneath the schema list', () => {
+    render(
+      <SchemaWorkbenchRenderer
+        actions={{
+          workbench: {
+            scope: {
+              kind: 'navigation',
+              label: 'Websites',
+              parentLabel: 'Web Content Management System',
+            },
+            schemas: [address],
+            schemasLoading: false,
+            selectedSchema: address,
+            selectedRecord: { code: 'axis-site', city: 'Dubai' },
+            records: [{ code: 'axis-site', city: 'Dubai' }],
+            recordSearch: '',
+            recordPageNumber: 1,
+            recordPageSize: 25,
+            recordTotalCount: 1,
+            recordSort: { field: 'code', direction: 'ASC' },
+            visibleColumns: ['code', 'city'],
+            favoriteSchemas: [],
+            recentSchemas: [],
+            selectedRecordKeys: [],
+            savedViews: [],
+            recordsLoading: false,
+            creating: false,
+            createOpen: false,
+            relationshipRuntime,
+            editOpen: false,
+            updating: false,
+            deleteOpen: false,
+            deleting: false,
+            tenantCode: 'default',
+            enterpriseCode: 'default',
+            selectSchema: vi.fn(),
+            setRecordSearch: vi.fn(),
+            setRecordFilters: vi.fn(),
+            setRecordPageNumber: vi.fn(),
+            setRecordPageSize: vi.fn(),
+            setRecordSort: vi.fn(),
+            setRecordSortOverride: vi.fn(),
+            setVisibleColumns: vi.fn(),
+            toggleFavoriteSchema: vi.fn(),
+            setSelectedRecordKeys: vi.fn(),
+            saveView: vi.fn(),
+            deleteView: vi.fn(),
+            applyView: vi.fn(),
+            beginCreate: vi.fn(),
+            cancelCreate: vi.fn(),
+            createRecord: vi.fn(),
+            selectRecord: vi.fn(),
+            closeRecord: vi.fn(),
+            beginEdit: vi.fn(),
+            cancelEdit: vi.fn(),
+            updateRecord: vi.fn(),
+            beginDelete: vi.fn(),
+            cancelDelete: vi.fn(),
+            confirmDelete: vi.fn(),
+            retrySchemas: vi.fn(),
+            retryRecords: vi.fn(),
+          },
+        }}
+        component={component}
+      />,
+    );
+
+    const table = screen.getByRole('table', { name: 'Address Records' });
+    const detailHeading = screen.getByRole('heading', { name: 'axis-site' });
+    expect(table.compareDocumentPosition(detailHeading)).toBe(
+      Node.DOCUMENT_POSITION_FOLLOWING,
+    );
   });
 });

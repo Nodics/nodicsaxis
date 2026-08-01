@@ -82,6 +82,16 @@ const authenticatedData = {
             moduleName: 'cms',
             operationId: 'cms.pending.count',
           },
+          workbenchTarget: {
+            moduleName: 'cms',
+            schemaName: 'cmsPage',
+          },
+          help: {
+            summary: 'Manage content pages and components.',
+            documentationRoute:
+              '/docs/capabilities/content-publishing/wcms-authoring-model',
+            documentationFragment: 'pages',
+          },
           requiredPermissions: ['cms.backoffice.view'],
         },
       ],
@@ -226,6 +236,16 @@ describe('Axis bootstrap clients', () => {
           moduleName: 'cms',
           operationId: 'cms.pending.count',
         },
+        workbenchTarget: {
+          moduleName: 'cms',
+          schemaName: 'cmsPage',
+        },
+        help: {
+          summary: 'Manage content pages and components.',
+          documentationRoute:
+            '/docs/capabilities/content-publishing/wcms-authoring-model',
+          documentationFragment: 'pages',
+        },
       }),
     ]);
   });
@@ -301,6 +321,82 @@ describe('Axis bootstrap clients', () => {
         route: '/content/admin',
       }),
     ]);
+  });
+
+  it('rejects unsafe schema-workbench navigation targets', async () => {
+    const request = vi.fn<typeof fetch>().mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          data: {
+            ...authenticatedData,
+            catalogue: {
+              cms: {
+                ...authenticatedData.catalogue.cms,
+                navigation: [
+                  {
+                    id: 'admin',
+                    label: 'CMS administration',
+                    route: '/content/admin',
+                    workbenchTarget: {
+                      moduleName: 'cms',
+                      schemaName: '../cmsPage',
+                    },
+                  },
+                ],
+              },
+            },
+          },
+        }),
+        { status: 200 },
+      ),
+    );
+    await expect(
+      loadAuthenticatedBootstrap(
+        'https://backoffice.example.com',
+        1,
+        'employee-access',
+        10_000,
+        request,
+      ),
+    ).rejects.toThrow(/workbench target schema is unsafe/i);
+  });
+
+  it('rejects unsafe navigation help documentation targets', async () => {
+    const request = vi.fn<typeof fetch>().mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          data: {
+            ...authenticatedData,
+            catalogue: {
+              cms: {
+                ...authenticatedData.catalogue.cms,
+                navigation: [
+                  {
+                    id: 'admin',
+                    label: 'CMS administration',
+                    route: '/content/admin',
+                    help: {
+                      summary: 'Unsafe help target.',
+                      documentationRoute: 'https://evil.example/docs',
+                    },
+                  },
+                ],
+              },
+            },
+          },
+        }),
+        { status: 200 },
+      ),
+    );
+    await expect(
+      loadAuthenticatedBootstrap(
+        'https://backoffice.example.com',
+        1,
+        'employee-access',
+        10_000,
+        request,
+      ),
+    ).rejects.toThrow(/application-relative route/i);
   });
 
   it('rejects orphaned and cyclic navigation even when backend validation is bypassed', async () => {

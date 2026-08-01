@@ -24,6 +24,7 @@ import type {
   AxisModuleCatalogEntry,
   AxisModuleConnection,
 } from '../bootstrap/publicBootstrap';
+import { WorkspaceHeading } from '../app/help/WorkspaceHelp';
 import { ShellIcon } from '../app/shell/ShellIcon';
 import { WorkspaceContainer } from '../app/shell/ShellPrimitives';
 import type { AxisRuntimeConfig } from '../runtime/runtimeConfig';
@@ -110,23 +111,21 @@ export function OpenApiDocumentationRenderer({
               spacing={1.5}
               sx={{ alignItems: { md: 'center' }, justifyContent: 'space-between' }}
             >
-              <Stack spacing={0.5}>
-                <Typography color="primary.dark" variant="overline">
-                  Live backend contract
-                </Typography>
-                <Typography component="h1" variant="h2">
-                  {reference.data?.title ?? 'Nodics API reference'}
-                </Typography>
-              </Stack>
-              <Button
-                component="a"
-                href={swaggerUrl}
-                rel="noopener noreferrer"
-                target="_blank"
-                variant="outlined"
-              >
-                Open interactive Swagger
-              </Button>
+              <WorkspaceHeading
+                actions={
+                  <Button
+                    component="a"
+                    href={swaggerUrl}
+                    rel="noopener noreferrer"
+                    target="_blank"
+                    variant="outlined"
+                  >
+                    Open interactive Swagger
+                  </Button>
+                }
+                eyebrow="Live backend contract"
+                title={reference.data?.title ?? 'Nodics API reference'}
+              />
             </Stack>
           </Box>
           <Box sx={{ bgcolor: 'action.hover', p: { xs: 1.5, md: 2 } }}>

@@ -20,6 +20,7 @@ import {
   selectModuleConnection,
   type AxisAuthenticatedBootstrap,
   type AxisModuleAvailability,
+  type AxisNavigationItem,
 } from '../../bootstrap/publicBootstrap';
 import type { AxisRuntimeConfig } from '../../runtime/runtimeConfig';
 import {
@@ -27,11 +28,13 @@ import {
   loadModuleHealthDetail,
   refreshModuleHealth,
 } from './api/moduleHealthClient';
+import { WorkspaceHeading } from '../../app/help/WorkspaceHelp';
 import { ModuleHealthTree } from './ModuleHealthTree';
 
 interface ModuleHealthRoutePageProps {
   readonly accessToken: string;
   readonly bootstrap: AxisAuthenticatedBootstrap;
+  readonly routeNavigation?: AxisNavigationItem | undefined;
   readonly runtime: AxisRuntimeConfig;
 }
 
@@ -274,15 +277,12 @@ export function ModuleHealthRoutePage(props: ModuleHealthRoutePageProps) {
   return (
     <WorkspaceContainer>
       <Stack component="section" spacing={3} aria-labelledby="module-health-title">
-        <Stack spacing={0.75}>
-          <Typography component="h1" id="module-health-title" variant="h2">
-            Module health
-          </Typography>
-          <Typography color="text.secondary">
-            Review registered Nodics modules and drill into their environment, server,
-            node, heartbeat, and readiness observations.
-          </Typography>
-        </Stack>
+        <WorkspaceHeading
+          description="Review registered Nodics modules and drill into their environment, server, node, heartbeat, and readiness observations."
+          help={props.routeNavigation?.help}
+          id="module-health-title"
+          title="Module health"
+        />
 
         <Grid container spacing={2}>
           {[

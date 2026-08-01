@@ -21,7 +21,11 @@ import { axisTokens } from '../axisTheme';
 import { AxisMark } from './AxisMark';
 import { navigationItemKey } from './navigationPreferences';
 import { ShellIcon } from './ShellIcon';
-import { availabilityLabel, type ShellNavigationGroup } from './shellNavigation';
+import {
+  availabilityLabel,
+  type ShellNavigationGroup,
+  type ShellNavigationItem,
+} from './shellNavigation';
 
 interface NavigationRailProps {
   readonly activePath: string;
@@ -47,18 +51,19 @@ export function NavigationRail({
   const [collapsedGroups, setCollapsedGroups] = useState<ReadonlySet<string>>(
     () => new Set(),
   );
+  const [collapsedItems, setCollapsedItems] = useState<ReadonlySet<string>>(
+    () => new Set(),
+  );
   const normalizedQuery = query.trim().toLocaleLowerCase();
   const visibleGroups = groups
     .map((group) => ({
       ...group,
-      items: group.items.filter((item) => {
-        const queryVisible =
-          normalizedQuery === '' ||
-          `${group.label} ${item.label} ${item.moduleName}`
-            .toLocaleLowerCase()
-            .includes(normalizedQuery);
-        return queryVisible;
-      }),
+      items: visibleNavigationItems(
+        group.items,
+        group.label,
+        normalizedQuery,
+        collapsedItems,
+      ),
     }))
     .filter((group) => group.items.length > 0);
 
@@ -197,6 +202,9 @@ export function NavigationRail({
                   {group.items.map((item) => {
                     const unavailable = item.availability === 'UNAVAILABLE';
                     const featureDisabled = item.featureState === 'DISABLED';
+                    const itemKey = navigationItemKey(item.moduleName, item.id);
+                    const itemExpanded =
+                      compact || normalizedQuery !== '' || !collapsedItems.has(itemKey);
                     const assistantItem =
                       item.id === 'assistant' && item.moduleName === 'aiAssistant';
                     const assistantActive =
@@ -319,37 +327,51 @@ export function NavigationRail({
                         sx={{ alignItems: 'center', display: 'flex' }}
                       >
                         <Box sx={{ flex: 1, minWidth: 0 }}>{navigationItem}</Box>
+                        {item.hasChildren ? (
+                          <Tooltip
+                            title={`${itemExpanded ? 'Collapse' : 'Expand'} ${item.label}`}
+                          >
+                            <IconButton
+                              aria-label={`${itemExpanded ? 'Collapse' : 'Expand'} ${item.label}`}
+                              aria-expanded={itemExpanded}
+                              disabled={unavailable || featureDisabled}
+                              size="small"
+                              sx={{ color: alpha('#ffffff', 0.56), mr: 0.25 }}
+                              onClick={() => {
+                                setCollapsedItems((current) => {
+                                  const next = new Set(current);
+                                  if (next.has(itemKey)) next.delete(itemKey);
+                                  else next.add(itemKey);
+                                  return next;
+                                });
+                              }}
+                            >
+                              <ShellIcon
+                                fontSize="small"
+                                name={itemExpanded ? 'chevron-up' : 'chevron-down'}
+                              />
+                            </IconButton>
+                          </Tooltip>
+                        ) : null}
                         {!item.local ? (
                           <Tooltip
                             title={
-                              favourites.has(
-                                navigationItemKey(item.moduleName, item.id),
-                              )
+                              favourites.has(itemKey)
                                 ? `Remove ${item.label} from favourites`
                                 : `Add ${item.label} to favourites`
                             }
                           >
                             <IconButton
                               aria-label={
-                                favourites.has(
-                                  navigationItemKey(item.moduleName, item.id),
-                                )
+                                favourites.has(itemKey)
                                   ? `Remove ${item.label} from favourites`
                                   : `Add ${item.label} to favourites`
                               }
-                              color={
-                                favourites.has(
-                                  navigationItemKey(item.moduleName, item.id),
-                                )
-                                  ? 'primary'
-                                  : 'inherit'
-                              }
+                              color={favourites.has(itemKey) ? 'primary' : 'inherit'}
                               size="small"
                               sx={{ color: alpha('#ffffff', 0.56), mr: 0.75 }}
                               onClick={() => {
-                                onToggleFavourite(
-                                  navigationItemKey(item.moduleName, item.id),
-                                );
+                                onToggleFavourite(itemKey);
                               }}
                             >
                               <Box
@@ -357,11 +379,7 @@ export function NavigationRail({
                                 component="span"
                                 sx={{ fontSize: 18, lineHeight: 1 }}
                               >
-                                {favourites.has(
-                                  navigationItemKey(item.moduleName, item.id),
-                                )
-                                  ? '★'
-                                  : '☆'}
+                                {favourites.has(itemKey) ? '★' : '☆'}
                               </Box>
                             </IconButton>
                           </Tooltip>
@@ -400,4 +418,48 @@ export function NavigationRail({
       </Box>
     </Stack>
   );
+}
+
+function visibleNavigationItems(
+  items: readonly ShellNavigationItem[],
+  groupLabel: string,
+  normalizedQuery: string,
+  collapsedItems: ReadonlySet<string>,
+): readonly ShellNavigationItem[] {
+  if (!normalizedQuery) {
+    const collapsedAncestors = new Set<string>();
+    return items.filter((item) => {
+      const parentKey = item.parentId
+        ? navigationItemKey(item.moduleName, item.parentId)
+        : undefined;
+      if (parentKey && collapsedAncestors.has(parentKey)) {
+        if (item.hasChildren) {
+          collapsedAncestors.add(navigationItemKey(item.moduleName, item.id));
+        }
+        return false;
+      }
+      if (
+        item.hasChildren &&
+        collapsedItems.has(navigationItemKey(item.moduleName, item.id))
+      ) {
+        collapsedAncestors.add(navigationItemKey(item.moduleName, item.id));
+      }
+      return true;
+    });
+  }
+  const byId = new Map(items.map((item) => [item.id, item]));
+  const visibleIds = new Set<string>();
+  items.forEach((item) => {
+    const matches = `${groupLabel} ${item.label} ${item.moduleName}`
+      .toLocaleLowerCase()
+      .includes(normalizedQuery);
+    if (!matches) return;
+    visibleIds.add(item.id);
+    let parentId = item.parentId;
+    while (parentId) {
+      visibleIds.add(parentId);
+      parentId = byId.get(parentId)?.parentId;
+    }
+  });
+  return items.filter((item) => visibleIds.has(item.id));
 }

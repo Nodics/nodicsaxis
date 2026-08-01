@@ -76,8 +76,8 @@
       "canonicalSource": "content/documentation/pages/frontend-technology-stack.md",
       "destinationRoute": "/docs/nodics-axis/technology-stack",
       "disposition": "migrated",
-      "sourceHash": "8abe85c340b862cd361d4aa147e28e9c88451c276a16f0bb0da6b8eeca676f62",
-      "wordCount": 1074,
+      "sourceHash": "cc6256eee8767787d59c5272e8218d429188eeadbb159154304baa409b54eb51",
+      "wordCount": 1186,
       "headings": [
         "Selected foundation",
         "State ownership",
@@ -258,8 +258,8 @@
       "canonicalSource": "content/documentation/pages/schema-workbench.md",
       "destinationRoute": "/docs/nodics-axis/schema-workbench",
       "disposition": "migrated",
-      "sourceHash": "6f8fda062c3d93dd46777f89a8bbdec22887d0ff4b8a8ed3a3aa7fd90427edfa",
-      "wordCount": 1621,
+      "sourceHash": "b9721406b029f7c7d3b3c8cb98e465c44bfbf3be7ddcf3ba9ac36d5036f8b5bb",
+      "wordCount": 1817,
       "headings": [
         "Implemented frontend behavior",
         "Request ownership",

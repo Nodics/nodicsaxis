@@ -1,7 +1,7 @@
 import { ThemeProvider } from '@mui/material/styles';
 import { render, screen } from '@testing-library/react';
 import { MemoryRouter } from 'react-router';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 
 import { createAxisTheme } from '../../../../../src/app/axisTheme';
 import type { CmsComponentContract } from '../../../../../src/cms/cmsContract';
@@ -118,5 +118,26 @@ describe('DocumentationArticleRenderer', () => {
 
     expect(container.querySelector('script')).toBeNull();
     expect(screen.queryByText('window.bad = true')).not.toBeInTheDocument();
+  });
+
+  it('scrolls to the requested documentation fragment after async content renders', async () => {
+    const scrollIntoView = vi.fn();
+    window.HTMLElement.prototype.scrollIntoView = scrollIntoView;
+
+    render(
+      <MemoryRouter initialEntries={['/docs/example#configure-safely']}>
+        <DocumentationArticleRenderer component={article} />
+      </MemoryRouter>,
+    );
+
+    expect(
+      await screen.findByRole('heading', { name: 'Configure safely' }),
+    ).toHaveAttribute('id', 'configure-safely');
+    await vi.waitFor(() => {
+      expect(scrollIntoView).toHaveBeenCalledWith({
+        behavior: 'smooth',
+        block: 'start',
+      });
+    });
   });
 });

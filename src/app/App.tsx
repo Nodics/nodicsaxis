@@ -96,6 +96,7 @@ export function App() {
         if (persistedLock) {
           setLockedReturnPath(persistedLock.returnPath);
           setLocked(true);
+          void navigate('/lock-screen', { replace: true });
         }
       })
       .catch(() => {
@@ -111,7 +112,7 @@ export function App() {
     return () => {
       active = false;
     };
-  }, [bootstrap, restoringSession, runtime]);
+  }, [bootstrap, navigate, restoringSession, runtime]);
 
   const lockScreen = useCallback(() => {
     if (!session || locked) return;
@@ -169,6 +170,16 @@ export function App() {
   const mediaManagementNavigation = authenticatedBootstrap?.navigation.find(
     (item) => item.id === 'media-management' && item.moduleName === 'media',
   );
+  const cmsWorkbenchNavigation = authenticatedBootstrap?.navigation.find(
+    (item) => item.id === 'cms' && item.moduleName === 'cms',
+  );
+  const normalizedWorkbenchPath = location.pathname.replace(/\/$/, '') || '/';
+  const currentCmsWorkbenchNavigation = authenticatedBootstrap?.navigation.find(
+    (item) =>
+      (item.route.replace(/\/$/, '') || '/') === normalizedWorkbenchPath &&
+      item.workbenchTarget,
+  );
+  const currentCmsWorkbenchSchema = currentCmsWorkbenchNavigation?.workbenchTarget;
   const page = (
     path: string,
     accessToken?: string,
@@ -296,6 +307,43 @@ export function App() {
       {content}
     </AppShell>
   );
+  const sessionFallback = (
+    <Navigate
+      replace
+      to={
+        session && !locked
+          ? composition.defaultAuthenticatedPage
+          : session
+            ? '/lock-screen'
+            : composition.defaultPublicPage
+      }
+    />
+  );
+  const cmsWorkbenchElement =
+    session &&
+    !locked &&
+    authenticatedBootstrap &&
+    cmsWorkbenchNavigation &&
+    currentCmsWorkbenchSchema
+      ? authenticatedShell(
+          ['UP', 'DEGRADED'].includes(cmsWorkbenchNavigation.availability) ? (
+            <WorkbenchRoutePage
+              accessToken={session.accessToken}
+              bootstrap={authenticatedBootstrap}
+              channel={composition.channel}
+              cmsBaseUrl={bootstrap.endpoints.cms}
+              employeeId={session.loginId}
+              locale={composition.locale}
+              routeNavigation={currentCmsWorkbenchNavigation}
+              routeSchema={currentCmsWorkbenchSchema}
+              runtime={runtime}
+              site={composition.site}
+            />
+          ) : (
+            <ModuleWorkspacePlaceholder item={cmsWorkbenchNavigation} />
+          ),
+        )
+      : sessionFallback;
 
   return (
     <Routes>
@@ -391,6 +439,7 @@ export function App() {
                   cmsBaseUrl={bootstrap.endpoints.cms}
                   employeeId={session.loginId}
                   locale={composition.locale}
+                  routeNavigation={workbenchNavigation}
                   runtime={runtime}
                   site={composition.site}
                 />
@@ -421,6 +470,7 @@ export function App() {
                 <ModuleHealthRoutePage
                   accessToken={session.accessToken}
                   bootstrap={authenticatedBootstrap}
+                  routeNavigation={moduleHealthNavigation}
                   runtime={runtime}
                 />
               ) : (
@@ -450,6 +500,7 @@ export function App() {
                 <ImportExportRoutePage
                   accessToken={session.accessToken}
                   bootstrap={authenticatedBootstrap}
+                  routeNavigation={importExportNavigation}
                   runtime={runtime}
                 />
               ) : (
@@ -534,12 +585,18 @@ export function App() {
           )
         }
       />
+      <Route path="/content" element={cmsWorkbenchElement} />
+      <Route path="/content/*" element={cmsWorkbenchElement} />
+      <Route path="/publishing" element={cmsWorkbenchElement} />
+      <Route path="/publishing/*" element={cmsWorkbenchElement} />
       {session && !locked && authenticatedBootstrap
         ? authenticatedBootstrap.navigation
             .filter(
               (item) =>
+                !item.route.startsWith('/content') &&
                 !item.route.startsWith('/docs') &&
                 !item.route.startsWith('/media-management') &&
+                !item.route.startsWith('/publishing') &&
                 ![
                   '/assistant',
                   '/schema-workbench',

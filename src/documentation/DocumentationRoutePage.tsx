@@ -13,6 +13,7 @@ import { useMemo } from 'react';
 
 import { CmsRoutePage } from '../app/CmsRoutePage';
 import { axisTokens } from '../app/axisTheme';
+import { WorkspaceHeading } from '../app/help/WorkspaceHelp';
 import { WorkspaceContainer } from '../app/shell/ShellPrimitives';
 import {
   selectModuleConnection,
@@ -174,15 +175,15 @@ function CmsDocumentationRoutePage(props: CmsDocumentationRoutePageProps) {
                   />
                 ) : null}
               </Stack>
-              <Typography component="h1" variant="h2">
-                {presentation?.title ?? 'Nodics documentation'}
-              </Typography>
-              <Typography color="text.secondary">
-                {status.data?.state === 'DISABLED'
-                  ? presentation?.disabledMessage
-                  : (presentation?.unavailableMessage ??
-                    'Checking documentation availability.')}
-              </Typography>
+              <WorkspaceHeading
+                description={
+                  status.data?.state === 'DISABLED'
+                    ? presentation?.disabledMessage
+                    : (presentation?.unavailableMessage ??
+                      'Checking documentation availability.')
+                }
+                title={presentation?.title ?? 'Nodics documentation'}
+              />
             </Stack>
 
             {status.isPending ? (

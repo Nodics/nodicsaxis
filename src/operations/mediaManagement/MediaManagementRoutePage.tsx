@@ -25,6 +25,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { type ReactNode, useEffect, useMemo, useState } from 'react';
 import { Link as RouterLink, useLocation } from 'react-router';
 
+import { WorkspaceHeading } from '../../app/help/WorkspaceHelp';
 import { WorkspaceContainer } from '../../app/shell/ShellPrimitives';
 import { ShellIcon } from '../../app/shell/ShellIcon';
 import { type AxisDataListingColumn } from '../../app/table/AxisDataListing';
@@ -2548,26 +2549,17 @@ export function MediaManagementRoutePage(props: MediaManagementRoutePageProps) {
     <WorkspaceContainer>
       <Stack spacing={3}>
         <Box>
-          <Typography
-            color="text.secondary"
-            sx={{ fontWeight: 800, letterSpacing: 4, textTransform: 'uppercase' }}
-            variant="overline"
-          >
-            Governed media operations
-          </Typography>
           <Stack
             direction={{ xs: 'column', md: 'row' }}
             spacing={2}
             sx={{ alignItems: { md: 'flex-end' }, justifyContent: 'space-between' }}
           >
-            <Box>
-              <Typography component="h1" variant="h2">
-                Media Management
-              </Typography>
-              <Typography color="text.secondary" variant="body1">
-                Govern media lifecycle, folders, usage, and delivery.
-              </Typography>
-            </Box>
+            <WorkspaceHeading
+              description="Govern media lifecycle, folders, usage, and delivery."
+              eyebrow="Governed media operations"
+              help={currentItem.help}
+              title="Media Management"
+            />
             <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap' }}>
               <Chip
                 color={connection ? 'success' : 'default'}

@@ -15,7 +15,8 @@ import {
   Typography,
 } from '@mui/material';
 import type { ReactNode } from 'react';
-import { Link as RouterLink } from 'react-router';
+import { useEffect } from 'react';
+import { Link as RouterLink, useLocation } from 'react-router';
 
 import { axisTokens } from '../../../../app/axisTheme';
 import { arrayProperty, stringProperty } from '../../shared/rendererProperties';
@@ -80,6 +81,22 @@ function safeImageSource(value: unknown): string | undefined {
   return /^data:image\/(?:jpeg|png);base64,[A-Za-z0-9+/=]+$/.test(value)
     ? value
     : undefined;
+}
+
+function fragmentId(hash: string): string | undefined {
+  if (!hash.startsWith('#') || hash.length < 2) return undefined;
+  try {
+    const decoded = decodeURIComponent(hash.slice(1));
+    return /^[A-Za-z0-9._:-]{1,128}$/.test(decoded) ? decoded : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+function scrollToDocumentationAnchor(anchor: string): void {
+  const target = document.getElementById(anchor);
+  if (!target) return;
+  target.scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
 
 function inlineContent(value: string): ReactNode {
@@ -300,6 +317,7 @@ function DocumentationBlockRenderer({
 }
 
 export function DocumentationArticleRenderer({ component }: CmsComponentRendererProps) {
+  const location = useLocation();
   const title = stringProperty(component, 'title', 'Documentation');
   const category = stringProperty(component, 'category');
   const audience = stringList(arrayProperty(component, 'audience'), 20);
@@ -332,6 +350,15 @@ export function DocumentationArticleRenderer({ component }: CmsComponentRenderer
           block.text === title
         ),
     );
+
+  useEffect(() => {
+    const anchor = fragmentId(location.hash);
+    if (!anchor) return;
+    const frame = window.requestAnimationFrame(() => {
+      scrollToDocumentationAnchor(anchor);
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [blocks, location.hash]);
 
   return (
     <Stack spacing={3}>
@@ -381,6 +408,11 @@ export function DocumentationArticleRenderer({ component }: CmsComponentRenderer
               <Link
                 href={`#${heading.anchor}`}
                 key={heading.anchor}
+                onClick={() => {
+                  window.requestAnimationFrame(() => {
+                    scrollToDocumentationAnchor(heading.anchor);
+                  });
+                }}
                 sx={{
                   ...readableLinkSx,
                   pl: Math.max(0, heading.level - 2) * 1.5,

@@ -28,6 +28,7 @@ export interface AssistantRendererController {
 }
 
 export interface WorkbenchRendererController {
+  readonly scope?: WorkbenchRendererScope | undefined;
   readonly schemas: readonly WorkbenchSchema[];
   readonly schemasError?: string | undefined;
   readonly schemasLoading: boolean;
@@ -91,6 +92,19 @@ export interface WorkbenchRendererController {
   readonly bulkDeleteSelected?: () => Promise<void>;
   readonly retrySchemas: () => void;
   readonly retryRecords: () => void;
+}
+
+export interface WorkbenchRendererScope {
+  readonly kind: 'global' | 'navigation';
+  readonly label?: string | undefined;
+  readonly parentLabel?: string | undefined;
+  readonly help?:
+    | {
+        readonly summary: string;
+        readonly documentationRoute?: string | undefined;
+        readonly documentationFragment?: string | undefined;
+      }
+    | undefined;
 }
 
 export interface MediaManagementRendererController {
