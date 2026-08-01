@@ -258,8 +258,8 @@
       "canonicalSource": "content/documentation/pages/schema-workbench.md",
       "destinationRoute": "/docs/nodics-axis/schema-workbench",
       "disposition": "migrated",
-      "sourceHash": "b9721406b029f7c7d3b3c8cb98e465c44bfbf3be7ddcf3ba9ac36d5036f8b5bb",
-      "wordCount": 1817,
+      "sourceHash": "1ad09d21de14dc70c82c62ca8ba691154344fa49df9259896db25a57b23f087f",
+      "wordCount": 1997,
       "headings": [
         "Implemented frontend behavior",
         "Request ownership",

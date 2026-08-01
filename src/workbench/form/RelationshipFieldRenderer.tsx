@@ -101,9 +101,7 @@ function relationshipResultsLabel(
   shown: number,
   total: number,
 ): string {
-  return template
-    .replace('{shown}', String(shown))
-    .replace('{total}', String(total));
+  return template.replace('{shown}', String(shown)).replace('{total}', String(total));
 }
 
 export function RelationshipFieldRenderer(props: RelationshipFieldRendererProps) {
@@ -261,10 +259,7 @@ export function RelationshipFieldRenderer(props: RelationshipFieldRendererProps)
           ) : null}
         </Stack>
         {selectOpen ? (
-          <Stack
-            aria-label={`${props.copy.selectExistingLabel} ${label}`}
-            spacing={1}
-          >
+          <Stack aria-label={`${props.copy.selectExistingLabel} ${label}`} spacing={1}>
             <Stack
               direction={{ xs: 'column', sm: 'row' }}
               spacing={1}
@@ -356,16 +351,19 @@ export function RelationshipFieldRenderer(props: RelationshipFieldRendererProps)
                         checked={checked}
                         disabled={props.disabled}
                         onChange={() => {
-                          const references =
-                            props.relationship.cardinality === 'ONE'
-                              ? checked
-                                ? []
-                                : [reference]
-                              : checked
-                                ? props.draft.references.filter(
-                                    (candidate) => candidate !== reference,
-                                  )
-                                : unique([...props.draft.references, reference]);
+                          if (props.relationship.cardinality === 'ONE') {
+                            props.onChange({
+                              ...props.draft,
+                              references: checked ? [] : [reference],
+                              pending: checked ? props.draft.pending : [],
+                            });
+                            return;
+                          }
+                          const references = checked
+                            ? props.draft.references.filter(
+                                (candidate) => candidate !== reference,
+                              )
+                            : unique([...props.draft.references, reference]);
                           props.onChange({ ...props.draft, references });
                         }}
                       />

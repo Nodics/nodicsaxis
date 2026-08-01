@@ -690,6 +690,118 @@ describe('WorkbenchRecordForm', () => {
     });
   });
 
+  it('replaces a pending one-to-one related draft when an existing reference is selected', async () => {
+    const user = userEvent.setup();
+    const submit = vi.fn();
+    const createRelated = vi.fn().mockResolvedValue({ code: 'newTenant' });
+    const loadRecords = vi.fn().mockResolvedValue([
+      {
+        code: 'qa',
+        description: 'QA tenant',
+      },
+    ]);
+    const queryClient = new QueryClient({
+      defaultOptions: { queries: { retry: false } },
+    });
+    const creatableTenantEnterprise: WorkbenchSchema = {
+      ...enterprise,
+      relationships: [
+        {
+          ...enterprise.relationships[0]!,
+          actions: ['SELECT_EXISTING', 'CREATE_RELATED'],
+        },
+      ],
+    };
+
+    render(
+      <QueryClientProvider client={queryClient}>
+        <WorkbenchRecordForm
+          cancelLabel="Cancel"
+          initialModel={{ code: 'defaultEnterprise', tenant: 'default' }}
+          relationshipCopy={relationshipCopy}
+          relationshipRuntime={{
+            schemas: [tenant],
+            queryScope: ['default'],
+            createRecord: createRelated,
+            loadRecords,
+          }}
+          saving={false}
+          savingLabel="Updating"
+          schema={creatableTenantEnterprise}
+          submitLabel="Update"
+          onCancel={vi.fn()}
+          onSubmit={submit}
+        />
+      </QueryClientProvider>,
+    );
+
+    await user.click(screen.getByRole('button', { name: 'Create related Tenant' }));
+    await user.type(screen.getAllByLabelText(/Code/)[1]!, 'newTenant');
+    await user.click(screen.getByRole('button', { name: 'Add to draft' }));
+
+    expect(screen.getByText('Pending create')).toBeVisible();
+    expect(screen.getByRole('button', { name: 'newTenant' })).toBeVisible();
+
+    await user.click(screen.getByRole('button', { name: 'Select existing' }));
+    await user.type(screen.getByLabelText('Search related records'), 'qa');
+
+    await waitFor(() =>
+      expect(loadRecords).toHaveBeenCalledWith(tenant, {
+        search: 'qa',
+        pageNumber: 1,
+        pageSize: 10,
+      }),
+    );
+    await user.click(screen.getByRole('checkbox', { name: 'qa - QA tenant' }));
+    expect(screen.queryByRole('button', { name: 'newTenant' })).not.toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Update' }));
+
+    expect(createRelated).not.toHaveBeenCalled();
+    expect(submit).toHaveBeenCalledWith({
+      code: 'defaultEnterprise',
+      tenant: 'qa',
+    });
+  });
+
+  it('submits the remaining one-to-many references after removing a selected reference', async () => {
+    const user = userEvent.setup();
+    const submit = vi.fn();
+    const queryClient = new QueryClient({
+      defaultOptions: { queries: { retry: false } },
+    });
+    render(
+      <QueryClientProvider client={queryClient}>
+        <WorkbenchRecordForm
+          cancelLabel="Cancel"
+          initialModel={{ code: 'DXB-OFFICE', contacts: ['DXB-PHONE', 'DXB-EMAIL'] }}
+          relationshipCopy={relationshipCopy}
+          relationshipRuntime={{
+            schemas: [address, contact],
+            queryScope: ['default'],
+            createRecord: vi.fn(),
+            loadRecords: vi.fn().mockResolvedValue([]),
+          }}
+          saving={false}
+          savingLabel="Updating"
+          schema={address}
+          submitLabel="Update"
+          onCancel={vi.fn()}
+          onSubmit={submit}
+        />
+      </QueryClientProvider>,
+    );
+
+    expect(screen.getByRole('button', { name: 'DXB-PHONE' })).toBeVisible();
+    expect(screen.getByRole('button', { name: 'DXB-EMAIL' })).toBeVisible();
+    await user.click(screen.getByRole('button', { name: 'Remove DXB-PHONE' }));
+    await user.click(screen.getByRole('button', { name: 'Update' }));
+
+    expect(submit).toHaveBeenCalledWith({
+      code: 'DXB-OFFICE',
+      contacts: ['DXB-EMAIL'],
+    });
+  });
+
   it('loads additional backend pages while selecting many related records', async () => {
     const user = userEvent.setup();
     const submit = vi.fn();
@@ -746,7 +858,9 @@ describe('WorkbenchRecordForm', () => {
     await user.type(screen.getByLabelText(/Code/), 'DXB-OFFICE');
     await user.click(screen.getByRole('button', { name: 'Select existing' }));
 
-    expect(await screen.findByText('Select one or more related records.')).toBeVisible();
+    expect(
+      await screen.findByText('Select one or more related records.'),
+    ).toBeVisible();
     expect(screen.getByText('1 shown from 2')).toBeVisible();
     await user.click(screen.getByRole('button', { name: 'Load more' }));
 

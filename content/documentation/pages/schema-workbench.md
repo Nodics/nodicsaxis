@@ -43,6 +43,14 @@ The authenticated `/schema-workbench` route:
 - consumes backend concurrency and aggregate-operation metadata without
   inventing browser-side business authority;
 - opens a complete permitted record detail view from the record table;
+- renders schema-declared reference values through one shared reference
+  renderer used by record details, schema listing tables, and
+  navigation-scoped schema workspaces;
+- keeps the selected parent record visible when a related record is opened, and
+  renders the related record detail below the current record instead of
+  redirecting to another schema workspace;
+- opens related values from both single-value and multi-value relationship
+  fields, including list-valued references displayed in schema table columns;
 - shows Edit only when the owning descriptor advertises Update;
 - initializes Update from the selected record while excluding managed and
   read-only fields from the mutation model;
@@ -99,6 +107,9 @@ The authenticated `/schema-workbench` route:
 - holds new related records as in-memory drafts until the parent is submitted;
 - creates drafted related records through their owning module and associates
   only the returned reference property;
+- replaces a one-to-one pending related draft when the employee chooses an
+  existing related record for the same relationship, so parent save does not
+  create an unused child record;
 - prevents duplicate references in a multi-value relationship;
 - bounds nested related creation by backend-advertised depth and stops cycles
   by falling back to selecting an existing record;
@@ -198,6 +209,12 @@ reference. If a later related creation or the parent save fails, the form stays
 open and the successful reference remains selected. Retrying therefore resumes
 from the failed step instead of creating the successful record again.
 
+For one-to-one relationships, selecting an existing target record clears any
+pending create draft for that relationship before submission. This keeps the
+frontend draft aligned with the backend `refSchema` contract: the parent stores
+only the selected reference value, and the owning module remains responsible for
+validating whether that reference is allowed.
+
 This recovery model avoids hidden deletion and unsafe compensation. It does not
 guarantee atomic commit across modules. Journeys that require strict atomicity
 must use a backend-owned domain operation or a transaction-capable workflow,
@@ -243,8 +260,11 @@ record formatting. Coverage also includes route-scoped schema workspaces that
 hide the global schema browser, nested shell navigation expansion and collapse,
 revision forwarding for Update and Delete, missing-revision rejection before
 network access, self-referential relationship cycle fallback, bounded nested
-relationship depth, full description tooltips, and five-word related-record
-summaries.
+relationship depth, full description tooltips, five-word related-record
+summaries, shared clickable reference rendering in details and tables, inline
+related-record details that preserve parent context, clearing stale one-to-one
+pending drafts when selecting an existing target, and preserving remaining
+one-to-many references when another selected reference is removed.
 
 The authenticated local acceptance journey additionally verifies schema
 discovery across active modules, bounded search, unauthenticated rejection,
