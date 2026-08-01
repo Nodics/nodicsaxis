@@ -1,4 +1,9 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import {
+  useMutation,
+  useQueries,
+  useQuery,
+  useQueryClient,
+} from '@tanstack/react-query';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useLocation } from 'react-router';
 
@@ -20,6 +25,7 @@ import {
   updateWorkbenchRecord,
 } from './api/workbenchClient';
 import type { WorkbenchFilterGroup, WorkbenchSchema } from './api/workbenchContracts';
+import type { WorkbenchRecordDetailPanel } from './detail/workbenchRecordDetailPanels';
 import {
   loadWorkbenchPreferences,
   saveWorkbenchPreferences,
@@ -27,6 +33,14 @@ import {
   type WorkbenchPreferences,
   type WorkbenchSavedView,
 } from './preferences/workbenchPreferences';
+import {
+  relatedRecordPanelFilter,
+  resolveWorkbenchDeepLinkTarget,
+  resolveWorkbenchRecordSort,
+  resolveWorkbenchRouteTarget,
+  schemaWithValidQueryCapabilities,
+  type WorkbenchRouteSchemaSelection,
+} from './workbenchRouteModel';
 
 interface WorkbenchRoutePageProps {
   readonly accessToken: string;
@@ -41,12 +55,6 @@ interface WorkbenchRoutePageProps {
   readonly site: string;
 }
 
-export interface WorkbenchRouteSchemaSelection {
-  readonly moduleName: string;
-  readonly schemaName: string;
-  readonly mode?: 'create' | undefined;
-}
-
 function workbenchRecordKey(
   record: Readonly<Record<string, unknown>>,
   index: number,
@@ -55,113 +63,6 @@ function workbenchRecordKey(
   return typeof identity === 'string' || typeof identity === 'number'
     ? String(identity)
     : `record-${String(index)}`;
-}
-
-export interface WorkbenchDeepLinkTarget {
-  readonly key: string;
-  readonly mode?: 'create' | undefined;
-  readonly schema: WorkbenchSchema;
-}
-
-export function resolveWorkbenchDeepLinkTarget(
-  search: string,
-  schemas: readonly WorkbenchSchema[],
-): WorkbenchDeepLinkTarget | undefined {
-  const parameters = new URLSearchParams(search);
-  const moduleName = parameters.get('module')?.trim();
-  const schemaName = parameters.get('schema')?.trim();
-  if (!moduleName || !schemaName) return undefined;
-  const schema = schemas.find(
-    (candidate) =>
-      candidate.moduleName === moduleName && candidate.schemaName === schemaName,
-  );
-  if (!schema) return undefined;
-  const requestedMode = parameters.get('mode')?.trim();
-  const mode =
-    requestedMode === 'create' && schema.operations.includes('create')
-      ? 'create'
-      : undefined;
-  return Object.freeze({
-    key: `${schema.moduleName}:${schema.schemaName}:${mode ?? 'browse'}`,
-    ...(mode ? { mode } : {}),
-    schema,
-  });
-}
-
-export function resolveWorkbenchRouteTarget(
-  routeSchema: WorkbenchRouteSchemaSelection | undefined,
-  schemas: readonly WorkbenchSchema[],
-): WorkbenchDeepLinkTarget | undefined {
-  if (!routeSchema) return undefined;
-  const schema = schemas.find(
-    (candidate) =>
-      candidate.moduleName === routeSchema.moduleName &&
-      candidate.schemaName === routeSchema.schemaName,
-  );
-  if (!schema) return undefined;
-  const mode =
-    routeSchema.mode === 'create' && schema.operations.includes('create')
-      ? 'create'
-      : undefined;
-  return Object.freeze({
-    key: `${schema.moduleName}:${schema.schemaName}:${mode ?? 'browse'}:route`,
-    ...(mode ? { mode } : {}),
-    schema,
-  });
-}
-
-export function schemaFieldNames(schema: WorkbenchSchema): ReadonlySet<string> {
-  return new Set(schema.fields.map((field) => field.name));
-}
-
-export function validWorkbenchSortFields(schema: WorkbenchSchema): readonly string[] {
-  const fieldNames = schemaFieldNames(schema);
-  return Object.freeze(
-    schema.queryCapabilities.sortableFields.filter((field) => fieldNames.has(field)),
-  );
-}
-
-export function resolveWorkbenchRecordSort(
-  schema: WorkbenchSchema | undefined,
-  preferred: AxisSort | undefined,
-): AxisSort {
-  if (!schema) return Object.freeze({ field: 'code', direction: 'ASC' });
-  const fieldNames = schemaFieldNames(schema);
-  const sortableFields = validWorkbenchSortFields(schema);
-  if (
-    preferred &&
-    fieldNames.has(preferred.field) &&
-    sortableFields.includes(preferred.field)
-  ) {
-    return preferred;
-  }
-  const defaultSort = schema.queryCapabilities.defaultSort;
-  if (fieldNames.has(defaultSort.field) && sortableFields.includes(defaultSort.field)) {
-    return defaultSort;
-  }
-  const fallback =
-    sortableFields[0] ??
-    schema.displayProperties.find((field) => fieldNames.has(field)) ??
-    (fieldNames.has(schema.displayProperty) ? schema.displayProperty : undefined) ??
-    schema.fields.find((field) => field.primary)?.name ??
-    schema.fields[0]?.name ??
-    defaultSort.field;
-  return Object.freeze({ field: fallback, direction: defaultSort.direction });
-}
-
-export function schemaWithValidQueryCapabilities(
-  schema: WorkbenchSchema,
-): WorkbenchSchema {
-  const sortableFields = validWorkbenchSortFields(schema);
-  const defaultSort = resolveWorkbenchRecordSort(schema, undefined);
-  return Object.freeze({
-    ...schema,
-    queryCapabilities: Object.freeze({
-      ...schema.queryCapabilities,
-      sortableFields,
-      defaultSort,
-    }),
-  });
 }
 
 export function WorkbenchRoutePage(props: WorkbenchRoutePageProps) {
@@ -193,10 +94,13 @@ export function WorkbenchRoutePage(props: WorkbenchRoutePageProps) {
   const [selectedRecordKeys, setSelectedRecordKeys] = useState<readonly string[]>([]);
   const consumedDeepLinkKey = useRef<string | undefined>(undefined);
   const queryClient = useQueryClient();
-  const updatePreferences = (next: WorkbenchPreferences) => {
-    setPreferences(next);
-    saveWorkbenchPreferences(preferenceScope, next);
-  };
+  const updatePreferences = useCallback(
+    (next: WorkbenchPreferences) => {
+      setPreferences(next);
+      saveWorkbenchPreferences(preferenceScope, next);
+    },
+    [preferenceScope],
+  );
   const configuration = useMemo(
     () => ({
       accessToken: props.accessToken,
@@ -222,6 +126,16 @@ export function WorkbenchRoutePage(props: WorkbenchRoutePageProps) {
   const recordConnection = normalizedSelectedSchema
     ? selectModuleConnection(props.bootstrap, normalizedSelectedSchema.moduleName)
     : undefined;
+  const routeParentLabel =
+    props.routeNavigation?.parentId !== undefined
+      ? props.bootstrap.navigation.find(
+          (item) =>
+            item.moduleName ===
+              (props.routeNavigation?.parentModuleName ??
+                props.routeNavigation?.moduleName) &&
+            item.id === props.routeNavigation?.parentId,
+        )?.label
+      : undefined;
   useEffect(() => {
     const timeout = globalThis.setTimeout(() => {
       setRecordSearch(recordSearchInput.trim());
@@ -270,6 +184,96 @@ export function WorkbenchRoutePage(props: WorkbenchRoutePageProps) {
       );
     },
   });
+  const detailPanelQueryInputs = useMemo(
+    () =>
+      (props.routeNavigation?.detailPanels ?? []).map((panel) => {
+        const schema = (schemas.data ?? []).find(
+          (candidate) =>
+            candidate.moduleName === panel.target.moduleName &&
+            candidate.schemaName === panel.target.schemaName,
+        );
+        const normalizedSchema = schema
+          ? schemaWithValidQueryCapabilities(schema)
+          : undefined;
+        const connection = normalizedSchema
+          ? selectModuleConnection(props.bootstrap, normalizedSchema.moduleName)
+          : undefined;
+        const filters = relatedRecordPanelFilter(selectedRecord, panel);
+        const enabled = Boolean(
+          selectedRecord &&
+          normalizedSchema &&
+          connection &&
+          (!panel.relation || filters),
+        );
+        return Object.freeze({
+          panel,
+          schema: normalizedSchema,
+          connection,
+          filters,
+          enabled,
+        });
+      }),
+    [
+      props.bootstrap,
+      props.routeNavigation?.detailPanels,
+      schemas.data,
+      selectedRecord,
+    ],
+  );
+  const detailPanelQueries = useQueries({
+    queries: detailPanelQueryInputs.map((input) => ({
+      enabled: input.enabled,
+      queryKey: [
+        'schema-workbench',
+        'related-records',
+        props.runtime.enterpriseCode,
+        input.panel.id,
+        input.schema?.moduleName,
+        input.schema?.schemaName,
+        JSON.stringify(input.filters ?? null),
+      ],
+      queryFn: ({ signal }) => {
+        if (!input.schema || !input.connection) {
+          throw new Error('The related schema module is unavailable');
+        }
+        return loadWorkbenchRecords(
+          input.connection,
+          input.schema,
+          configuration,
+          {
+            search: '',
+            ...(input.filters ? { filters: input.filters } : {}),
+            pageNumber: 1,
+            pageSize: Math.min(input.schema.queryCapabilities.defaultPageSize, 10),
+            sort: resolveWorkbenchRecordSort(input.schema, undefined),
+          },
+          fetch,
+          signal,
+        );
+      },
+    })),
+  });
+  const selectedRecordDetailPanels: readonly WorkbenchRecordDetailPanel[] = useMemo(
+    () =>
+      detailPanelQueryInputs.map((input, index) => {
+        const query = detailPanelQueries[index];
+        return Object.freeze({
+          panel: input.panel,
+          schema: input.schema,
+          page: query?.data,
+          loading: Boolean(query?.isLoading || query?.isFetching),
+          error:
+            query?.error instanceof Error
+              ? query.error.message
+              : input.enabled
+                ? undefined
+                : input.schema
+                  ? undefined
+                  : 'The related schema is not available',
+        });
+      }),
+    [detailPanelQueries, detailPanelQueryInputs],
+  );
   const createRecord = useMutation({
     mutationFn: (model: Readonly<Record<string, unknown>>) => {
       if (!normalizedSelectedSchema || !recordConnection) {
@@ -438,7 +442,15 @@ export function WorkbenchRoutePage(props: WorkbenchRoutePageProps) {
       });
       setSelectedSchema(normalizedSchema);
     },
-    [bulkDelete, createRecord, deleteImpact, deleteRecord, preferences, updateRecord],
+    [
+      bulkDelete,
+      createRecord,
+      deleteImpact,
+      deleteRecord,
+      preferences,
+      updatePreferences,
+      updateRecord,
+    ],
   );
   const deepLinkTarget = useMemo(
     () =>
@@ -449,9 +461,12 @@ export function WorkbenchRoutePage(props: WorkbenchRoutePageProps) {
   useEffect(() => {
     if (!deepLinkTarget || consumedDeepLinkKey.current === deepLinkTarget.key) return;
     consumedDeepLinkKey.current = deepLinkTarget.key;
-    selectWorkbenchSchema(deepLinkTarget.schema, {
-      openCreate: deepLinkTarget.mode === 'create',
-    });
+    const timeout = globalThis.setTimeout(() => {
+      selectWorkbenchSchema(deepLinkTarget.schema, {
+        openCreate: deepLinkTarget.mode === 'create',
+      });
+    }, 0);
+    return () => globalThis.clearTimeout(timeout);
   }, [deepLinkTarget, selectWorkbenchSchema]);
   const relationshipRuntime = useMemo(
     () => ({
@@ -526,14 +541,9 @@ export function WorkbenchRoutePage(props: WorkbenchRoutePageProps) {
             ? {
                 kind: 'navigation',
                 label: props.routeNavigation?.label,
-                parentLabel: props.routeNavigation?.parentId
-                  ? props.bootstrap.navigation.find(
-                      (item) =>
-                        item.moduleName === props.routeNavigation?.moduleName &&
-                        item.id === props.routeNavigation.parentId,
-                    )?.label
-                  : undefined,
+                parentLabel: routeParentLabel,
                 help: props.routeNavigation?.help,
+                detailPanels: props.routeNavigation?.detailPanels,
               }
             : { kind: 'global' },
           schemas: schemas.data ?? [],
@@ -567,6 +577,7 @@ export function WorkbenchRoutePage(props: WorkbenchRoutePageProps) {
           createOpen,
           relationshipRuntime,
           selectedRecord,
+          selectedRecordDetailPanels,
           editOpen,
           updateError: updateRecord.error?.message,
           updating: updateRecord.isPending,

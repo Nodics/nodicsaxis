@@ -1,7 +1,6 @@
 import {
   Alert,
   Box,
-  Button,
   Chip,
   CircularProgress,
   IconButton,
@@ -13,7 +12,7 @@ import {
   Typography,
 } from '@mui/material';
 import { useQuery } from '@tanstack/react-query';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo } from 'react';
 
 import { ShellIcon } from '../../../app/shell/ShellIcon';
 
@@ -176,6 +175,27 @@ function imageDimensionSummary(image: HTMLImageElement): string {
   return `Image summary: ${width} × ${height} px.`;
 }
 
+function loadLocalImageSummary(url: string): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const image = new Image();
+    image.onload = () => {
+      resolve(imageDimensionSummary(image));
+      image.onload = null;
+      image.onerror = null;
+    };
+    image.onerror = () => {
+      reject(
+        new Error(
+          'Local preview is unavailable for this image. Upload can continue if the file matches policy.',
+        ),
+      );
+      image.onload = null;
+      image.onerror = null;
+    };
+    image.src = url;
+  });
+}
+
 function authorizationHeaders(accessToken: string | undefined): HeadersInit {
   return accessToken?.trim() ? { Authorization: `Bearer ${accessToken.trim()}` } : {};
 }
@@ -295,18 +315,41 @@ export function MediaPreview(props: MediaPreviewProps) {
   const textTooLarge =
     isTextPreviewType(mimeType, extension) &&
     (sizeBytes ?? 0) > textPreviewMaximumBytes;
-  const [localObjectUrl, setLocalObjectUrl] = useState('');
-  const [localTextPreview, setLocalTextPreview] = useState('');
-  const [localSummary, setLocalSummary] = useState('');
-  const [localPreviewError, setLocalPreviewError] = useState('');
-  const [imageSummary, setImageSummary] = useState('');
-  const [remoteBlobPreviewUrl, setRemoteBlobPreviewUrl] = useState('');
-  const [remoteBlobPreviewError, setRemoteBlobPreviewError] = useState('');
-  const [remoteBlobPreviewLoading, setRemoteBlobPreviewLoading] = useState(false);
   const remoteTextPreview = useQuery({
     enabled: props.source === 'record' && textPreviewAllowed,
-    queryKey: ['axis', 'media', 'preview', remotePreviewUrl],
+    queryKey: ['axis', 'media', 'preview', 'text', remotePreviewUrl, accessToken],
     queryFn: () => loadRemoteTextMediaPreview(remotePreviewUrl!, accessToken),
+    staleTime: 60_000,
+  });
+  const remoteBlobPreview = useQuery({
+    enabled:
+      props.source === 'record' &&
+      Boolean(remotePreviewUrl) &&
+      (previewableImage || previewablePdf) &&
+      access !== 'PUBLIC',
+    queryKey: ['axis', 'media', 'preview', 'blob', remotePreviewUrl, accessToken],
+    queryFn: () => loadRemoteBlobMediaPreview(remotePreviewUrl!, accessToken),
+    staleTime: 60_000,
+  });
+  const localTextPreview = useQuery({
+    enabled: Boolean(localFile) && textPreviewAllowed,
+    queryKey: [
+      'axis',
+      'media',
+      'preview',
+      'local-text',
+      localFile?.name,
+      localFile?.size,
+      localFile?.lastModified,
+      extension,
+    ],
+    queryFn: async () => {
+      const content = await localFile!.text();
+      return Object.freeze({
+        content: content || 'The selected text file is empty.',
+        summary: localStructureSummary(content, extension),
+      });
+    },
     staleTime: 60_000,
   });
   const previewTitle = previewableImage
@@ -327,6 +370,36 @@ export function MediaPreview(props: MediaPreviewProps) {
         : access === 'PUBLIC'
           ? 'Governed delivery is not available for this item yet.'
           : 'Private media requires authenticated delivery before Axis can open it directly.';
+  const localObjectUrl = useMemo(
+    () =>
+      localFile &&
+      (mimeType.startsWith('image/') || isPdfPreviewType(mimeType, extension))
+        ? URL.createObjectURL(localFile)
+        : '',
+    [extension, localFile, mimeType],
+  );
+  useEffect(
+    () => () => {
+      if (localObjectUrl) URL.revokeObjectURL(localObjectUrl);
+    },
+    [localObjectUrl],
+  );
+  const remoteBlobPreviewUrl = useMemo(
+    () => (remoteBlobPreview.data ? URL.createObjectURL(remoteBlobPreview.data) : ''),
+    [remoteBlobPreview.data],
+  );
+  useEffect(
+    () => () => {
+      if (remoteBlobPreviewUrl) URL.revokeObjectURL(remoteBlobPreviewUrl);
+    },
+    [remoteBlobPreviewUrl],
+  );
+  const localImageSummary = useQuery({
+    enabled: props.source === 'file' && previewableImage && Boolean(localObjectUrl),
+    queryKey: ['axis', 'media', 'preview', 'local-image', localObjectUrl],
+    queryFn: () => loadLocalImageSummary(localObjectUrl),
+    staleTime: 60_000,
+  });
   const imageUrl =
     props.source === 'file'
       ? localObjectUrl
@@ -338,116 +411,10 @@ export function MediaPreview(props: MediaPreviewProps) {
       : (remoteBlobPreviewUrl ?? '') ||
         (access === 'PUBLIC' ? props.deliveryUrl : undefined);
   const textContent =
-    props.source === 'file' ? localTextPreview : (remoteTextPreview.data ?? '');
+    props.source === 'file'
+      ? (localTextPreview.data?.content ?? '')
+      : (remoteTextPreview.data ?? '');
   const showPreviewHeading = props.source === 'file';
-
-  useEffect(() => {
-    setRemoteBlobPreviewUrl('');
-    setRemoteBlobPreviewError('');
-    setRemoteBlobPreviewLoading(false);
-    if (
-      props.source !== 'record' ||
-      !remotePreviewUrl ||
-      !(previewableImage || previewablePdf) ||
-      access === 'PUBLIC'
-    ) {
-      return undefined;
-    }
-
-    let cancelled = false;
-    let objectUrl = '';
-    setRemoteBlobPreviewLoading(true);
-    loadRemoteBlobMediaPreview(remotePreviewUrl, accessToken)
-      .then((blob) => {
-        if (cancelled) return;
-        objectUrl = URL.createObjectURL(blob);
-        setRemoteBlobPreviewUrl(objectUrl);
-      })
-      .catch((error: unknown) => {
-        if (cancelled) return;
-        setRemoteBlobPreviewError(
-          error instanceof Error
-            ? error.message
-            : 'Media preview could not be loaded through governed delivery.',
-        );
-      })
-      .finally(() => {
-        if (!cancelled) setRemoteBlobPreviewLoading(false);
-      });
-
-    return () => {
-      cancelled = true;
-      if (objectUrl) URL.revokeObjectURL(objectUrl);
-    };
-  }, [
-    access,
-    accessToken,
-    previewableImage,
-    previewablePdf,
-    remotePreviewUrl,
-    props.source,
-  ]);
-
-  useEffect(() => {
-    setLocalObjectUrl('');
-    setLocalTextPreview('');
-    setLocalSummary('');
-    setLocalPreviewError('');
-    setImageSummary('');
-    if (!localFile) return undefined;
-
-    const needsObjectUrl =
-      mimeType.startsWith('image/') || isPdfPreviewType(mimeType, extension);
-    if (!needsObjectUrl) return undefined;
-
-    const objectUrl = URL.createObjectURL(localFile);
-    setLocalObjectUrl(objectUrl);
-    return () => URL.revokeObjectURL(objectUrl);
-  }, [extension, localFile, mimeType]);
-
-  useEffect(() => {
-    if (!localFile || !textPreviewAllowed) return undefined;
-    let cancelled = false;
-    localFile
-      .text()
-      .then((content) => {
-        if (cancelled) return;
-        setLocalTextPreview(content || 'The selected text file is empty.');
-        setLocalSummary(localStructureSummary(content, extension));
-      })
-      .catch(() => {
-        if (!cancelled)
-          setLocalPreviewError(
-            'Axis could not read a local text preview for this file.',
-          );
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [extension, localFile, textPreviewAllowed]);
-
-  useEffect(() => {
-    if (!previewableImage || !imageUrl) return undefined;
-    let cancelled = false;
-    const image = new Image();
-    image.onload = () => {
-      if (!cancelled && props.source === 'file')
-        setImageSummary(imageDimensionSummary(image));
-    };
-    image.onerror = () => {
-      if (!cancelled && props.source === 'file') {
-        setLocalPreviewError(
-          'Local preview is unavailable for this image. Upload can continue if the file matches policy.',
-        );
-      }
-    };
-    image.src = imageUrl;
-    return () => {
-      cancelled = true;
-      image.onload = null;
-      image.onerror = null;
-    };
-  }, [imageUrl, previewableImage, props.source]);
 
   return (
     <Box>
@@ -506,10 +473,14 @@ export function MediaPreview(props: MediaPreviewProps) {
         {props.policyIssue ? (
           <Alert severity="warning">{props.policyIssue}</Alert>
         ) : null}
-        {localSummary ? <Alert severity="info">{localSummary}</Alert> : null}
-        {imageSummary ? <Alert severity="info">{imageSummary}</Alert> : null}
+        {localTextPreview.data?.summary ? (
+          <Alert severity="info">{localTextPreview.data.summary}</Alert>
+        ) : null}
+        {localImageSummary.data ? (
+          <Alert severity="info">{localImageSummary.data}</Alert>
+        ) : null}
 
-        {remoteBlobPreviewLoading ? (
+        {remoteBlobPreview.isLoading || remoteBlobPreview.isFetching ? (
           <Stack
             direction="row"
             spacing={1.5}
@@ -526,8 +497,12 @@ export function MediaPreview(props: MediaPreviewProps) {
               Loading authenticated preview…
             </Typography>
           </Stack>
-        ) : remoteBlobPreviewError ? (
-          <Alert severity="warning">{remoteBlobPreviewError}</Alert>
+        ) : remoteBlobPreview.error ? (
+          <Alert severity="warning">
+            {remoteBlobPreview.error instanceof Error
+              ? remoteBlobPreview.error.message
+              : 'Media preview could not be loaded through governed delivery.'}
+          </Alert>
         ) : previewableImage && imageUrl ? (
           <Box
             component="img"
@@ -612,10 +587,15 @@ export function MediaPreview(props: MediaPreviewProps) {
           </Stack>
         )}
 
-        {localPreviewError ? (
-          <Alert severity="warning">{localPreviewError}</Alert>
+        {localTextPreview.error || localImageSummary.error ? (
+          <Alert severity="warning">
+            {localTextPreview.error instanceof Error
+              ? localTextPreview.error.message
+              : localImageSummary.error instanceof Error
+                ? localImageSummary.error.message
+                : 'Axis could not read a local preview for this file.'}
+          </Alert>
         ) : null}
-
       </Stack>
     </Box>
   );

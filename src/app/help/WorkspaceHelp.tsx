@@ -8,19 +8,7 @@ import {
 import type { ReactNode } from 'react';
 
 import { ShellIcon } from '../shell/ShellIcon';
-
-export interface AxisHelpMetadata {
-  readonly summary?: string | undefined;
-  readonly documentationRoute?: string | undefined;
-  readonly documentationFragment?: string | undefined;
-}
-
-export function documentationHref(help: AxisHelpMetadata | undefined): string | undefined {
-  if (!help?.documentationRoute) return undefined;
-  return help.documentationFragment
-    ? `${help.documentationRoute}#${help.documentationFragment}`
-    : help.documentationRoute;
-}
+import { documentationHref, type AxisHelpMetadata } from './workspaceHelpModel';
 
 export interface WorkspaceHelpActionsProps {
   readonly label: string;

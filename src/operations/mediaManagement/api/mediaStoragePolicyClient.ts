@@ -565,7 +565,7 @@ async function mutateMediaSetEntry(
   configuration: MediaStoragePolicyClientConfiguration,
   path: string,
   method: 'DELETE' | 'POST',
-  body: unknown | undefined,
+  body: unknown,
   failureMessage: string,
   fetchImplementation: typeof fetch,
 ): Promise<Record<string, unknown>> {

@@ -13,6 +13,7 @@ import {
   selectModuleConnection,
   type AxisAuthenticatedBootstrap,
   type AxisEmployeePolicy,
+  type AxisNavigationItem,
   type AxisPublicBootstrap,
 } from '../bootstrap/publicBootstrap';
 import { AssistantRoutePage } from '../assistant/AssistantRoutePage';
@@ -174,12 +175,12 @@ export function App() {
     (item) => item.id === 'cms' && item.moduleName === 'cms',
   );
   const normalizedWorkbenchPath = location.pathname.replace(/\/$/, '') || '/';
-  const currentCmsWorkbenchNavigation = authenticatedBootstrap?.navigation.find(
+  const currentWorkbenchNavigation = authenticatedBootstrap?.navigation.find(
     (item) =>
       (item.route.replace(/\/$/, '') || '/') === normalizedWorkbenchPath &&
       item.workbenchTarget,
   );
-  const currentCmsWorkbenchSchema = currentCmsWorkbenchNavigation?.workbenchTarget;
+  const currentWorkbenchSchema = currentWorkbenchNavigation?.workbenchTarget;
   const page = (
     path: string,
     accessToken?: string,
@@ -319,14 +320,18 @@ export function App() {
       }
     />
   );
-  const cmsWorkbenchElement =
+  const workbenchRouteElement = (navigationItem?: AxisNavigationItem) =>
     session &&
     !locked &&
     authenticatedBootstrap &&
-    cmsWorkbenchNavigation &&
-    currentCmsWorkbenchSchema
+    navigationItem &&
+    navigationItem.workbenchTarget
       ? authenticatedShell(
-          ['UP', 'DEGRADED'].includes(cmsWorkbenchNavigation.availability) ? (
+          ['UP', 'DEGRADED'].includes(navigationItem.availability) &&
+            selectModuleConnection(
+              authenticatedBootstrap,
+              navigationItem.workbenchTarget.moduleName,
+            ) ? (
             <WorkbenchRoutePage
               accessToken={session.accessToken}
               bootstrap={authenticatedBootstrap}
@@ -334,15 +339,19 @@ export function App() {
               cmsBaseUrl={bootstrap.endpoints.cms}
               employeeId={session.loginId}
               locale={composition.locale}
-              routeNavigation={currentCmsWorkbenchNavigation}
-              routeSchema={currentCmsWorkbenchSchema}
+              routeNavigation={navigationItem}
+              routeSchema={navigationItem.workbenchTarget}
               runtime={runtime}
               site={composition.site}
             />
           ) : (
-            <ModuleWorkspacePlaceholder item={cmsWorkbenchNavigation} />
+            <ModuleWorkspacePlaceholder item={navigationItem} />
           ),
         )
+      : sessionFallback;
+  const cmsWorkbenchElement =
+    cmsWorkbenchNavigation && currentWorkbenchSchema
+      ? workbenchRouteElement(currentWorkbenchNavigation)
       : sessionFallback;
 
   return (
@@ -612,7 +621,11 @@ export function App() {
               <Route
                 key={`${item.moduleName}:${item.id}`}
                 path={item.route}
-                element={authenticatedShell(<ModuleWorkspacePlaceholder item={item} />)}
+                element={
+                  item.workbenchTarget
+                    ? workbenchRouteElement(item)
+                    : authenticatedShell(<ModuleWorkspacePlaceholder item={item} />)
+                }
               />
             ))
         : null}

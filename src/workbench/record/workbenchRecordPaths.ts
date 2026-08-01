@@ -58,7 +58,9 @@ export function compactWorkbenchDraft(
   return model;
 }
 
-export function containerFieldNames(fields: readonly WorkbenchField[]): ReadonlySet<string> {
+export function containerFieldNames(
+  fields: readonly WorkbenchField[],
+): ReadonlySet<string> {
   return new Set(
     fields
       .map((field) => field.name)

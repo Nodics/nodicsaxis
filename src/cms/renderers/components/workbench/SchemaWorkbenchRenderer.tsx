@@ -55,6 +55,13 @@ function recordKey(record: WorkbenchRecord, index: number): string {
 
 const schemaBrowserPageSize = 20;
 const allSchemaModules = '__all__';
+const schemaHeaderChipSx = {
+  maxWidth: '100%',
+  '& .MuiChip-label': {
+    overflow: 'hidden',
+    textOverflow: 'ellipsis',
+  },
+};
 
 export function SchemaWorkbenchRenderer({
   component,
@@ -223,9 +230,10 @@ export function SchemaWorkbenchRenderer({
                   sx={{
                     alignItems: { sm: 'flex-start' },
                     justifyContent: 'space-between',
+                    minWidth: 0,
                   }}
                 >
-                  <Stack spacing={0.75} sx={{ minWidth: 0 }}>
+                  <Stack spacing={0.75} sx={{ flex: '1 1 auto', minWidth: 0 }}>
                     {scopedToNavigation && controller.scope?.parentLabel ? (
                       <Typography
                         color="text.secondary"
@@ -247,7 +255,11 @@ export function SchemaWorkbenchRenderer({
                       <Typography
                         component="h2"
                         variant="h5"
-                        sx={{ fontWeight: 750, minWidth: 0 }}
+                        sx={{
+                          fontWeight: 750,
+                          minWidth: 0,
+                          overflowWrap: 'anywhere',
+                        }}
                       >
                         {workspaceLabel}
                       </Typography>
@@ -259,12 +271,24 @@ export function SchemaWorkbenchRenderer({
                     <Stack
                       direction="row"
                       spacing={0.75}
-                      sx={{ alignItems: 'center', flexWrap: 'wrap' }}
+                      sx={{
+                        alignItems: 'center',
+                        flexWrap: 'wrap',
+                        maxWidth: '100%',
+                        minWidth: 0,
+                      }}
                       useFlexGap
                     >
                       <Chip
                         label={`${stringProperty(component, 'moduleLabel')}: ${selected.moduleName}`}
                         size="small"
+                        sx={schemaHeaderChipSx}
+                        variant="outlined"
+                      />
+                      <Chip
+                        label={`${stringProperty(component, 'schemaLabel', 'Schema')}: ${selected.schemaName}`}
+                        size="small"
+                        sx={schemaHeaderChipSx}
                         variant="outlined"
                       />
                       {selected.operations.map((operation) => (
@@ -272,7 +296,7 @@ export function SchemaWorkbenchRenderer({
                           key={operation}
                           label={operation}
                           size="small"
-                          sx={{ bgcolor: 'action.selected' }}
+                          sx={{ ...schemaHeaderChipSx, bgcolor: 'action.selected' }}
                         />
                       ))}
                     </Stack>
@@ -281,6 +305,7 @@ export function SchemaWorkbenchRenderer({
                     <Button
                       disabled={controller.createOpen}
                       startIcon={<ShellIcon name="add" />}
+                      sx={{ flexShrink: 0 }}
                       variant="contained"
                       onClick={controller.beginCreate}
                     >
@@ -435,68 +460,72 @@ export function SchemaWorkbenchRenderer({
                     </Alert>
                   ) : null}
                   {!controller.recordsLoading && !controller.recordsError ? (
-                    <AxisSchemaDataListing
-                      ariaLabel={`${selected.label} ${stringProperty(component, 'recordsLabel')}`}
-                      columnsLabel={stringProperty(
-                        component,
-                        'gridSettingsLabel',
-                        'Columns',
-                      )}
-                      defaultVisibleColumnKeys={columns.map((field) => field.name)}
-                      emptyMessage={stringProperty(component, 'noRecordsLabel')}
-                      exportFileName={`axis-${selected.moduleName}-${selected.schemaName}`}
-                      footer={
-                        controller.recordTotalCount > 0 ? (
-                          <TablePagination
-                            component="div"
-                            count={controller.recordTotalCount}
-                            page={Math.min(controller.recordPageNumber, pageCount) - 1}
-                            rowsPerPage={controller.recordPageSize}
-                            rowsPerPageOptions={
-                              selected.queryCapabilities.allowedPageSizes
-                            }
-                            sx={{
-                              border: 0,
-                              bgcolor: 'background.paper',
-                              '& .MuiToolbar-root': {
-                                minHeight: 52,
-                                px: 1.5,
-                              },
-                            }}
-                            onPageChange={(_event, page) =>
-                              controller.setRecordPageNumber(page + 1)
-                            }
-                            onRowsPerPageChange={(event) =>
-                              controller.setRecordPageSize(Number(event.target.value))
-                            }
-                          />
-                        ) : null
-                      }
-                      getRowKey={recordKey}
-                      leadingColumns={leadingRecordColumns}
-                      maxBodyHeight="100%"
-                      minTableWidth={Math.max(720, 220 + columns.length * 160)}
-                      records={records}
-                      selectedRowKey={
-                        controller.selectedRecord
-                          ? recordKey(controller.selectedRecord, 0)
-                          : undefined
-                      }
-                      schema={selected}
-                      sortOverride={controller.recordSortOverride}
-                      toolbarStart={
-                        <Typography color="text.secondary" variant="body2">
-                          {controller.recordTotalCount}{' '}
-                          {stringProperty(component, 'resultsLabel')}
-                        </Typography>
-                      }
-                      onColumnKeysChange={(columnKeys) =>
-                        controller.setVisibleColumns(columnKeys)
-                      }
-                      onRowClick={(record) => controller.selectRecord(record)}
-                      onSortOverrideChange={controller.setRecordSortOverride}
-                      visibleColumnKeys={controller.visibleColumns}
-                    />
+                    <Box sx={{ mt: 1.5 }}>
+                      <AxisSchemaDataListing
+                        ariaLabel={`${selected.label} ${stringProperty(component, 'recordsLabel')}`}
+                        columnsLabel={stringProperty(
+                          component,
+                          'gridSettingsLabel',
+                          'Columns',
+                        )}
+                        defaultVisibleColumnKeys={columns.map((field) => field.name)}
+                        emptyMessage={stringProperty(component, 'noRecordsLabel')}
+                        exportFileName={`axis-${selected.moduleName}-${selected.schemaName}`}
+                        footer={
+                          controller.recordTotalCount > 0 ? (
+                            <TablePagination
+                              component="div"
+                              count={controller.recordTotalCount}
+                              page={
+                                Math.min(controller.recordPageNumber, pageCount) - 1
+                              }
+                              rowsPerPage={controller.recordPageSize}
+                              rowsPerPageOptions={
+                                selected.queryCapabilities.allowedPageSizes
+                              }
+                              sx={{
+                                border: 0,
+                                bgcolor: 'background.paper',
+                                '& .MuiToolbar-root': {
+                                  minHeight: 52,
+                                  px: 1.5,
+                                },
+                              }}
+                              onPageChange={(_event, page) =>
+                                controller.setRecordPageNumber(page + 1)
+                              }
+                              onRowsPerPageChange={(event) =>
+                                controller.setRecordPageSize(Number(event.target.value))
+                              }
+                            />
+                          ) : null
+                        }
+                        getRowKey={recordKey}
+                        leadingColumns={leadingRecordColumns}
+                        maxBodyHeight="100%"
+                        minTableWidth={Math.max(720, 220 + columns.length * 160)}
+                        records={records}
+                        selectedRowKey={
+                          controller.selectedRecord
+                            ? recordKey(controller.selectedRecord, 0)
+                            : undefined
+                        }
+                        schema={selected}
+                        sortOverride={controller.recordSortOverride}
+                        toolbarStart={
+                          <Typography color="text.secondary" variant="body2">
+                            {controller.recordTotalCount}{' '}
+                            {stringProperty(component, 'resultsLabel')}
+                          </Typography>
+                        }
+                        onColumnKeysChange={(columnKeys) =>
+                          controller.setVisibleColumns(columnKeys)
+                        }
+                        onRowClick={(record) => controller.selectRecord(record)}
+                        onSortOverrideChange={controller.setRecordSortOverride}
+                        visibleColumnKeys={controller.visibleColumns}
+                      />
+                    </Box>
                   ) : null}
                   {controller.selectedRecordKeys.length > 0 ? (
                     <Alert
@@ -527,10 +556,7 @@ export function SchemaWorkbenchRenderer({
                   {controller.selectedRecord ? (
                     <Box
                       sx={{
-                        borderTop: 1,
-                        borderColor: 'divider',
-                        mt: 0.75,
-                        pt: 1.75,
+                        mt: 2,
                       }}
                     >
                       {controller.editOpen ? (
@@ -584,6 +610,7 @@ export function SchemaWorkbenchRenderer({
                           deleteLabel={stringProperty(component, 'deleteLabel')}
                           editLabel={stringProperty(component, 'editLabel')}
                           falseLabel={stringProperty(component, 'falseLabel')}
+                          detailPanels={controller.selectedRecordDetailPanels}
                           record={controller.selectedRecord}
                           schema={selected}
                           trueLabel={stringProperty(component, 'trueLabel')}

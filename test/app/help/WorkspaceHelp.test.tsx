@@ -4,14 +4,15 @@ import { describe, expect, it } from 'vitest';
 import {
   WorkspaceHeading,
   WorkspaceHelpActions,
-  documentationHref,
 } from '../../../src/app/help/WorkspaceHelp';
+import { documentationHref } from '../../../src/app/help/workspaceHelpModel';
 
 describe('Workspace help affordances', () => {
   it('builds bounded documentation links with optional fragments', () => {
     expect(
       documentationHref({
-        documentationRoute: '/docs/capabilities/content-publishing/wcms-authoring-model',
+        documentationRoute:
+          '/docs/capabilities/content-publishing/wcms-authoring-model',
         documentationFragment: 'websites',
       }),
     ).toBe('/docs/capabilities/content-publishing/wcms-authoring-model#websites');
@@ -23,7 +24,8 @@ describe('Workspace help affordances', () => {
       <WorkspaceHelpActions
         help={{
           summary: 'Manage CMS websites.',
-          documentationRoute: '/docs/capabilities/content-publishing/wcms-authoring-model',
+          documentationRoute:
+            '/docs/capabilities/content-publishing/wcms-authoring-model',
         }}
         label="Websites"
       />,
@@ -49,9 +51,10 @@ describe('Workspace help affordances', () => {
       />,
     );
 
-    expect(
-      screen.getByRole('heading', { name: 'Media Management' }),
-    ).toHaveAttribute('id', 'media-title');
+    expect(screen.getByRole('heading', { name: 'Media Management' })).toHaveAttribute(
+      'id',
+      'media-title',
+    );
     expect(screen.getByText('Governed media operations.')).toBeVisible();
     expect(screen.getByRole('button', { name: 'Media Management help' })).toBeVisible();
   });

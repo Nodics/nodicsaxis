@@ -17,6 +17,14 @@ const runtimeConfig = {
   assistantIdleTimeoutMs: 45_000,
 };
 
+function fetchInputUrl(input: Parameters<typeof fetch>[0]): string {
+  return typeof input === 'string'
+    ? input
+    : input instanceof URL
+      ? input.href
+      : input.url;
+}
+
 const publicBootstrap = {
   data: {
     contractVersion: 1,
@@ -242,6 +250,51 @@ const cmsPageWorkbenchSchema = {
   relationships: [],
 };
 
+const productItemWorkbenchSchema = {
+  moduleName: 'product',
+  schemaName: 'productItem',
+  label: 'Products',
+  description: 'Manage product records.',
+  displayProperty: 'itemCode',
+  displayProperties: ['itemCode', 'name'],
+  queryCapabilities: {
+    searchableFields: ['itemCode', 'name'],
+    sortableFields: ['itemCode'],
+    filterFields: [],
+    groupOperators: ['AND'],
+    textOperator: 'CONTAINS',
+    allowedPageSizes: [10],
+    defaultPageSize: 10,
+    maximumPageSize: 10,
+    defaultSort: { field: 'itemCode', direction: 'ASC' },
+  },
+  mutationMode: 'GENERATED_CRUD',
+  operations: ['search', 'read', 'create', 'update', 'delete'],
+  fields: [
+    {
+      name: 'itemCode',
+      label: 'Product',
+      type: 'string',
+      required: true,
+      readOnly: false,
+      primary: true,
+      description: 'Product item code.',
+      searchable: true,
+    },
+    {
+      name: 'name',
+      label: 'Name',
+      type: 'string',
+      required: false,
+      readOnly: false,
+      primary: false,
+      description: 'Product name.',
+      searchable: true,
+    },
+  ],
+  relationships: [],
+};
+
 const assistantPage = {
   ...validResolvedPage,
   path: '/assistant',
@@ -325,21 +378,14 @@ describe('employee login journey', () => {
     );
     document.cookie = 'nodics_axis_csrf=refresh-csrf; Path=/';
     const request = vi.fn<typeof fetch>().mockImplementation((input, options) => {
-      const url =
-        typeof input === 'string'
-          ? input
-          : input instanceof URL
-            ? input.href
-            : input.url;
+      const url = fetchInputUrl(input);
       if (url.includes('/bootstrap/public')) {
         return Promise.resolve(
           new Response(JSON.stringify(publicBootstrap), { status: 200 }),
         );
       }
       if (url.includes('/employee/browser/restore')) {
-        expect(new Headers(options?.headers).get('X-CSRF-Token')).toBe(
-          'refresh-csrf',
-        );
+        expect(new Headers(options?.headers).get('X-CSRF-Token')).toBe('refresh-csrf');
         return Promise.resolve(
           new Response(
             JSON.stringify({
@@ -474,7 +520,7 @@ describe('employee login journey', () => {
     ).toBeVisible();
     expect(
       request.mock.calls.some(([input]) =>
-        String(input).includes('/employee/browser/restore'),
+        fetchInputUrl(input).includes('/employee/browser/restore'),
       ),
     ).toBe(true);
   });
@@ -482,12 +528,7 @@ describe('employee login journey', () => {
   it('discovers modules, authenticates through Profile, and protects dashboard', async () => {
     window.history.pushState({}, '', '/login');
     const request = vi.fn<typeof fetch>().mockImplementation((input, options) => {
-      const url =
-        typeof input === 'string'
-          ? input
-          : input instanceof URL
-            ? input.href
-            : input.url;
+      const url = fetchInputUrl(input);
       if (url.includes('/bootstrap/public')) {
         return Promise.resolve(
           new Response(JSON.stringify(publicBootstrap), { status: 200 }),
@@ -545,6 +586,16 @@ describe('employee login journey', () => {
                       state: 'UP',
                     },
                   ],
+                  product: [
+                    {
+                      moduleName: 'product',
+                      instanceId: 'runtime-1',
+                      environment: 'startioLocal',
+                      clientCallable: true,
+                      endpoint: 'https://product.example.com/nodics/product',
+                      state: 'UP',
+                    },
+                  ],
                 },
                 catalogue: {
                   cms: {
@@ -589,10 +640,43 @@ describe('employee login journey', () => {
                       },
                     ],
                   },
+                  product: {
+                    enabled: true,
+                    category: 'commerce',
+                    icon: 'product',
+                    requiredPermissions: ['product.backoffice.read'],
+                    compatibility: { status: 'COMPATIBLE' },
+                    navigation: [
+                      {
+                        id: 'catalog-and-products',
+                        label: 'Catalog and Products',
+                        route: '/commerce/catalog',
+                        order: 410,
+                        requiredPermissions: ['product.backoffice.read'],
+                        workbenchTarget: {
+                          moduleName: 'product',
+                          schemaName: 'productItem',
+                        },
+                      },
+                      {
+                        id: 'products',
+                        parentId: 'catalog-and-products',
+                        label: 'Products',
+                        route: '/commerce/catalog/products',
+                        order: 416,
+                        requiredPermissions: ['product.backoffice.read'],
+                        workbenchTarget: {
+                          moduleName: 'product',
+                          schemaName: 'productItem',
+                        },
+                      },
+                    ],
+                  },
                 },
                 availability: {
                   cms: { state: 'UP' },
                   aiAssistant: { state: 'UP' },
+                  product: { state: 'UP' },
                 },
                 axisPolicy: {
                   contractVersion: 1,
@@ -631,8 +715,28 @@ describe('employee login journey', () => {
           ),
         );
       }
+      if (url.includes('/schema/workbench/productItem/records')) {
+        return Promise.resolve(
+          new Response(
+            JSON.stringify({
+              result: {
+                records: [{ itemCode: 'sku-1', name: 'Demo SKU' }],
+                totalCount: 1,
+                pageNumber: 1,
+                pageSize: 10,
+                sort: { field: 'itemCode', direction: 'ASC' },
+              },
+            }),
+            { status: 200 },
+          ),
+        );
+      }
       if (url.includes('/schema/workbench')) {
-        const schemas = url.includes('cms.example.com') ? [cmsPageWorkbenchSchema] : [];
+        const schemas = url.includes('cms.example.com')
+          ? [cmsPageWorkbenchSchema]
+          : url.includes('product.example.com')
+            ? [productItemWorkbenchSchema]
+            : [];
         return Promise.resolve(
           new Response(JSON.stringify({ result: { schemas } }), {
             status: 200,
@@ -696,7 +800,7 @@ describe('employee login journey', () => {
     document.cookie = 'nodics_axis_csrf=refresh-csrf; Path=/';
     rendered.unmount();
     window.history.pushState({}, '', '/content/pages');
-    render(
+    const restoredContent = render(
       <AppProviders runtimeConfig={runtimeConfig}>
         <App />
       </AppProviders>,
@@ -723,6 +827,19 @@ describe('employee login journey', () => {
       ),
     ).toBe(true);
 
+    restoredContent.unmount();
+    window.history.pushState({}, '', '/commerce/catalog/products');
+    render(
+      <AppProviders runtimeConfig={runtimeConfig}>
+        <App />
+      </AppProviders>,
+    );
+    expect(await screen.findByRole('heading', { name: 'Products' })).toBeVisible();
+    expect(
+      (await screen.findAllByRole('cell', { name: 'sku-1' })).length,
+    ).toBeGreaterThan(0);
+    expect(screen.queryByText('Module workspace')).not.toBeInTheDocument();
+
     await user.click(screen.getByRole('button', { name: 'Open employee menu' }));
     await user.click(screen.getByRole('menuitem', { name: 'Sign out' }));
     expect(await screen.findByLabelText(/Employee ID/)).toBeVisible();
@@ -735,13 +852,8 @@ describe('employee login journey', () => {
       'nodics-axis-screen-lock-v1',
       JSON.stringify({ locked: true, returnPath: '/dashboard' }),
     );
-    const request = vi.fn<typeof fetch>().mockImplementation((input, options) => {
-      const url =
-        typeof input === 'string'
-          ? input
-          : input instanceof URL
-            ? input.href
-            : input.url;
+    const request = vi.fn<typeof fetch>().mockImplementation((input) => {
+      const url = fetchInputUrl(input);
       if (url.includes('/bootstrap/public')) {
         return Promise.resolve(
           new Response(JSON.stringify(publicBootstrap), { status: 200 }),

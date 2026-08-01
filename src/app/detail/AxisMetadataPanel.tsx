@@ -11,6 +11,7 @@ export interface AxisMetadataField {
 
 export interface AxisMetadataPanelProps {
   readonly actions?: ReactNode | undefined;
+  readonly children?: ReactNode | undefined;
   readonly fields: readonly AxisMetadataField[];
   readonly notice?: string | undefined;
   readonly title?: ReactNode | undefined;
@@ -18,6 +19,7 @@ export interface AxisMetadataPanelProps {
 
 export function AxisMetadataPanel({
   actions,
+  children,
   fields,
   notice,
   title = 'Metadata',
@@ -47,45 +49,48 @@ export function AxisMetadataPanel({
             </Stack>
           ) : null}
         </Stack>
-        <Grid container spacing={1.25}>
-          {fields.map((field) => (
-            <Grid key={field.key} size={{ xs: 12, sm: field.fullWidth ? 12 : 6 }}>
-              <Box
-                sx={{
-                  bgcolor: 'background.paper',
-                  border: 1,
-                  borderColor: 'divider',
-                  borderRadius: 1.5,
-                  minHeight: '100%',
-                  p: 1.25,
-                }}
-              >
-                <Typography
-                  color="text.secondary"
+        {fields.length > 0 ? (
+          <Grid container spacing={1.25}>
+            {fields.map((field) => (
+              <Grid key={field.key} size={{ xs: 12, sm: field.fullWidth ? 12 : 6 }}>
+                <Box
                   sx={{
-                    fontSize: '0.68rem',
-                    fontWeight: 800,
-                    letterSpacing: 0.9,
-                    textTransform: 'uppercase',
+                    bgcolor: 'background.paper',
+                    border: 1,
+                    borderColor: 'divider',
+                    borderRadius: 1.5,
+                    minHeight: '100%',
+                    p: 1.25,
                   }}
                 >
-                  {field.label}
-                </Typography>
-                <Typography
-                  component="div"
-                  sx={{
-                    fontFamily: field.monospace ? 'monospace' : undefined,
-                    fontSize: field.monospace ? '0.82rem' : undefined,
-                    mt: 0.5,
-                    overflowWrap: 'anywhere',
-                  }}
-                >
-                  {field.value}
-                </Typography>
-              </Box>
-            </Grid>
-          ))}
-        </Grid>
+                  <Typography
+                    color="text.secondary"
+                    sx={{
+                      fontSize: '0.68rem',
+                      fontWeight: 800,
+                      letterSpacing: 0.9,
+                      textTransform: 'uppercase',
+                    }}
+                  >
+                    {field.label}
+                  </Typography>
+                  <Typography
+                    component="div"
+                    sx={{
+                      fontFamily: field.monospace ? 'monospace' : undefined,
+                      fontSize: field.monospace ? '0.82rem' : undefined,
+                      mt: 0.5,
+                      overflowWrap: 'anywhere',
+                    }}
+                  >
+                    {field.value}
+                  </Typography>
+                </Box>
+              </Grid>
+            ))}
+          </Grid>
+        ) : null}
+        {children}
         {notice ? (
           <Alert severity="info" sx={{ py: 0.5 }}>
             {notice}

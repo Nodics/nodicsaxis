@@ -94,9 +94,7 @@ function nodeText(value: ReactNode): string {
   return '';
 }
 
-function numericColumnWidth<TRecord>(
-  column: AxisDataListingColumn<TRecord>,
-): number {
+function numericColumnWidth<TRecord>(column: AxisDataListingColumn<TRecord>): number {
   if (typeof column.width === 'number') {
     return Math.max(column.width, column.minWidth ?? 0);
   }

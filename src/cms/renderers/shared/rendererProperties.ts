@@ -1,5 +1,5 @@
 import type { CmsComponentContract } from '../../cmsContract';
-import type { AxisHelpMetadata } from '../../../app/help/WorkspaceHelp';
+import type { AxisHelpMetadata } from '../../../app/help/workspaceHelpModel';
 
 export function stringProperty(
   component: CmsComponentContract,
@@ -61,14 +61,18 @@ export function helpProperty(
       documentationRoute.startsWith('//') ||
       documentationRoute.includes('://'))
   ) {
-    throw new Error(`${component.code}.${name}.documentationRoute must be a documentation route`);
+    throw new Error(
+      `${component.code}.${name}.documentationRoute must be a documentation route`,
+    );
   }
   if (
     documentationFragment !== undefined &&
     (typeof documentationFragment !== 'string' ||
       !/^[A-Za-z0-9._:-]{1,128}$/.test(documentationFragment))
   ) {
-    throw new Error(`${component.code}.${name}.documentationFragment must be a safe fragment`);
+    throw new Error(
+      `${component.code}.${name}.documentationFragment must be a safe fragment`,
+    );
   }
   return Object.freeze({
     summary,

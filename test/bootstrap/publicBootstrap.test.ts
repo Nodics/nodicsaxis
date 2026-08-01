@@ -86,6 +86,21 @@ const authenticatedData = {
             moduleName: 'cms',
             schemaName: 'cmsPage',
           },
+          detailPanels: [
+            {
+              id: 'slots',
+              label: 'Slots',
+              target: {
+                moduleName: 'cms',
+                schemaName: 'cmsSlot',
+              },
+              relation: {
+                sourceField: 'code',
+                targetField: 'pageCode',
+                cardinality: 'MANY',
+              },
+            },
+          ],
           help: {
             summary: 'Manage content pages and components.',
             documentationRoute:
@@ -240,6 +255,22 @@ describe('Axis bootstrap clients', () => {
           moduleName: 'cms',
           schemaName: 'cmsPage',
         },
+        detailPanels: [
+          {
+            id: 'slots',
+            label: 'Slots',
+            order: 0,
+            target: {
+              moduleName: 'cms',
+              schemaName: 'cmsSlot',
+            },
+            relation: {
+              sourceField: 'code',
+              targetField: 'pageCode',
+              cardinality: 'MANY',
+            },
+          },
+        ],
         help: {
           summary: 'Manage content pages and components.',
           documentationRoute:
@@ -433,6 +464,61 @@ describe('Axis bootstrap clients', () => {
         ),
       ).rejects.toThrow(/orphan|cycle/iu);
     }
+  });
+
+  it('accepts bounded cross-module navigation parents from backend catalogue', async () => {
+    const request = vi.fn<typeof fetch>().mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          data: {
+            ...authenticatedData,
+            catalogue: {
+              commerce: {
+                ...authenticatedData.catalogue.cms,
+                navigation: [
+                  {
+                    id: 'commerce-operations',
+                    label: 'Commerce Operations',
+                    route: '/commerce/operations',
+                  },
+                ],
+              },
+              pricing: {
+                ...authenticatedData.catalogue.cms,
+                navigation: [
+                  {
+                    id: 'pricing',
+                    label: 'Pricing',
+                    route: '/commerce/operations/pricing',
+                    parentId: 'commerce-operations',
+                    parentModuleName: 'commerce',
+                  },
+                ],
+              },
+            },
+          },
+        }),
+        { status: 200 },
+      ),
+    );
+
+    const bootstrap = await loadAuthenticatedBootstrap(
+      'https://backoffice.example.com',
+      1,
+      'employee-access',
+      10_000,
+      request,
+    );
+
+    expect(bootstrap.navigation).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          id: 'pricing',
+          parentId: 'commerce-operations',
+          parentModuleName: 'commerce',
+        }),
+      ]),
+    );
   });
 
   it('rejects unsafe or incompatible employee idle policies', async () => {

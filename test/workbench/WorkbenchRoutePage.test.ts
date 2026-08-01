@@ -4,9 +4,10 @@ import {
   resolveWorkbenchRecordSort,
   resolveWorkbenchDeepLinkTarget,
   resolveWorkbenchRouteTarget,
+  relatedRecordPanelFilter,
   schemaWithValidQueryCapabilities,
   type WorkbenchDeepLinkTarget,
-} from '../../src/workbench/WorkbenchRoutePage';
+} from '../../src/workbench/workbenchRouteModel';
 import type { WorkbenchSchema } from '../../src/workbench/api/workbenchContracts';
 
 function schema(
@@ -184,6 +185,36 @@ describe('resolveWorkbenchRecordSort', () => {
     expect(schemaWithValidQueryCapabilities(employee).queryCapabilities).toMatchObject({
       sortableFields: ['employeeId'],
       defaultSort: { field: 'employeeId', direction: 'ASC' },
+    });
+  });
+});
+
+describe('relatedRecordPanelFilter', () => {
+  it('maps backend-declared source and target fields into a generic query filter', () => {
+    expect(
+      relatedRecordPanelFilter(
+        { itemCode: 'sku-1000' },
+        {
+          id: 'product-media',
+          label: 'Product media',
+          order: 0,
+          target: { moduleName: 'product', schemaName: 'productMedia' },
+          relation: {
+            sourceField: 'itemCode',
+            targetField: 'itemCode',
+            cardinality: 'MANY',
+          },
+        },
+      ),
+    ).toEqual({
+      operator: 'AND',
+      items: [
+        {
+          field: 'itemCode',
+          operator: 'EQUALS',
+          value: 'sku-1000',
+        },
+      ],
     });
   });
 });

@@ -102,7 +102,9 @@ function flattenHierarchy(
 ): readonly ShellNavigationItem[] {
   const byParent = new Map<string | undefined, ShellNavigationItem[]>();
   items.forEach((item) => {
-    const parent = item.parentId;
+    const parent = item.parentId
+      ? navigationParentKey(item.parentModuleName ?? item.moduleName, item.parentId)
+      : undefined;
     byParent.set(parent, [...(byParent.get(parent) ?? []), item]);
   });
   byParent.forEach((children) => {
@@ -113,12 +115,16 @@ function flattenHierarchy(
   });
   const flattened: ShellNavigationItem[] = [];
   const append = (item: ShellNavigationItem, depth: number) => {
-    const children = byParent.get(item.id) ?? [];
+    const children = byParent.get(navigationParentKey(item.moduleName, item.id)) ?? [];
     flattened.push({ ...item, depth, hasChildren: children.length > 0 });
     children.forEach((child) => append(child, depth + 1));
   };
   (byParent.get(undefined) ?? []).forEach((item) => append(item, 0));
   return flattened;
+}
+
+export function navigationParentKey(moduleName: string, id: string): string {
+  return `${moduleName}:${id}`;
 }
 
 export function availabilityLabel(state: AxisModuleAvailability): string {

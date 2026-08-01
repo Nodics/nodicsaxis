@@ -22,7 +22,7 @@ import {
   Typography,
 } from '@mui/material';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { type ReactNode, useEffect, useMemo, useState } from 'react';
+import { type ReactNode, useCallback, useMemo, useState } from 'react';
 import { Link as RouterLink, useLocation } from 'react-router';
 
 import { WorkspaceHeading } from '../../app/help/WorkspaceHelp';
@@ -72,10 +72,7 @@ import { loadImportHistoryForMediaCode } from '../importExport/api/dataReleaseCl
 import type { ImportRunSummary } from '../importExport/api/dataReleaseContracts';
 import { MediaFolderPolicyActionsPanel } from './components/folders/MediaFolderPolicyActionsPanel';
 import { MediaFolderPolicyImpactPanel } from './components/folders/MediaFolderPolicyImpactPanel';
-import {
-  formatRetentionDays,
-  mediaFolderSummary,
-} from './components/folders/mediaFolderDetails';
+import { formatRetentionDays } from './components/folders/mediaFolderDetails';
 import {
   MediaMetadataViewer,
   type MediaMetadataField,
@@ -83,7 +80,6 @@ import {
 import { MediaPreview } from './components/MediaPreview';
 import { MediaUploadWizard } from './components/MediaUploadWizard';
 import {
-  displayValue,
   formatBytes,
   humanize,
   numberValue,
@@ -631,18 +627,21 @@ function MediaSetEntriesPanel(props: {
     reorderMutation.isPending || primaryMutation.isPending || removeMutation.isPending;
   const operationError =
     reorderMutation.error ?? primaryMutation.error ?? removeMutation.error;
-  const moveEntry = (entryCode: string, direction: -1 | 1) => {
-    const index = sortedEntries.findIndex(
-      (entry) => textValue(entry, 'code') === entryCode,
-    );
-    const nextIndex = index + direction;
-    if (index < 0 || nextIndex < 0 || nextIndex >= sortedEntries.length) return;
-    const entryCodes = sortedEntries.map((entry) => textValue(entry, 'code'));
-    const [entry] = entryCodes.splice(index, 1);
-    if (!entry || entry === '—') return;
-    entryCodes.splice(nextIndex, 0, entry);
-    reorderMutation.mutate(entryCodes);
-  };
+  const moveEntry = useCallback(
+    (entryCode: string, direction: -1 | 1) => {
+      const index = sortedEntries.findIndex(
+        (entry) => textValue(entry, 'code') === entryCode,
+      );
+      const nextIndex = index + direction;
+      if (index < 0 || nextIndex < 0 || nextIndex >= sortedEntries.length) return;
+      const entryCodes = sortedEntries.map((entry) => textValue(entry, 'code'));
+      const [entry] = entryCodes.splice(index, 1);
+      if (!entry || entry === '—') return;
+      entryCodes.splice(nextIndex, 0, entry);
+      reorderMutation.mutate(entryCodes);
+    },
+    [reorderMutation, sortedEntries],
+  );
   const entryFieldRenderers = useMemo<
     Readonly<Record<string, AxisSchemaFieldRenderer>>
   >(
@@ -731,7 +730,14 @@ function MediaSetEntriesPanel(props: {
           },
         },
       ]),
-    [busy, canOperate, sortedEntries.length],
+    [
+      busy,
+      canOperate,
+      moveEntry,
+      primaryMutation,
+      removeMutation,
+      sortedEntries.length,
+    ],
   );
   const defaultEntryColumnKeys = useMemo(
     () =>
@@ -1468,7 +1474,7 @@ function SchemaRecordManagementPanel(props: {
   readonly configuration: WorkbenchClientConfiguration;
   readonly connection: ReturnType<typeof selectModuleConnection>;
   readonly mode: MediaRecordCrudMode;
-  readonly onChanged: (record?: WorkbenchRecord | undefined) => void;
+  readonly onChanged: (record?: WorkbenchRecord) => void;
   readonly onModeChange: (mode: MediaRecordCrudMode) => void;
   readonly record?: WorkbenchRecord | undefined;
   readonly schema: WorkbenchSchema;
@@ -2160,15 +2166,19 @@ export function MediaManagementRoutePage(props: MediaManagementRoutePageProps) {
   );
   const [recordPage, setRecordPage] = useState(0);
   const [recordRowsPerPage, setRecordRowsPerPage] = useState(10);
-  const [recordSortOverride, setRecordSortOverride] = useState<AxisSort>();
+  const [recordSortOverrides, setRecordSortOverrides] = useState<
+    Record<string, AxisSort | undefined>
+  >({});
   const [recordColumnKeysByWorkspace, setRecordColumnKeysByWorkspace] = useState<
     Record<string, readonly string[]>
   >({});
   const [selectedRecordCode, setSelectedRecordCode] = useState<string>();
-  const [mediaFolderCrudMode, setMediaFolderCrudMode] =
-    useState<MediaRecordCrudMode>('none');
-  const [schemaRecordCrudMode, setSchemaRecordCrudMode] =
-    useState<MediaRecordCrudMode>('none');
+  const [mediaFolderCrudModes, setMediaFolderCrudModes] = useState<
+    Record<string, MediaRecordCrudMode | undefined>
+  >({});
+  const [schemaRecordCrudModes, setSchemaRecordCrudModes] = useState<
+    Record<string, MediaRecordCrudMode | undefined>
+  >({});
   const [mediaWorkspaceSection, setMediaWorkspaceSection] = useState<
     'upload' | 'records'
   >('records');
@@ -2188,29 +2198,33 @@ export function MediaManagementRoutePage(props: MediaManagementRoutePageProps) {
     [props.bootstrap.navigation],
   );
   const currentItem = findCurrentItem(mediaNavigation, location.pathname);
-  const currentItemId = currentItem?.id;
-  useEffect(() => {
-    setRecordSortOverride(undefined);
-    setMediaFolderCrudMode('none');
-    setSchemaRecordCrudMode('none');
-  }, [currentItemId]);
-  const configuration: WorkbenchClientConfiguration = useMemo(
-    () => ({
-      accessToken: props.accessToken,
-      enterpriseCode:
-        currentItemId === 'media' && validEnterpriseCode(mediaEnterpriseCode)
-          ? mediaEnterpriseCode.trim() || props.runtime.enterpriseCode
-          : props.runtime.enterpriseCode,
-      timeoutMs: props.runtime.requestTimeoutMs,
-    }),
-    [
-      currentItemId,
-      mediaEnterpriseCode,
-      props.accessToken,
-      props.runtime.enterpriseCode,
-      props.runtime.requestTimeoutMs,
-    ],
-  );
+  const currentItemId = currentItem?.id ?? 'media';
+  const mediaFolderCrudMode = mediaFolderCrudModes[currentItemId] ?? 'none';
+  const schemaRecordCrudMode = schemaRecordCrudModes[currentItemId] ?? 'none';
+  const recordSortOverride = recordSortOverrides[currentItemId];
+  const setMediaFolderCrudMode = (mode: MediaRecordCrudMode) =>
+    setMediaFolderCrudModes((current) => ({
+      ...current,
+      [currentItemId]: mode,
+    }));
+  const setSchemaRecordCrudMode = (mode: MediaRecordCrudMode) =>
+    setSchemaRecordCrudModes((current) => ({
+      ...current,
+      [currentItemId]: mode,
+    }));
+  const setRecordSortOverride = (sort: AxisSort | undefined) =>
+    setRecordSortOverrides((current) => ({
+      ...current,
+      [currentItemId]: sort,
+    }));
+  const configuration: WorkbenchClientConfiguration = {
+    accessToken: props.accessToken,
+    enterpriseCode:
+      currentItemId === 'media' && validEnterpriseCode(mediaEnterpriseCode)
+        ? mediaEnterpriseCode.trim() || props.runtime.enterpriseCode
+        : props.runtime.enterpriseCode,
+    timeoutMs: props.runtime.requestTimeoutMs,
+  };
   const childItems = mediaNavigation.filter(
     (item) => item.parentId === 'media-management',
   );
@@ -2383,15 +2397,13 @@ export function MediaManagementRoutePage(props: MediaManagementRoutePageProps) {
   const totalRecordCount = records.data?.totalCount ?? visibleRecords.length;
   const effectiveRecordPage = recordPage;
   const pagedRecords = visibleRecords;
-  const selectedRecord = useMemo(() => {
-    if (currentItemId === 'media' && !selectedRecordCode) return undefined;
-    return (
-      visibleRecords.find(
-        (record) =>
-          typeof record.code === 'string' && record.code === selectedRecordCode,
-      ) ?? (currentItemId === 'media' ? undefined : visibleRecords[0])
-    );
-  }, [currentItemId, visibleRecords, selectedRecordCode]);
+  const selectedRecord =
+    currentItemId === 'media' && !selectedRecordCode
+      ? undefined
+      : (visibleRecords.find(
+          (record) =>
+            typeof record.code === 'string' && record.code === selectedRecordCode,
+        ) ?? (currentItemId === 'media' ? undefined : visibleRecords[0]));
   const recordColumnStateKey = currentItemId ?? 'none';
   const defaultRecordColumnKeys =
     recordWorkspaceConfiguration?.columns.map((column) => column.field) ?? [];

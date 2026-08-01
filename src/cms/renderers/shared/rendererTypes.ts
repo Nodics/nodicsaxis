@@ -3,6 +3,7 @@ import type { ReactNode } from 'react';
 import type { AxisSort } from '../../../app/table/axisTableSorting';
 import type { AssistantPresentationState } from '../../../assistant/presentation/assistantPresentationContracts';
 import type { AxisAuthenticatedBootstrap } from '../../../bootstrap/publicBootstrap';
+import type { AxisNavigationDetailPanel } from '../../../bootstrap/publicBootstrap';
 import type { AxisRuntimeConfig } from '../../../runtime/runtimeConfig';
 import type {
   WorkbenchFilterGroup,
@@ -12,6 +13,7 @@ import type {
 } from '../../../workbench/api/workbenchContracts';
 import type { WorkbenchSavedView } from '../../../workbench/preferences/workbenchPreferences';
 import type { WorkbenchRelationshipRuntime } from '../../../workbench/form/WorkbenchRelationshipRuntime';
+import type { WorkbenchRecordDetailPanel } from '../../../workbench/detail/workbenchRecordDetailPanels';
 import type { CmsComponentContract, CmsPageContract } from '../../cmsContract';
 
 export interface AssistantRendererController {
@@ -53,6 +55,9 @@ export interface WorkbenchRendererController {
   readonly createOpen: boolean;
   readonly relationshipRuntime: WorkbenchRelationshipRuntime;
   readonly selectedRecord?: WorkbenchRecord | undefined;
+  readonly selectedRecordDetailPanels?:
+    | readonly WorkbenchRecordDetailPanel[]
+    | undefined;
   readonly editOpen: boolean;
   readonly updateError?: string | undefined;
   readonly updating: boolean;
@@ -105,6 +110,7 @@ export interface WorkbenchRendererScope {
         readonly documentationFragment?: string | undefined;
       }
     | undefined;
+  readonly detailPanels?: readonly AxisNavigationDetailPanel[] | undefined;
 }
 
 export interface MediaManagementRendererController {

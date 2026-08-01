@@ -20,6 +20,7 @@ import { alpha } from '@mui/material/styles';
 import { axisTokens } from '../axisTheme';
 import { AxisMark } from './AxisMark';
 import { navigationItemKey } from './navigationPreferences';
+import { navigationParentKey } from './shellNavigation';
 import { ShellIcon } from './ShellIcon';
 import {
   availabilityLabel,
@@ -430,7 +431,7 @@ function visibleNavigationItems(
     const collapsedAncestors = new Set<string>();
     return items.filter((item) => {
       const parentKey = item.parentId
-        ? navigationItemKey(item.moduleName, item.parentId)
+        ? navigationItemKey(item.parentModuleName ?? item.moduleName, item.parentId)
         : undefined;
       if (parentKey && collapsedAncestors.has(parentKey)) {
         if (item.hasChildren) {
@@ -447,19 +448,28 @@ function visibleNavigationItems(
       return true;
     });
   }
-  const byId = new Map(items.map((item) => [item.id, item]));
+  const byId = new Map(
+    items.map((item) => [navigationParentKey(item.moduleName, item.id), item]),
+  );
   const visibleIds = new Set<string>();
   items.forEach((item) => {
     const matches = `${groupLabel} ${item.label} ${item.moduleName}`
       .toLocaleLowerCase()
       .includes(normalizedQuery);
     if (!matches) return;
-    visibleIds.add(item.id);
+    visibleIds.add(navigationParentKey(item.moduleName, item.id));
     let parentId = item.parentId;
+    let parentModuleName = item.parentModuleName ?? item.moduleName;
     while (parentId) {
-      visibleIds.add(parentId);
-      parentId = byId.get(parentId)?.parentId;
+      const parentKey = navigationParentKey(parentModuleName, parentId);
+      visibleIds.add(parentKey);
+      const parent = byId.get(parentKey);
+      parentId = parent?.parentId;
+      parentModuleName =
+        parent?.parentModuleName ?? parent?.moduleName ?? parentModuleName;
     }
   });
-  return items.filter((item) => visibleIds.has(item.id));
+  return items.filter((item) =>
+    visibleIds.has(navigationParentKey(item.moduleName, item.id)),
+  );
 }

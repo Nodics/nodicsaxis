@@ -8,7 +8,7 @@ import {
   Typography,
 } from '@mui/material';
 import { useMutation } from '@tanstack/react-query';
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { Link as RouterLink } from 'react-router';
 
 import { selectModuleConnection } from '../../../../bootstrap/publicBootstrap';
@@ -33,7 +33,7 @@ export interface MediaFolderPolicyActionsPanelProps {
   readonly connection: ModuleConnection;
   readonly folderSchema: WorkbenchSchema;
   readonly mode: 'create' | 'delete' | 'edit' | 'none';
-  readonly onChanged: (record?: WorkbenchRecord | undefined) => void;
+  readonly onChanged: (record?: WorkbenchRecord) => void;
   readonly onModeChange: (mode: 'create' | 'delete' | 'edit' | 'none') => void;
   readonly record?: WorkbenchRecord | undefined;
 }
@@ -55,6 +55,15 @@ function parseOptionalNonNegativeInteger(value: string): number | undefined {
 export function MediaFolderPolicyActionsPanel(
   props: MediaFolderPolicyActionsPanelProps,
 ) {
+  return (
+    <MediaFolderPolicyActionsPanelBody
+      key={textValue(props.record, 'code')}
+      {...props}
+    />
+  );
+}
+
+function MediaFolderPolicyActionsPanelBody(props: MediaFolderPolicyActionsPanelProps) {
   const [access, setAccess] = useState(textValue(props.record, 'access'));
   const [maximumFileSizeBytes, setMaximumFileSizeBytes] = useState(
     numericInputValue(props.record, 'maximumFileSizeBytes'),
@@ -62,11 +71,6 @@ export function MediaFolderPolicyActionsPanel(
   const [retentionDays, setRetentionDays] = useState(
     numericInputValue(props.record, 'retentionDays'),
   );
-  useEffect(() => {
-    setAccess(textValue(props.record, 'access'));
-    setMaximumFileSizeBytes(numericInputValue(props.record, 'maximumFileSizeBytes'));
-    setRetentionDays(numericInputValue(props.record, 'retentionDays'));
-  }, [props.record]);
 
   const mutation = useMutation({
     mutationFn: (model: {

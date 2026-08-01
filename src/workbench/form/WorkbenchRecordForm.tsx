@@ -213,7 +213,7 @@ export function WorkbenchRecordForm(props: WorkbenchRecordFormProps) {
           }
         }
         if (references.length > 0 || relationship.required) {
-          (model as Record<string, unknown>)[relationship.field] =
+          model[relationship.field] =
             relationship.cardinality === 'ONE' ? references[0] : references;
         }
       }

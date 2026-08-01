@@ -344,6 +344,7 @@ describe('SchemaWorkbenchRenderer', () => {
     expect(screen.getByRole('columnheader', { name: 'Code' })).toBeVisible();
     expect(screen.getByRole('cell', { name: 'DXB-OFFICE' })).toBeVisible();
     expect(screen.getByRole('cell', { name: 'Dubai' })).toBeVisible();
+    expect(screen.getByText('Schema: address')).toBeVisible();
     expect(screen.getByRole('button', { name: 'Create Address' })).toBeEnabled();
     await user.click(screen.getByRole('button', { name: 'Code' }));
     expect(setRecordSortOverride).toHaveBeenCalledWith({
@@ -651,6 +652,7 @@ describe('SchemaWorkbenchRenderer', () => {
     expect(screen.queryByRole('button', { name: 'View' })).not.toBeInTheDocument();
     expect(screen.getByText('Web Content Management System')).toBeVisible();
     expect(screen.getByRole('heading', { name: 'Websites' })).toBeVisible();
+    expect(screen.getByText('Schema: address')).toBeVisible();
     expect(screen.getByRole('button', { name: 'Websites help' })).toBeVisible();
     expect(
       screen.getByRole('link', { name: 'Open Websites documentation' }),
@@ -676,6 +678,34 @@ describe('SchemaWorkbenchRenderer', () => {
             schemasLoading: false,
             selectedSchema: address,
             selectedRecord: { code: 'axis-site', city: 'Dubai' },
+            selectedRecordDetailPanels: [
+              {
+                panel: {
+                  id: 'slots',
+                  label: 'Slots',
+                  order: 0,
+                  target: {
+                    moduleName: 'cms',
+                    schemaName: 'address',
+                  },
+                  relation: {
+                    sourceField: 'code',
+                    targetField: 'pageCode',
+                    cardinality: 'MANY',
+                  },
+                  summary: 'Slots assigned to the selected page or site.',
+                },
+                schema: address,
+                page: {
+                  records: [{ code: 'header-slot', city: 'Dubai' }],
+                  totalCount: 1,
+                  pageNumber: 1,
+                  pageSize: 10,
+                  sort: { field: 'code', direction: 'ASC' },
+                },
+                loading: false,
+              },
+            ],
             records: [{ code: 'axis-site', city: 'Dubai' }],
             recordSearch: '',
             recordPageNumber: 1,
@@ -734,5 +764,11 @@ describe('SchemaWorkbenchRenderer', () => {
     expect(table.compareDocumentPosition(detailHeading)).toBe(
       Node.DOCUMENT_POSITION_FOLLOWING,
     );
+    expect(screen.getByRole('heading', { name: 'Slots' })).toBeVisible();
+    expect(
+      screen.getByText('Slots assigned to the selected page or site.'),
+    ).toBeVisible();
+    expect(screen.getByRole('table', { name: 'Slots related records' })).toBeVisible();
+    expect(screen.getByRole('cell', { name: 'header-slot' })).toBeVisible();
   });
 });

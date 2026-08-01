@@ -75,4 +75,43 @@ describe('Axis shell navigation composition', () => {
     ]);
     expect(operations?.items[0]?.hasChildren).toBe(true);
   });
+
+  it('places explicit cross-module children below their backend-owned parent', () => {
+    const group = { id: 'commerce', label: 'Commerce', order: 300 };
+    const groups = composeShellNavigation([
+      {
+        id: 'commerce-operations',
+        label: 'Commerce Operations',
+        route: '/commerce/operations',
+        order: 500,
+        moduleName: 'gComm',
+        category: 'commerce',
+        icon: 'commerce',
+        availability: 'UP',
+        group,
+      },
+      {
+        id: 'pricing',
+        parentId: 'commerce-operations',
+        parentModuleName: 'gComm',
+        label: 'Pricing',
+        route: '/commerce/operations/pricing',
+        order: 520,
+        moduleName: 'pricing',
+        category: 'commerce',
+        icon: 'pricing',
+        availability: 'UP',
+        group,
+      },
+    ]);
+
+    const commerce = groups.find((entry) => entry.id === 'commerce');
+    expect(
+      commerce?.items.map((item) => [item.moduleName, item.id, item.depth]),
+    ).toEqual([
+      ['gComm', 'commerce-operations', 0],
+      ['pricing', 'pricing', 1],
+    ]);
+    expect(commerce?.items[0]?.hasChildren).toBe(true);
+  });
 });

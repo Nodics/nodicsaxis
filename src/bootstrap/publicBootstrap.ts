@@ -46,6 +46,21 @@ export interface AxisWorkbenchTarget {
   readonly mode?: 'create' | undefined;
 }
 
+export interface AxisNavigationDetailPanelRelation {
+  readonly sourceField: string;
+  readonly targetField: string;
+  readonly cardinality?: 'ONE' | 'MANY' | undefined;
+}
+
+export interface AxisNavigationDetailPanel {
+  readonly id: string;
+  readonly label: string;
+  readonly summary?: string | undefined;
+  readonly order: number;
+  readonly target: AxisWorkbenchTarget;
+  readonly relation?: AxisNavigationDetailPanelRelation | undefined;
+}
+
 export interface AxisNavigationHelp {
   readonly summary: string;
   readonly documentationRoute?: string | undefined;
@@ -63,12 +78,14 @@ export interface AxisNavigationItem {
   readonly availability: AxisModuleAvailability;
   readonly labelKey?: string | undefined;
   readonly parentId?: string | undefined;
+  readonly parentModuleName?: string | undefined;
   readonly group?: AxisNavigationGroup | undefined;
   readonly perspectives?: readonly string[] | undefined;
   readonly contexts?: readonly string[] | undefined;
   readonly featureState?: AxisNavigationFeatureState | undefined;
   readonly badgeProvider?: AxisNavigationBadgeProvider | undefined;
   readonly workbenchTarget?: AxisWorkbenchTarget | undefined;
+  readonly detailPanels?: readonly AxisNavigationDetailPanel[] | undefined;
   readonly help?: AxisNavigationHelp | undefined;
 }
 
@@ -206,6 +223,14 @@ function optionalText(value: unknown, name: string): string | undefined {
   return value === undefined ? undefined : text(value, name);
 }
 
+function safeModuleName(value: unknown, name: string): string {
+  const parsed = text(value, name);
+  if (!/^[A-Za-z][A-Za-z0-9_-]{0,127}$/.test(parsed)) {
+    throw new Error(`${name} is unsafe`);
+  }
+  return parsed;
+}
+
 function navigationFeatureState(value: unknown): AxisNavigationFeatureState {
   if (value === undefined) return 'ACTIVE';
   if (
@@ -277,6 +302,78 @@ function parseWorkbenchTarget(
     schemaName,
     ...(mode === undefined ? {} : { mode }),
   });
+}
+
+function parseNavigationDetailPanelRelation(
+  value: unknown,
+  moduleName: string,
+): AxisNavigationDetailPanelRelation | undefined {
+  if (value === undefined) return undefined;
+  const relation = record(value, `${moduleName} navigation detail panel relation`);
+  const cardinality = optionalText(
+    relation.cardinality,
+    `${moduleName} navigation detail panel relation cardinality`,
+  );
+  if (cardinality !== undefined && cardinality !== 'ONE' && cardinality !== 'MANY') {
+    throw new Error(
+      `${moduleName} navigation detail panel relation cardinality is unsupported`,
+    );
+  }
+  return Object.freeze({
+    sourceField: text(
+      relation.sourceField,
+      `${moduleName} navigation detail panel relation source field`,
+    ),
+    targetField: text(
+      relation.targetField,
+      `${moduleName} navigation detail panel relation target field`,
+    ),
+    ...(cardinality === undefined ? {} : { cardinality }),
+  });
+}
+
+function parseNavigationDetailPanels(
+  value: unknown,
+  moduleName: string,
+): readonly AxisNavigationDetailPanel[] | undefined {
+  if (value === undefined) return undefined;
+  if (!Array.isArray(value) || value.length > 16) {
+    throw new Error(`${moduleName} navigation detail panels must be a bounded list`);
+  }
+  const ids = new Set<string>();
+  return Object.freeze(
+    value
+      .map((rawPanel, index) => {
+        const panel = record(rawPanel, `${moduleName} navigation detail panel`);
+        const id = text(panel.id, `${moduleName} navigation detail panel id`);
+        if (ids.has(id)) {
+          throw new Error(`${moduleName} navigation detail panels contain duplicates`);
+        }
+        ids.add(id);
+        const summary = optionalText(
+          panel.summary,
+          `${moduleName} navigation detail panel summary`,
+        );
+        if (summary !== undefined && summary.length > 320) {
+          throw new Error(`${moduleName} navigation detail panel summary is too long`);
+        }
+        return Object.freeze({
+          id,
+          label: text(panel.label, `${moduleName} navigation detail panel label`),
+          ...(summary === undefined ? {} : { summary }),
+          order: Number.isInteger(panel.order) ? Number(panel.order) : index,
+          target: parseWorkbenchTarget(
+            panel.target,
+            `${moduleName} navigation detail panel`,
+          ) as AxisWorkbenchTarget,
+          relation: parseNavigationDetailPanelRelation(panel.relation, moduleName),
+        });
+      })
+      .sort(
+        (left, right) =>
+          left.order - right.order || left.label.localeCompare(right.label),
+      ),
+  );
 }
 
 function parseNavigationHelp(
@@ -358,6 +455,13 @@ function parseNavigation(
           availability: moduleAvailability,
           labelKey: optionalText(item.labelKey, `${moduleName} navigation label key`),
           parentId: optionalText(item.parentId, `${moduleName} navigation parent id`),
+          parentModuleName:
+            item.parentModuleName === undefined
+              ? undefined
+              : safeModuleName(
+                  item.parentModuleName,
+                  `${moduleName} navigation parent module name`,
+                ),
           group: parseNavigationGroup(item.group, moduleName),
           perspectives:
             item.perspectives === undefined
@@ -370,6 +474,7 @@ function parseNavigation(
           featureState: navigationFeatureState(item.featureState),
           badgeProvider: parseBadgeProvider(item.badgeProvider, moduleName),
           workbenchTarget: parseWorkbenchTarget(item.workbenchTarget, moduleName),
+          detailPanels: parseNavigationDetailPanels(item.detailPanels, moduleName),
           help: parseNavigationHelp(item.help, moduleName),
         }),
       );
@@ -385,21 +490,30 @@ function parseNavigation(
     if (byId.size !== items.length) {
       throw new Error(`${moduleName} navigation contains duplicate ids`);
     }
-    items.forEach((item) => {
-      const visited = new Set([item.id]);
-      let parentId = item.parentId;
-      while (parentId) {
-        const parent = byId.get(parentId);
-        if (!parent) {
-          throw new Error(`${moduleName} navigation contains an orphan item`);
-        }
-        if (visited.has(parentId)) {
-          throw new Error(`${moduleName} navigation contains a cycle`);
-        }
-        visited.add(parentId);
-        parentId = parent.parentId;
+  });
+  const byNavigationKey = new Map(
+    navigation.map((item) => [`${item.moduleName}:${item.id}`, item]),
+  );
+  navigation.forEach((item) => {
+    if (item.parentModuleName && !item.parentId) {
+      throw new Error(`${item.moduleName} navigation parent module requires parent id`);
+    }
+    const visited = new Set([`${item.moduleName}:${item.id}`]);
+    let parentId = item.parentId;
+    let parentModuleName = item.parentModuleName ?? item.moduleName;
+    while (parentId) {
+      const parentKey = `${parentModuleName}:${parentId}`;
+      const parent = byNavigationKey.get(parentKey);
+      if (!parent) {
+        throw new Error(`${item.moduleName} navigation contains an orphan item`);
       }
-    });
+      if (visited.has(parentKey)) {
+        throw new Error(`${item.moduleName} navigation contains a cycle`);
+      }
+      visited.add(parentKey);
+      parentId = parent.parentId;
+      parentModuleName = parent.parentModuleName ?? parent.moduleName;
+    }
   });
 
   return Object.freeze(

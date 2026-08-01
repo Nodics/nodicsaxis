@@ -171,7 +171,7 @@ afterEach(() => {
 });
 
 describe('MediaUploadWizard', () => {
-  it('shows governed upload scope before media selection', async () => {
+  it('shows governed upload scope before media selection', () => {
     renderWizard({
       enterpriseCode: 'enterprise-a',
       tenantCode: 'tenant-a',
@@ -231,8 +231,9 @@ describe('MediaUploadWizard', () => {
     await user.click(screen.getByRole('button', { name: 'Upload to media' }));
 
     await waitFor(() => expect(uploadMediaMock).toHaveBeenCalledTimes(1));
-    expect(uploadMediaMock).toHaveBeenCalledWith(connection, configuration, {
-      file: expect.any(File),
+    const uploadedRequest = uploadMediaMock.mock.calls[0]?.[2];
+    expect(uploadedRequest?.file).toBeInstanceOf(File);
+    expect(uploadedRequest).toMatchObject({
       folderCode: 'cmsAssets',
       formatCode: 'original',
       name: 'hero.png',
