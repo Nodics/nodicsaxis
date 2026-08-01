@@ -53,7 +53,9 @@ const statusColors: Readonly<
 });
 
 function sourceTypeLabel(source: AxisDocumentationSource): string {
-  return source.dashboard.kind ?? (source.type === 'OPENAPI' ? 'API contracts' : 'Guide');
+  return (
+    source.dashboard.kind ?? (source.type === 'OPENAPI' ? 'API contracts' : 'Guide')
+  );
 }
 
 function sourceSummary(source: AxisDocumentationSource): string {
@@ -65,7 +67,10 @@ function sourceSummary(source: AxisDocumentationSource): string {
   );
 }
 
-function availabilityLabel(source: AxisDocumentationSource, bootstrap: AxisAuthenticatedBootstrap) {
+function availabilityLabel(
+  source: AxisDocumentationSource,
+  bootstrap: AxisAuthenticatedBootstrap,
+) {
   const connection = selectModuleConnection(bootstrap, source.connectionModule);
   if (!connection) return 'Unavailable';
   if (connection.state === 'UP') return 'Available';
@@ -141,7 +146,11 @@ function DocumentationSourceCard({
       <Stack spacing={1}>
         <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap', gap: 1 }}>
           <Chip label={source.type === 'OPENAPI' ? 'OpenAPI' : 'CMS'} size="small" />
-          <Chip label={`Owner: ${source.ownerModule}`} size="small" variant="outlined" />
+          <Chip
+            label={`Owner: ${source.ownerModule}`}
+            size="small"
+            variant="outlined"
+          />
           <Chip label={available} size="small" variant="outlined" />
         </Stack>
 
@@ -184,7 +193,12 @@ function DocumentationSourceCard({
             <Typography variant="subtitle2">Already covered</Typography>
             <Stack component="ul" spacing={0.75} sx={{ m: 0, mt: 1, pl: 2.5 }}>
               {coverage.signals.slice(0, 4).map((signal) => (
-                <Typography component="li" key={signal} color="text.secondary" variant="body2">
+                <Typography
+                  component="li"
+                  key={signal}
+                  color="text.secondary"
+                  variant="body2"
+                >
                   {signal}
                 </Typography>
               ))}
@@ -197,7 +211,12 @@ function DocumentationSourceCard({
             <Typography variant="subtitle2">Documentation gaps</Typography>
             <Stack component="ul" spacing={0.75} sx={{ m: 0, mt: 1, pl: 2.5 }}>
               {coverage.gaps.slice(0, 4).map((gap) => (
-                <Typography component="li" key={gap} color="text.secondary" variant="body2">
+                <Typography
+                  component="li"
+                  key={gap}
+                  color="text.secondary"
+                  variant="body2"
+                >
                   {gap}
                 </Typography>
               ))}
@@ -249,7 +268,10 @@ export function DocumentationDashboard({ bootstrap }: DocumentationDashboardProp
             <Stack direction="row" spacing={1} sx={{ alignItems: 'flex-start' }}>
               <Chip label={`${String(sources.length)} areas`} />
               {averageCoverage !== undefined ? (
-                <Chip color="primary" label={`${String(averageCoverage)}% avg coverage`} />
+                <Chip
+                  color="primary"
+                  label={`${String(averageCoverage)}% avg coverage`}
+                />
               ) : null}
             </Stack>
           </Stack>

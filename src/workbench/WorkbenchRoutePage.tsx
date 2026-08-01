@@ -531,7 +531,8 @@ export function WorkbenchRoutePage(props: WorkbenchRoutePageProps) {
         return loadWorkbenchRecords(connection, normalizedSchema, configuration, {
           search: options?.search ?? '',
           pageNumber: options?.pageNumber ?? 1,
-          pageSize: options?.pageSize ?? resolveWorkbenchLookupPageSize(normalizedSchema),
+          pageSize:
+            options?.pageSize ?? resolveWorkbenchLookupPageSize(normalizedSchema),
           sort: resolveWorkbenchRecordSort(normalizedSchema, undefined),
         });
       },

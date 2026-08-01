@@ -1,11 +1,4 @@
-import {
-  Alert,
-  Box,
-  Button,
-  CircularProgress,
-  Stack,
-  Typography,
-} from '@mui/material';
+import { Alert, Box, Button, CircularProgress, Stack, Typography } from '@mui/material';
 import { useState } from 'react';
 
 import { AxisSchemaRecordDetail } from '../../app/schema/AxisSchemaRecordDetail';

@@ -1394,7 +1394,7 @@ describe('MediaManagementRoutePage', () => {
           );
         }
         if (
-          url.pathname === '/nodics/media/v0/mediaFolder' &&
+          url.pathname === '/nodics/media/v0/schema/workbench/mediaFolder/record' &&
           init?.method === 'DELETE'
         ) {
           return Promise.resolve(json(undefined));
@@ -1453,7 +1453,8 @@ describe('MediaManagementRoutePage', () => {
         fetchMock.mock.calls.some(([input, init]) => {
           const url = fetchInputUrl(input);
           return (
-            url.pathname === '/nodics/media/v0/mediaFolder' && init?.method === 'DELETE'
+            url.pathname === '/nodics/media/v0/schema/workbench/mediaFolder/record' &&
+            init?.method === 'DELETE'
           );
         }),
       ).toBe(true);

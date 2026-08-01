@@ -23,10 +23,7 @@ interface RelationshipPendingRecordChipsProps {
   readonly runtime: WorkbenchRelationshipRuntime;
   readonly targetSchema: WorkbenchSchema;
   readonly onRemove: (index: number) => void;
-  readonly onUpdate: (
-    index: number,
-    model: Readonly<Record<string, unknown>>,
-  ) => void;
+  readonly onUpdate: (index: number, model: Readonly<Record<string, unknown>>) => void;
 }
 
 interface ActivePendingRecord {
