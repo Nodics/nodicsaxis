@@ -35,8 +35,11 @@ export interface WorkbenchRelationshipCopy {
   readonly editRelatedLabel: string;
   readonly missingReferencePropertyLabel: string;
   readonly noRelatedRecordsLabel: string;
+  readonly pendingReferencesLabel: string;
   readonly relatedSearchLabel: string;
+  readonly removeReferenceLabel: string;
   readonly removeRelatedLabel: string;
+  readonly selectedReferencesLabel: string;
   readonly selectExistingLabel: string;
 }
 

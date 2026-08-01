@@ -337,13 +337,28 @@ export function SchemaWorkbenchRenderer({
                           component,
                           'noRelatedRecordsLabel',
                         ),
+                        pendingReferencesLabel: stringProperty(
+                          component,
+                          'pendingReferencesLabel',
+                          'Pending create',
+                        ),
                         relatedSearchLabel: stringProperty(
                           component,
                           'relatedSearchLabel',
                         ),
+                        removeReferenceLabel: stringProperty(
+                          component,
+                          'removeReferenceLabel',
+                          'Remove',
+                        ),
                         removeRelatedLabel: stringProperty(
                           component,
                           'removeRelatedLabel',
+                        ),
+                        selectedReferencesLabel: stringProperty(
+                          component,
+                          'selectedReferencesLabel',
+                          'Selected existing',
                         ),
                         selectExistingLabel: stringProperty(
                           component,
@@ -601,13 +616,28 @@ export function SchemaWorkbenchRenderer({
                               component,
                               'noRelatedRecordsLabel',
                             ),
+                            pendingReferencesLabel: stringProperty(
+                              component,
+                              'pendingReferencesLabel',
+                              'Pending create',
+                            ),
                             relatedSearchLabel: stringProperty(
                               component,
                               'relatedSearchLabel',
                             ),
+                            removeReferenceLabel: stringProperty(
+                              component,
+                              'removeReferenceLabel',
+                              'Remove',
+                            ),
                             removeRelatedLabel: stringProperty(
                               component,
                               'removeRelatedLabel',
+                            ),
+                            selectedReferencesLabel: stringProperty(
+                              component,
+                              'selectedReferencesLabel',
+                              'Selected existing',
                             ),
                             selectExistingLabel: stringProperty(
                               component,

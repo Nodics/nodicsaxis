@@ -1,4 +1,11 @@
-import { Alert, Button, Chip, CircularProgress, Stack, Typography } from '@mui/material';
+import {
+  Alert,
+  Box,
+  Button,
+  CircularProgress,
+  Stack,
+  Typography,
+} from '@mui/material';
 import { useState } from 'react';
 
 import { AxisSchemaRecordDetail } from '../../app/schema/AxisSchemaRecordDetail';
@@ -66,18 +73,57 @@ export function RelationshipReferenceChips(props: RelationshipReferenceChipsProp
 
   return (
     <Stack spacing={1}>
-      <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap', rowGap: 0.75 }}>
+      <Stack
+        direction={{ xs: 'column', sm: 'row' }}
+        spacing={0.75}
+        sx={{ alignItems: { sm: 'center' }, justifyContent: 'space-between' }}
+      >
+        <Typography color="text.secondary" sx={{ fontWeight: 700 }} variant="body2">
+          {props.copy.selectedReferencesLabel}
+        </Typography>
+        <Typography color="text.secondary" variant="caption">
+          {props.draftReferences.length} selected
+        </Typography>
+      </Stack>
+      <Stack spacing={0.75}>
         {props.draftReferences.map((reference) => (
-          <Chip
+          <Box
             key={reference}
-            clickable={canOpenReference}
-            label={reference}
-            variant={canOpenReference ? 'outlined' : 'filled'}
-            onClick={canOpenReference ? () => openReference(reference) : undefined}
-            onDelete={
-              props.disabled ? undefined : () => props.onRemove(reference)
-            }
-          />
+            sx={{
+              alignItems: 'center',
+              border: 1,
+              borderColor: 'divider',
+              borderRadius: 1.5,
+              display: 'flex',
+              gap: 1,
+              justifyContent: 'space-between',
+              minWidth: 0,
+              px: 1,
+              py: 0.75,
+            }}
+          >
+            <Button
+              disabled={!canOpenReference}
+              size="small"
+              sx={{ justifyContent: 'flex-start', minWidth: 0, textAlign: 'left' }}
+              variant={canOpenReference ? 'outlined' : 'text'}
+              onClick={canOpenReference ? () => openReference(reference) : undefined}
+            >
+              <Typography component="span" noWrap variant="body2">
+                {reference}
+              </Typography>
+            </Button>
+            {props.disabled ? null : (
+              <Button
+                aria-label={`${props.copy.removeReferenceLabel} ${reference}`}
+                color="error"
+                size="small"
+                onClick={() => props.onRemove(reference)}
+              >
+                {props.copy.removeReferenceLabel}
+              </Button>
+            )}
+          </Box>
         ))}
       </Stack>
       {loadingReference ? (

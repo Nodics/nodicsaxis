@@ -1,4 +1,4 @@
-import { Box, Button, Chip, Stack } from '@mui/material';
+import { Box, Button, Stack, Typography } from '@mui/material';
 import { useState } from 'react';
 
 import { AxisSchemaRecordDetail } from '../../app/schema/AxisSchemaRecordDetail';
@@ -45,22 +45,62 @@ export function RelationshipPendingRecordChips(
 
   return (
     <Stack spacing={1}>
-      <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap', rowGap: 0.75 }}>
+      <Stack
+        direction={{ xs: 'column', sm: 'row' }}
+        spacing={0.75}
+        sx={{ alignItems: { sm: 'center' }, justifyContent: 'space-between' }}
+      >
+        <Typography color="text.secondary" sx={{ fontWeight: 700 }} variant="body2">
+          {props.copy.pendingReferencesLabel}
+        </Typography>
+        <Typography color="text.secondary" variant="caption">
+          {props.pendingRecords.length} pending
+        </Typography>
+      </Stack>
+      <Stack spacing={0.75}>
         {props.pendingRecords.map((model, index) => {
           const label = displayWorkbenchRelationshipValue(
             workbenchRelationshipRecordLabel(model, props.targetSchema, ''),
             `${props.relationship.label} ${String(index + 1)}`,
           );
           return (
-            <Chip
+            <Box
               key={`pending-${String(index)}`}
-              clickable
-              color="warning"
-              label={label}
-              variant="outlined"
-              onClick={() => setPreviewRecord({ index, model })}
-              onDelete={props.disabled ? undefined : () => props.onRemove(index)}
-            />
+              sx={{
+                alignItems: 'center',
+                border: 1,
+                borderColor: 'warning.light',
+                borderRadius: 1.5,
+                display: 'flex',
+                gap: 1,
+                justifyContent: 'space-between',
+                minWidth: 0,
+                px: 1,
+                py: 0.75,
+              }}
+            >
+              <Button
+                color="warning"
+                size="small"
+                sx={{ justifyContent: 'flex-start', minWidth: 0, textAlign: 'left' }}
+                variant="outlined"
+                onClick={() => setPreviewRecord({ index, model })}
+              >
+                <Typography component="span" noWrap variant="body2">
+                  {label}
+                </Typography>
+              </Button>
+              {props.disabled ? null : (
+                <Button
+                  aria-label={`${props.copy.removeReferenceLabel} ${label}`}
+                  color="error"
+                  size="small"
+                  onClick={() => props.onRemove(index)}
+                >
+                  {props.copy.removeReferenceLabel}
+                </Button>
+              )}
+            </Box>
           );
         })}
       </Stack>

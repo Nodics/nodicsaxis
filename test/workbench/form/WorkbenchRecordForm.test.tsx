@@ -268,8 +268,11 @@ const relationshipCopy = {
   missingReferencePropertyLabel:
     'Related records were found, but none expose the required reference property: {property}.',
   noRelatedRecordsLabel: 'No related records',
+  pendingReferencesLabel: 'Pending create',
   relatedSearchLabel: 'Search related records',
+  removeReferenceLabel: 'Remove',
   removeRelatedLabel: 'Close',
+  selectedReferencesLabel: 'Selected existing',
   selectExistingLabel: 'Select existing',
 };
 
@@ -474,6 +477,8 @@ describe('WorkbenchRecordForm', () => {
     await user.click(screen.getByRole('option', { name: 'EMAIL' }));
     await user.click(screen.getByRole('button', { name: 'Add to draft' }));
 
+    expect(screen.getByText('Pending create')).toBeVisible();
+    expect(screen.getByText('1 pending')).toBeVisible();
     await user.click(screen.getByRole('button', { name: 'DXB-EMAIL' }));
     expect(await screen.findByText('Pending Contact methods: DXB-EMAIL')).toBeVisible();
     expect(screen.getByText('EMAIL')).toBeVisible();
@@ -532,7 +537,7 @@ describe('WorkbenchRecordForm', () => {
     await user.click(screen.getByRole('option', { name: 'EMAIL' }));
     await user.click(screen.getByRole('button', { name: 'Add to draft' }));
 
-    await user.click(screen.getByTestId('CancelIcon'));
+    await user.click(screen.getByRole('button', { name: 'Remove DXB-EMAIL' }));
     await user.click(screen.getByRole('button', { name: 'Create' }));
 
     expect(createRelated).not.toHaveBeenCalled();
@@ -655,6 +660,8 @@ describe('WorkbenchRecordForm', () => {
     );
 
     expect(screen.queryByLabelText(/^Tenant$/)).not.toBeInTheDocument();
+    expect(screen.getByText('Selected existing')).toBeVisible();
+    expect(screen.getByText('1 selected')).toBeVisible();
     expect(screen.getByText('default')).toBeVisible();
 
     await user.click(screen.getByRole('button', { name: 'Select existing' }));
