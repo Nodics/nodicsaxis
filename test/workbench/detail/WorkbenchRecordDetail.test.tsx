@@ -367,4 +367,133 @@ describe('WorkbenchRecordDetail', () => {
     expect(await screen.findByText('Channels: defaultRejectChannel')).toBeVisible();
     expect(screen.getByText('defaultRejectAction')).toBeVisible();
   });
+
+  it('opens references from related-record detail panel tables', async () => {
+    const user = userEvent.setup();
+    const workflowChannelSchema: WorkbenchSchema = {
+      ...schema,
+      moduleName: 'workflow',
+      schemaName: 'workflowChannel',
+      label: 'Workflow Channel',
+      displayProperty: 'code',
+      displayProperties: ['code', 'target'],
+      fields: [
+        ...schema.fields,
+        {
+          name: 'target',
+          label: 'Target',
+          type: 'string',
+          required: false,
+          readOnly: false,
+          primary: false,
+          description: '',
+          searchable: true,
+        },
+      ],
+    };
+    const workflowStepSchema: WorkbenchSchema = {
+      ...schema,
+      moduleName: 'workflow',
+      schemaName: 'workflowStep',
+      label: 'Workflow Step',
+      displayProperty: 'code',
+      displayProperties: ['code', 'channels'],
+      fields: [
+        ...schema.fields,
+        {
+          name: 'channels',
+          label: 'Channels',
+          type: 'array',
+          required: false,
+          readOnly: false,
+          primary: false,
+          description: '',
+          searchable: false,
+        },
+      ],
+      relationships: [
+        {
+          field: 'channels',
+          label: 'Channels',
+          description: '',
+          targetModule: 'workflow',
+          targetSchema: 'workflowChannel',
+          cardinality: 'MANY',
+          referenceProperty: 'code',
+          resolution: 'LOCAL_OR_REMOTE',
+          actions: ['SELECT_EXISTING'],
+          required: false,
+          maximumDepth: 3,
+        },
+      ],
+    };
+    const resolveRecord = vi.fn().mockResolvedValue({
+      record: { code: 'defaultRejectChannel', target: 'defaultRejectAction' },
+      schema: workflowChannelSchema,
+    });
+
+    render(
+      <WorkbenchRecordDetail
+        closeLabel="Close"
+        deleteLabel="Delete"
+        detailPanels={[
+          {
+            panel: {
+              id: 'steps',
+              label: 'Workflow steps',
+              order: 0,
+              target: {
+                moduleName: 'workflow',
+                schemaName: 'workflowStep',
+              },
+              relation: {
+                sourceField: 'code',
+                targetField: 'workflowCode',
+                cardinality: 'MANY',
+              },
+              summary: 'Steps linked to this workflow.',
+            },
+            schema: workflowStepSchema,
+            page: {
+              records: [
+                {
+                  code: 'reviewStep',
+                  channels: ['defaultRejectChannel'],
+                },
+              ],
+              totalCount: 1,
+              pageNumber: 1,
+              pageSize: 10,
+              sort: { field: 'code', direction: 'ASC' },
+            },
+            loading: false,
+          },
+        ]}
+        editLabel="Edit"
+        falseLabel="No"
+        record={{ code: 'reviewWorkflow' }}
+        relationshipRuntime={{
+          schemas: [workflowStepSchema, workflowChannelSchema],
+          queryScope: ['default'],
+          createRecord: vi.fn(),
+          loadRecords: vi.fn(),
+          resolveRecord,
+        }}
+        schema={schema}
+        trueLabel="Yes"
+        onClose={vi.fn()}
+        onDelete={vi.fn()}
+        onEdit={vi.fn()}
+      />,
+    );
+
+    await user.click(screen.getByRole('button', { name: 'defaultRejectChannel' }));
+
+    expect(resolveRecord).toHaveBeenCalledWith(
+      workflowStepSchema.relationships[0],
+      'defaultRejectChannel',
+    );
+    expect(await screen.findByText('Workflow Channel: defaultRejectChannel')).toBeVisible();
+    expect(screen.getByText('defaultRejectAction')).toBeVisible();
+  });
 });

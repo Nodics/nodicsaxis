@@ -1,10 +1,15 @@
 import { Alert, Box, Button, CircularProgress, Stack, Typography } from '@mui/material';
+import { useState } from 'react';
 
 import { AxisMetadataPanel } from '../../app/detail/AxisMetadataPanel';
 import { AxisSchemaRecordDetail } from '../../app/schema/AxisSchemaRecordDetail';
 import { axisSchemaRecordDisplayValue } from '../../app/schema/axisSchemaRecordValues';
 import { AxisSchemaDataListing } from '../../app/table/AxisSchemaDataListing';
-import type { WorkbenchRecord, WorkbenchSchema } from '../api/workbenchContracts';
+import type {
+  WorkbenchRecord,
+  WorkbenchRelationship,
+  WorkbenchSchema,
+} from '../api/workbenchContracts';
 import type { WorkbenchRelationshipRuntime } from '../form/WorkbenchRelationshipRuntime';
 import { workbenchRecordValue } from '../record/workbenchRecordPaths';
 import type { WorkbenchRecordDetailPanel } from './workbenchRecordDetailPanels';
@@ -43,10 +48,56 @@ function relatedDefaultColumns(schema: WorkbenchSchema): readonly string[] {
 
 function WorkbenchRelatedDetailPanel({
   detailPanel,
+  falseLabel,
+  relationshipRuntime,
+  trueLabel,
 }: {
   readonly detailPanel: WorkbenchRecordDetailPanel;
+  readonly falseLabel: string;
+  readonly relationshipRuntime?: WorkbenchRelationshipRuntime | undefined;
+  readonly trueLabel: string;
 }) {
   const { panel, schema, page, loading, error } = detailPanel;
+  const [loadingReference, setLoadingReference] = useState(false);
+  const [referenceError, setReferenceError] = useState<string>();
+  const [openedReference, setOpenedReference] = useState<
+    | {
+        readonly record: WorkbenchRecord;
+        readonly reference: string;
+        readonly schema: WorkbenchSchema;
+      }
+    | undefined
+  >();
+  const openReference = async (
+    relationship: WorkbenchRelationship,
+    reference: string,
+  ) => {
+    if (!relationshipRuntime?.resolveRecord) return;
+    setOpenedReference(undefined);
+    setReferenceError(undefined);
+    setLoadingReference(true);
+    try {
+      const result = await relationshipRuntime.resolveRecord(relationship, reference);
+      if (!result) {
+        setReferenceError('Referenced record was not found or is not authorized.');
+        return;
+      }
+      setOpenedReference({
+        record: result.record,
+        reference,
+        schema: result.schema,
+      });
+    } catch (referenceLoadError: unknown) {
+      setReferenceError(
+        referenceLoadError instanceof Error
+          ? referenceLoadError.message
+          : 'Referenced record could not be loaded.',
+      );
+    } finally {
+      setLoadingReference(false);
+    }
+  };
+
   if (!schema) {
     return (
       <AxisMetadataPanel
@@ -99,9 +150,42 @@ function WorkbenchRelatedDetailPanel({
                   {schema.label}
                 </Typography>
               }
+              onReferenceClick={(relationship, reference) => {
+                void openReference(relationship, reference);
+              }}
             />
           </Box>
         )}
+        {loadingReference ? (
+          <Stack
+            direction="row"
+            spacing={1}
+            sx={{ alignItems: 'center', color: 'text.secondary' }}
+          >
+            <CircularProgress size={18} />
+            <Typography variant="body2">Loading referenced record</Typography>
+          </Stack>
+        ) : null}
+        {referenceError ? <Alert severity="warning">{referenceError}</Alert> : null}
+        {openedReference ? (
+          <AxisSchemaRecordDetail
+            actions={
+              <Button size="small" onClick={() => setOpenedReference(undefined)}>
+                Close reference
+              </Button>
+            }
+            falseLabel={falseLabel}
+            record={openedReference.record}
+            referenceResolver={
+              relationshipRuntime?.resolveRecord
+                ? { resolveReference: relationshipRuntime.resolveRecord }
+                : undefined
+            }
+            schema={openedReference.schema}
+            title={`${openedReference.schema.label}: ${openedReference.reference}`}
+            trueLabel={trueLabel}
+          />
+        ) : null}
       </Stack>
     </AxisMetadataPanel>
   );
@@ -151,6 +235,9 @@ export function WorkbenchRecordDetail(props: WorkbenchRecordDetailProps) {
         <WorkbenchRelatedDetailPanel
           key={detailPanel.panel.id}
           detailPanel={detailPanel}
+          falseLabel={props.falseLabel}
+          relationshipRuntime={props.relationshipRuntime}
+          trueLabel={props.trueLabel}
         />
       ))}
     </Stack>
