@@ -4,6 +4,7 @@ import type { AxisSort } from '../../../app/table/axisTableSorting';
 import type { AssistantPresentationState } from '../../../assistant/presentation/assistantPresentationContracts';
 import type { AxisAuthenticatedBootstrap } from '../../../bootstrap/publicBootstrap';
 import type { AxisNavigationDetailPanel } from '../../../bootstrap/publicBootstrap';
+import type { AxisWorkbenchPresentation } from '../../../bootstrap/publicBootstrap';
 import type { AxisRuntimeConfig } from '../../../runtime/runtimeConfig';
 import type {
   WorkbenchFilterGroup,
@@ -125,6 +126,7 @@ export interface WorkbenchRendererScope {
       }
     | undefined;
   readonly detailPanels?: readonly AxisNavigationDetailPanel[] | undefined;
+  readonly workbenchPresentation?: AxisWorkbenchPresentation | undefined;
 }
 
 export interface MediaManagementRendererController {

@@ -35,6 +35,47 @@ import { ModuleWorkspacePlaceholder } from './ModuleWorkspacePlaceholder';
 import { RecoveryScreen } from './RecoveryScreen';
 import { AppShell } from './shell/AppShell';
 
+function normalizeRoutePath(path: string): string {
+  return path.replace(/\/$/, '') || '/';
+}
+
+function resolveCurrentNavigation(
+  navigation: readonly AxisNavigationItem[] | undefined,
+  pathname: string,
+): AxisNavigationItem | undefined {
+  if (!navigation) return undefined;
+  const normalizedPath = normalizeRoutePath(pathname);
+  return navigation
+    .filter((item) => {
+      const route = normalizeRoutePath(item.route);
+      return normalizedPath === route || normalizedPath.startsWith(`${route}/`);
+    })
+    .sort(
+      (left, right) =>
+        normalizeRoutePath(right.route).length -
+          normalizeRoutePath(left.route).length || right.order - left.order,
+    )[0];
+}
+
+function resolveCurrentWorkbenchNavigation(
+  navigation: readonly AxisNavigationItem[] | undefined,
+  pathname: string,
+): AxisNavigationItem | undefined {
+  if (!navigation) return undefined;
+  const normalizedPath = normalizeRoutePath(pathname);
+  return navigation
+    .filter((item) => {
+      if (!item.workbenchTarget) return false;
+      const route = normalizeRoutePath(item.route);
+      return normalizedPath === route || normalizedPath.startsWith(`${route}/`);
+    })
+    .sort(
+      (left, right) =>
+        normalizeRoutePath(right.route).length -
+          normalizeRoutePath(left.route).length || right.order - left.order,
+    )[0];
+}
+
 export function App() {
   const runtime = useRuntimeConfig();
   const navigate = useNavigate();
@@ -174,12 +215,15 @@ export function App() {
   const cmsWorkbenchNavigation = authenticatedBootstrap?.navigation.find(
     (item) => item.id === 'cms' && item.moduleName === 'cms',
   );
-  const normalizedWorkbenchPath = location.pathname.replace(/\/$/, '') || '/';
-  const currentWorkbenchNavigation = authenticatedBootstrap?.navigation.find(
-    (item) =>
-      (item.route.replace(/\/$/, '') || '/') === normalizedWorkbenchPath &&
-      item.workbenchTarget,
+  const currentNavigation = resolveCurrentNavigation(
+    authenticatedBootstrap?.navigation,
+    location.pathname,
   );
+  const currentWorkbenchNavigation =
+    resolveCurrentWorkbenchNavigation(
+      authenticatedBootstrap?.navigation,
+      location.pathname,
+    ) ?? (currentNavigation?.workbenchTarget ? currentNavigation : undefined);
   const currentWorkbenchSchema = currentWorkbenchNavigation?.workbenchTarget;
   const page = (
     path: string,
@@ -348,6 +392,12 @@ export function App() {
             <ModuleWorkspacePlaceholder item={navigationItem} />
           ),
         )
+      : sessionFallback;
+  const navigationRouteElement = (navigationItem?: AxisNavigationItem) =>
+    session && !locked && authenticatedBootstrap && navigationItem
+      ? navigationItem.workbenchTarget
+        ? workbenchRouteElement(navigationItem)
+        : authenticatedShell(<ModuleWorkspacePlaceholder item={navigationItem} />)
       : sessionFallback;
   const cmsWorkbenchElement =
     cmsWorkbenchNavigation && currentWorkbenchSchema
@@ -598,10 +648,17 @@ export function App() {
       <Route path="/content/*" element={cmsWorkbenchElement} />
       <Route path="/publishing" element={cmsWorkbenchElement} />
       <Route path="/publishing/*" element={cmsWorkbenchElement} />
+      <Route
+        path="/commerce/*"
+        element={navigationRouteElement(
+          currentWorkbenchNavigation ?? currentNavigation,
+        )}
+      />
       {session && !locked && authenticatedBootstrap
         ? authenticatedBootstrap.navigation
             .filter(
               (item) =>
+                !item.route.startsWith('/commerce') &&
                 !item.route.startsWith('/content') &&
                 !item.route.startsWith('/docs') &&
                 !item.route.startsWith('/media-management') &&
@@ -621,11 +678,7 @@ export function App() {
               <Route
                 key={`${item.moduleName}:${item.id}`}
                 path={item.route}
-                element={
-                  item.workbenchTarget
-                    ? workbenchRouteElement(item)
-                    : authenticatedShell(<ModuleWorkspacePlaceholder item={item} />)
-                }
+                element={navigationRouteElement(item)}
               />
             ))
         : null}

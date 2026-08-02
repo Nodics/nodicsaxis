@@ -15,11 +15,11 @@ import {
   axisSchemaRecordDisplayValue,
   isLongSchemaDetailField,
 } from './axisSchemaRecordValues';
+import { AxisSchemaReferenceValues } from './AxisSchemaReferenceValues';
 import {
-  AxisSchemaReferenceValues,
   axisSchemaRelationshipReferences,
   type AxisSchemaReferenceValue,
-} from './AxisSchemaReferenceValues';
+} from './axisSchemaReferenceValuesModel';
 
 export interface AxisSchemaRecordDetailProps {
   readonly actions?: ReactNode | undefined;

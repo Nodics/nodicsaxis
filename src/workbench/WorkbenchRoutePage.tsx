@@ -40,12 +40,14 @@ import {
 } from './preferences/workbenchPreferences';
 import {
   relatedRecordPanelFilter,
+  resolveWorkbenchDefaultColumns,
   resolveWorkbenchDeepLinkTarget,
   resolveWorkbenchLookupPageSize,
   resolveWorkbenchRecordSort,
   resolveWorkbenchRouteTarget,
   schemaWithValidQueryCapabilities,
   selectWorkbenchReferencedRecord,
+  workbenchPresentationForSchema,
   workbenchReferenceLookupQuery,
   type WorkbenchRouteSchemaSelection,
 } from './workbenchRouteModel';
@@ -133,8 +135,24 @@ export function WorkbenchRoutePage(props: WorkbenchRoutePageProps) {
         .filter((connection) => connection !== undefined),
     [props.bootstrap],
   );
+  const connectionKey = useMemo(
+    () =>
+      connections
+        .map(
+          (connection) =>
+            `${connection.moduleName}:${connection.instanceId}:${connection.endpoint}:${connection.state}`,
+        )
+        .sort()
+        .join('|'),
+    [connections],
+  );
   const schemas = useQuery({
-    queryKey: ['schema-workbench', 'schemas', props.runtime.enterpriseCode],
+    queryKey: [
+      'schema-workbench',
+      'schemas',
+      props.runtime.enterpriseCode,
+      connectionKey,
+    ],
     queryFn: () => loadWorkbenchSchemas(connections, configuration),
   });
   const normalizedSelectedSchema = selectedSchema
@@ -438,16 +456,14 @@ export function WorkbenchRoutePage(props: WorkbenchRoutePageProps) {
         normalizedSchema.schemaName,
       );
       const schemaPreference = preferences.schemaPreferences[key];
-      const defaultColumns = normalizedSchema.fields
-        .filter((field) => field.primary || field.searchable)
-        .slice(0, 5)
-        .map((field) => field.name);
+      const defaultColumns = resolveWorkbenchDefaultColumns(
+        normalizedSchema,
+        workbenchPresentationForSchema(props.routeNavigation, normalizedSchema),
+      );
       setVisibleColumns(
         schemaPreference?.visibleColumns.length
           ? schemaPreference.visibleColumns
-          : defaultColumns.length
-            ? defaultColumns
-            : normalizedSchema.fields.slice(0, 5).map((field) => field.name),
+          : defaultColumns,
       );
       setSelectedRecordKeys([]);
       updatePreferences({
@@ -467,6 +483,7 @@ export function WorkbenchRoutePage(props: WorkbenchRoutePageProps) {
       deleteImpact,
       deleteRecord,
       preferences,
+      props.routeNavigation,
       updatePreferences,
       updateRecord,
     ],
@@ -479,8 +496,8 @@ export function WorkbenchRoutePage(props: WorkbenchRoutePageProps) {
   );
   useEffect(() => {
     if (!deepLinkTarget || consumedDeepLinkKey.current === deepLinkTarget.key) return;
-    consumedDeepLinkKey.current = deepLinkTarget.key;
     const timeout = globalThis.setTimeout(() => {
+      consumedDeepLinkKey.current = deepLinkTarget.key;
       selectWorkbenchSchema(deepLinkTarget.schema, {
         openCreate: deepLinkTarget.mode === 'create',
       });
@@ -512,13 +529,11 @@ export function WorkbenchRoutePage(props: WorkbenchRoutePageProps) {
       },
       loadRecords: (
         schema: WorkbenchSchema,
-        options?:
-          | {
-              readonly search?: string | undefined;
-              readonly pageNumber?: number | undefined;
-              readonly pageSize?: number | undefined;
-            }
-          | undefined,
+        options?: {
+          readonly search?: string | undefined;
+          readonly pageNumber?: number | undefined;
+          readonly pageSize?: number | undefined;
+        },
       ) => {
         const normalizedSchema = schemaWithValidQueryCapabilities(schema);
         const connection = selectModuleConnection(
@@ -624,6 +639,12 @@ export function WorkbenchRoutePage(props: WorkbenchRoutePageProps) {
                 parentLabel: routeParentLabel,
                 help: props.routeNavigation?.help,
                 detailPanels: props.routeNavigation?.detailPanels,
+                workbenchPresentation: normalizedSelectedSchema
+                  ? workbenchPresentationForSchema(
+                      props.routeNavigation,
+                      normalizedSelectedSchema,
+                    )
+                  : undefined,
               }
             : { kind: 'global' },
           schemas: schemas.data ?? [],

@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+  resolveWorkbenchDefaultColumns,
   resolveWorkbenchRecordSort,
   resolveWorkbenchDeepLinkTarget,
   resolveWorkbenchLookupPageSize,
@@ -8,6 +9,8 @@ import {
   relatedRecordPanelFilter,
   schemaWithValidQueryCapabilities,
   selectWorkbenchReferencedRecord,
+  workbenchPresentationForSchema,
+  workbenchQuickFilterGroup,
   workbenchReferenceLookupQuery,
   type WorkbenchDeepLinkTarget,
 } from '../../src/workbench/workbenchRouteModel';
@@ -152,6 +155,116 @@ describe('resolveWorkbenchRouteTarget', () => {
       mode: undefined,
       moduleName: 'cms',
       schemaName: 'cmsRestriction',
+    });
+  });
+});
+
+describe('workbench presentation helpers', () => {
+  it('uses backend presentation columns only when they belong to the selected schema', () => {
+    const checkoutRun = {
+      ...schema('order', 'checkoutReverseRun', ['search', 'read']),
+      fields: [
+        ...schema('order', 'checkoutReverseRun', ['search', 'read']).fields,
+        {
+          name: 'state',
+          label: 'State',
+          type: 'string',
+          required: false,
+          readOnly: false,
+          primary: false,
+          description: '',
+          searchable: true,
+        },
+        {
+          name: 'recoveryStrategy',
+          label: 'Recovery Strategy',
+          type: 'string',
+          required: false,
+          readOnly: false,
+          primary: false,
+          description: '',
+          searchable: true,
+        },
+      ],
+    } satisfies WorkbenchSchema;
+    const presentation = workbenchPresentationForSchema(
+      {
+        id: 'checkout-reverse-runs',
+        label: 'Checkout reverse runs',
+        route: '/commerce-operations/checkout-reverse-runs',
+        order: 1,
+        moduleName: 'order',
+        category: 'commerce',
+        icon: 'workflow',
+        availability: 'UP',
+        workbenchTarget: {
+          moduleName: 'order',
+          schemaName: 'checkoutReverseRun',
+        },
+        workbenchPresentation: {
+          defaultColumns: ['code', 'state', 'missingField', 'recoveryStrategy'],
+        },
+      },
+      checkoutRun,
+    );
+
+    expect(resolveWorkbenchDefaultColumns(checkoutRun, presentation)).toEqual([
+      'code',
+      'state',
+      'recoveryStrategy',
+    ]);
+    expect(
+      workbenchPresentationForSchema(
+        {
+          id: 'orders',
+          label: 'Orders',
+          route: '/commerce-operations/orders',
+          order: 1,
+          moduleName: 'order',
+          category: 'commerce',
+          icon: 'order',
+          availability: 'UP',
+          workbenchTarget: { moduleName: 'order', schemaName: 'order' },
+          workbenchPresentation: { defaultColumns: ['code', 'state'] },
+        },
+        checkoutRun,
+      ),
+    ).toBeUndefined();
+  });
+
+  it('maps backend quick filters to normal workbench filter groups', () => {
+    const checkoutRun = {
+      ...schema('order', 'checkoutReverseRun', ['search', 'read']),
+      queryCapabilities: {
+        ...schema('order', 'checkoutReverseRun', ['search', 'read']).queryCapabilities,
+        filterFields: [
+          {
+            field: 'state',
+            label: 'State',
+            type: 'string',
+            operators: ['EQUALS', 'IN'],
+          },
+        ],
+      },
+    } satisfies WorkbenchSchema;
+
+    expect(
+      workbenchQuickFilterGroup(checkoutRun, {
+        id: 'active',
+        label: 'Active recovery',
+        field: 'state',
+        values: ['OPEN', 'RETRYING'],
+        order: 0,
+      }),
+    ).toEqual({
+      operator: 'AND',
+      items: [
+        {
+          field: 'state',
+          operator: 'IN',
+          value: ['OPEN', 'RETRYING'],
+        },
+      ],
     });
   });
 });

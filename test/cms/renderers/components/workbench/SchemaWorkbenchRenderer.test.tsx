@@ -408,6 +408,56 @@ describe('SchemaWorkbenchRenderer', () => {
     });
   });
 
+  it('renders backend-provided quick filters and guided actions through the shared workbench renderer', async () => {
+    const user = userEvent.setup();
+    const setRecordFilters = vi.fn();
+
+    render(
+      <SchemaWorkbenchRenderer
+        actions={{
+          workbench: workbenchController({
+            scope: {
+              kind: 'navigation',
+              label: 'Checkout reverse runs',
+              workbenchPresentation: {
+                quickFilters: [
+                  {
+                    id: 'dubai',
+                    label: 'Dubai records',
+                    field: 'city',
+                    value: 'Dubai',
+                    order: 0,
+                  },
+                ],
+                recoveryActions: [
+                  {
+                    id: 'review',
+                    label: 'Review fulfilment return',
+                    ownerModule: 'order',
+                    strategy: 'FULFILLMENT_RETURN_REVIEW',
+                    handlerAction: 'reviewFulfilmentReturn',
+                    summary: 'Review return state before retrying.',
+                    order: 0,
+                  },
+                ],
+              },
+            },
+            setRecordFilters,
+          }),
+        }}
+        component={component}
+      />,
+    );
+
+    await user.click(screen.getByRole('button', { name: 'Dubai records' }));
+
+    expect(setRecordFilters).toHaveBeenCalledWith({
+      operator: 'AND',
+      items: [{ field: 'city', operator: 'EQUALS', value: 'Dubai' }],
+    });
+    expect(screen.getByText('Review fulfilment return')).toBeVisible();
+  });
+
   it('shows a retryable safe discovery failure', () => {
     render(
       <SchemaWorkbenchRenderer

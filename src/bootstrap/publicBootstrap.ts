@@ -46,6 +46,33 @@ export interface AxisWorkbenchTarget {
   readonly mode?: 'create' | undefined;
 }
 
+export interface AxisWorkbenchPresentationQuickFilter {
+  readonly id: string;
+  readonly label: string;
+  readonly field: string;
+  readonly value?: string | undefined;
+  readonly values?: readonly string[] | undefined;
+  readonly order: number;
+}
+
+export interface AxisWorkbenchPresentationRecoveryAction {
+  readonly id: string;
+  readonly label: string;
+  readonly ownerModule: string;
+  readonly strategy: string;
+  readonly handlerAction: string;
+  readonly summary?: string | undefined;
+  readonly order: number;
+}
+
+export interface AxisWorkbenchPresentation {
+  readonly defaultColumns?: readonly string[] | undefined;
+  readonly quickFilters?: readonly AxisWorkbenchPresentationQuickFilter[] | undefined;
+  readonly recoveryActions?:
+    | readonly AxisWorkbenchPresentationRecoveryAction[]
+    | undefined;
+}
+
 export interface AxisNavigationDetailPanelRelation {
   readonly sourceField: string;
   readonly targetField: string;
@@ -85,6 +112,7 @@ export interface AxisNavigationItem {
   readonly featureState?: AxisNavigationFeatureState | undefined;
   readonly badgeProvider?: AxisNavigationBadgeProvider | undefined;
   readonly workbenchTarget?: AxisWorkbenchTarget | undefined;
+  readonly workbenchPresentation?: AxisWorkbenchPresentation | undefined;
   readonly detailPanels?: readonly AxisNavigationDetailPanel[] | undefined;
   readonly help?: AxisNavigationHelp | undefined;
 }
@@ -423,6 +451,135 @@ function parseNavigationHelp(
   });
 }
 
+function parseWorkbenchPresentation(
+  value: unknown,
+  moduleName: string,
+): AxisWorkbenchPresentation | undefined {
+  if (value === undefined) return undefined;
+  const presentation = record(value, `${moduleName} workbench presentation`);
+  const defaultColumns =
+    presentation.defaultColumns === undefined
+      ? undefined
+      : stringList(
+          presentation.defaultColumns,
+          `${moduleName} workbench presentation default columns`,
+        );
+  const quickFilters =
+    presentation.quickFilters === undefined
+      ? undefined
+      : parseWorkbenchPresentationQuickFilters(presentation.quickFilters, moduleName);
+  const recoveryActions =
+    presentation.recoveryActions === undefined
+      ? undefined
+      : parseWorkbenchPresentationRecoveryActions(
+          presentation.recoveryActions,
+          moduleName,
+        );
+  return Object.freeze({
+    ...(defaultColumns === undefined ? {} : { defaultColumns }),
+    ...(quickFilters === undefined ? {} : { quickFilters }),
+    ...(recoveryActions === undefined ? {} : { recoveryActions }),
+  });
+}
+
+function parseWorkbenchPresentationQuickFilters(
+  value: unknown,
+  moduleName: string,
+): readonly AxisWorkbenchPresentationQuickFilter[] {
+  if (!Array.isArray(value) || value.length > 24) {
+    throw new Error(`${moduleName} workbench quick filters must be a bounded list`);
+  }
+  const ids = new Set<string>();
+  return Object.freeze(
+    value
+      .map((candidate, index) => {
+        const filter = record(candidate, `${moduleName} workbench quick filter`);
+        const id = text(filter.id, `${moduleName} workbench quick filter id`);
+        if (ids.has(id)) {
+          throw new Error(`${moduleName} workbench quick filters contain duplicates`);
+        }
+        ids.add(id);
+        const value = optionalText(
+          filter.value,
+          `${moduleName} workbench quick filter value`,
+        );
+        const values =
+          filter.values === undefined
+            ? undefined
+            : stringList(filter.values, `${moduleName} workbench quick filter values`);
+        if (value === undefined && (values === undefined || values.length === 0)) {
+          throw new Error(`${moduleName} workbench quick filter value is required`);
+        }
+        return Object.freeze({
+          id,
+          label: text(filter.label, `${moduleName} workbench quick filter label`),
+          field: text(filter.field, `${moduleName} workbench quick filter field`),
+          ...(value === undefined ? {} : { value }),
+          ...(values === undefined ? {} : { values }),
+          order: Number.isInteger(filter.order) ? Number(filter.order) : index,
+        });
+      })
+      .sort(
+        (left, right) =>
+          left.order - right.order || left.label.localeCompare(right.label),
+      ),
+  );
+}
+
+function parseWorkbenchPresentationRecoveryActions(
+  value: unknown,
+  moduleName: string,
+): readonly AxisWorkbenchPresentationRecoveryAction[] {
+  if (!Array.isArray(value) || value.length > 24) {
+    throw new Error(`${moduleName} workbench recovery actions must be a bounded list`);
+  }
+  const ids = new Set<string>();
+  return Object.freeze(
+    value
+      .map((candidate, index) => {
+        const action = record(candidate, `${moduleName} workbench recovery action`);
+        const id = text(action.id, `${moduleName} workbench recovery action id`);
+        if (ids.has(id)) {
+          throw new Error(
+            `${moduleName} workbench recovery actions contain duplicates`,
+          );
+        }
+        ids.add(id);
+        const summary = optionalText(
+          action.summary,
+          `${moduleName} workbench recovery action summary`,
+        );
+        if (summary !== undefined && summary.length > 320) {
+          throw new Error(
+            `${moduleName} workbench recovery action summary is too long`,
+          );
+        }
+        return Object.freeze({
+          id,
+          label: text(action.label, `${moduleName} workbench recovery action label`),
+          ownerModule: text(
+            action.ownerModule,
+            `${moduleName} workbench recovery action owner module`,
+          ),
+          strategy: text(
+            action.strategy,
+            `${moduleName} workbench recovery action strategy`,
+          ),
+          handlerAction: text(
+            action.handlerAction,
+            `${moduleName} workbench recovery action handler`,
+          ),
+          ...(summary === undefined ? {} : { summary }),
+          order: Number.isInteger(action.order) ? Number(action.order) : index,
+        });
+      })
+      .sort(
+        (left, right) =>
+          left.order - right.order || left.label.localeCompare(right.label),
+      ),
+  );
+}
+
 function parseNavigation(
   catalogueValue: unknown,
   availabilityValue: unknown,
@@ -491,6 +648,10 @@ function parseNavigation(
           featureState: navigationFeatureState(item.featureState),
           badgeProvider: parseBadgeProvider(item.badgeProvider, moduleName),
           workbenchTarget: parseWorkbenchTarget(item.workbenchTarget, moduleName),
+          workbenchPresentation: parseWorkbenchPresentation(
+            item.workbenchPresentation,
+            moduleName,
+          ),
           detailPanels: parseNavigationDetailPanels(item.detailPanels, moduleName),
           help: parseNavigationHelp(item.help, moduleName),
         }),

@@ -1,5 +1,9 @@
 import type { AxisSort } from '../app/table/axisTableSorting';
-import type { AxisNavigationItem } from '../bootstrap/publicBootstrap';
+import type {
+  AxisNavigationItem,
+  AxisWorkbenchPresentation,
+  AxisWorkbenchPresentationQuickFilter,
+} from '../bootstrap/publicBootstrap';
 import type {
   WorkbenchFilterGroup,
   WorkbenchRecord,
@@ -69,6 +73,75 @@ export function resolveWorkbenchRouteTarget(
 
 export function schemaFieldNames(schema: WorkbenchSchema): ReadonlySet<string> {
   return new Set(schema.fields.map((field) => field.name));
+}
+
+export function workbenchPresentationForSchema(
+  navigation: AxisNavigationItem | undefined,
+  schema: WorkbenchSchema,
+): AxisWorkbenchPresentation | undefined {
+  return navigation?.workbenchTarget?.moduleName === schema.moduleName &&
+    navigation.workbenchTarget.schemaName === schema.schemaName
+    ? navigation.workbenchPresentation
+    : undefined;
+}
+
+export function resolveWorkbenchDefaultColumns(
+  schema: WorkbenchSchema,
+  presentation: AxisWorkbenchPresentation | undefined,
+): readonly string[] {
+  const fieldNames = schemaFieldNames(schema);
+  const presented = (presentation?.defaultColumns ?? []).filter((field) =>
+    fieldNames.has(field),
+  );
+  if (presented.length > 0) return Object.freeze(presented);
+  const semanticDefaults = schema.fields
+    .filter((field) => field.primary || field.searchable)
+    .slice(0, 5)
+    .map((field) => field.name);
+  return Object.freeze(
+    semanticDefaults.length > 0
+      ? semanticDefaults
+      : schema.fields.slice(0, 5).map((field) => field.name),
+  );
+}
+
+export function workbenchQuickFilterGroup(
+  schema: WorkbenchSchema,
+  quickFilter: AxisWorkbenchPresentationQuickFilter,
+): WorkbenchFilterGroup | undefined {
+  const filterField = schema.queryCapabilities.filterFields.find(
+    (candidate) => candidate.field === quickFilter.field,
+  );
+  if (!filterField) return undefined;
+  const values = [
+    ...(quickFilter.value === undefined ? [] : [quickFilter.value]),
+    ...(quickFilter.values ?? []),
+  ];
+  if (values.length === 0) return undefined;
+  if (values.length > 1 && filterField.operators.includes('IN')) {
+    return Object.freeze({
+      operator: 'AND',
+      items: Object.freeze([
+        Object.freeze({
+          field: quickFilter.field,
+          operator: 'IN',
+          value: Object.freeze([...new Set(values)]),
+        }),
+      ]),
+    });
+  }
+  if (!filterField.operators.includes('EQUALS')) return undefined;
+  const conditions = [...new Set(values)].map((value) =>
+    Object.freeze({
+      field: quickFilter.field,
+      operator: 'EQUALS' as const,
+      value,
+    }),
+  );
+  return Object.freeze({
+    operator: values.length > 1 ? 'OR' : 'AND',
+    items: Object.freeze(conditions),
+  });
 }
 
 export function validWorkbenchSortFields(schema: WorkbenchSchema): readonly string[] {

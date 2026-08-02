@@ -32,6 +32,7 @@ import type { WorkbenchRecord } from '../../../../workbench/api/workbenchContrac
 import { WorkbenchRecordDetail } from '../../../../workbench/detail/WorkbenchRecordDetail';
 import { WorkbenchDeleteDialog } from '../../../../workbench/delete/WorkbenchDeleteDialog';
 import { WorkbenchRecordForm } from '../../../../workbench/form/WorkbenchRecordForm';
+import { workbenchQuickFilterGroup } from '../../../../workbench/workbenchRouteModel';
 import { stringProperty } from '../../shared/rendererProperties';
 import type { CmsComponentRendererProps } from '../../shared/rendererTypes';
 import { SchemaQueryBuilderRenderer } from '../query/SchemaQueryBuilderRenderer';
@@ -111,6 +112,16 @@ export function SchemaWorkbenchRenderer({
   const displayedSchemas = visibleSchemas.slice(0, schemaVisibleCount);
   const hasMoreSchemas = displayedSchemas.length < visibleSchemas.length;
   const selected = controller.selectedSchema;
+  const workbenchPresentation = controller.scope?.workbenchPresentation;
+  const quickFilters = selected
+    ? (workbenchPresentation?.quickFilters ?? [])
+        .map((quickFilter) => ({
+          quickFilter,
+          filters: workbenchQuickFilterGroup(selected, quickFilter),
+        }))
+        .filter((entry) => entry.filters !== undefined)
+    : [];
+  const recoveryActions = workbenchPresentation?.recoveryActions ?? [];
   const workspaceLabel =
     controller.scope?.label ??
     selected?.label ??
@@ -468,6 +479,92 @@ export function SchemaWorkbenchRenderer({
                             component={component}
                           />
                         </Collapse>
+                        {quickFilters.length > 0 ? (
+                          <Stack
+                            direction="row"
+                            spacing={0.75}
+                            sx={{ alignItems: 'center', flexWrap: 'wrap' }}
+                            useFlexGap
+                          >
+                            <Typography
+                              color="text.secondary"
+                              sx={{
+                                fontWeight: 700,
+                                letterSpacing: 1.2,
+                                textTransform: 'uppercase',
+                              }}
+                              variant="caption"
+                            >
+                              {stringProperty(
+                                component,
+                                'quickFiltersLabel',
+                                'Quick filters',
+                              )}
+                            </Typography>
+                            {quickFilters.map(({ quickFilter, filters }) => (
+                              <Button
+                                key={quickFilter.id}
+                                size="small"
+                                variant="outlined"
+                                onClick={() => controller.setRecordFilters(filters)}
+                              >
+                                {quickFilter.label}
+                              </Button>
+                            ))}
+                            {controller.recordFilters ? (
+                              <Button
+                                color="inherit"
+                                size="small"
+                                onClick={() => controller.setRecordFilters(undefined)}
+                              >
+                                {stringProperty(
+                                  component,
+                                  'clearFiltersLabel',
+                                  'Clear filters',
+                                )}
+                              </Button>
+                            ) : null}
+                          </Stack>
+                        ) : null}
+                        {recoveryActions.length > 0 ? (
+                          <Stack
+                            direction="row"
+                            spacing={0.75}
+                            sx={{ alignItems: 'center', flexWrap: 'wrap' }}
+                            useFlexGap
+                          >
+                            <Typography
+                              color="text.secondary"
+                              sx={{
+                                fontWeight: 700,
+                                letterSpacing: 1.2,
+                                textTransform: 'uppercase',
+                              }}
+                              variant="caption"
+                            >
+                              {stringProperty(
+                                component,
+                                'guidedActionsLabel',
+                                'Guided actions',
+                              )}
+                            </Typography>
+                            {recoveryActions.map((action) => (
+                              <Tooltip
+                                key={action.id}
+                                title={
+                                  action.summary ??
+                                  `${action.ownerModule}: ${action.handlerAction}`
+                                }
+                              >
+                                <Chip
+                                  label={action.label}
+                                  size="small"
+                                  sx={{ bgcolor: 'action.selected' }}
+                                />
+                              </Tooltip>
+                            ))}
+                          </Stack>
+                        ) : null}
                       </Stack>
                     </Box>
                   </Stack>

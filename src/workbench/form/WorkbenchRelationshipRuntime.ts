@@ -24,7 +24,7 @@ export interface WorkbenchRelationshipRuntime {
   ) => Promise<WorkbenchRecord>;
   readonly loadRecords: (
     schema: WorkbenchSchema,
-    options?: WorkbenchRelationshipLoadOptions | undefined,
+    options?: WorkbenchRelationshipLoadOptions,
   ) => Promise<WorkbenchRelationshipLoadResult>;
   readonly resolveRecord?: (
     relationship: WorkbenchRelationship,

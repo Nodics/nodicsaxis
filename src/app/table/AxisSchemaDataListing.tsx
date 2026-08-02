@@ -1,10 +1,8 @@
 import { Typography, type SxProps, type Theme } from '@mui/material';
 import { type ReactNode } from 'react';
 
-import {
-  AxisSchemaReferenceValues,
-  axisSchemaRelationshipReferences,
-} from '../schema/AxisSchemaReferenceValues';
+import { AxisSchemaReferenceValues } from '../schema/AxisSchemaReferenceValues';
+import { axisSchemaRelationshipReferences } from '../schema/axisSchemaReferenceValuesModel';
 import type {
   WorkbenchField,
   WorkbenchRecord,
@@ -94,8 +92,8 @@ function fieldValue(record: WorkbenchRecord, field: WorkbenchField): string {
 function schemaFieldColumn(
   field: WorkbenchField,
   renderer?: AxisSchemaFieldRenderer,
-  relationship?: WorkbenchRelationship | undefined,
-  onReferenceClick?: AxisSchemaDataListingProps['onReferenceClick'] | undefined,
+  relationship?: WorkbenchRelationship,
+  onReferenceClick?: AxisSchemaDataListingProps['onReferenceClick'],
 ): AxisDataListingColumn<WorkbenchRecord> {
   return {
     key: field.name,

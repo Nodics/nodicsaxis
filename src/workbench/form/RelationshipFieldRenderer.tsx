@@ -12,7 +12,7 @@ import {
   Typography,
 } from '@mui/material';
 import { useInfiniteQuery } from '@tanstack/react-query';
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 
 import type {
   WorkbenchRecord,
@@ -138,9 +138,6 @@ export function RelationshipFieldRenderer(props: RelationshipFieldRendererProps)
       return loaded < lastPage.totalCount ? lastPage.pageNumber + 1 : undefined;
     },
   });
-  useEffect(() => {
-    if (!selectOpen) setSearch('');
-  }, [selectOpen]);
   const selected = new Set(props.draft.references);
   const label = props.relationship.label;
   const allRecords = useMemo(
@@ -176,8 +173,15 @@ export function RelationshipFieldRenderer(props: RelationshipFieldRendererProps)
     props.relationship.actions.includes('CREATE_RELATED') &&
     nestedCreateAllowed &&
     props.targetSchema.operations.includes('create');
+  const toggleSelectExisting = () => {
+    setSelectOpen((current) => {
+      if (current) setSearch('');
+      return !current;
+    });
+  };
   const openCreate = () => {
     setSelectOpen(false);
+    setSearch('');
     setCreateOpen(true);
   };
 
@@ -247,7 +251,7 @@ export function RelationshipFieldRenderer(props: RelationshipFieldRendererProps)
             <Button
               disabled={props.disabled}
               variant="outlined"
-              onClick={() => setSelectOpen((current) => !current)}
+              onClick={toggleSelectExisting}
             >
               {props.copy.selectExistingLabel}
             </Button>
