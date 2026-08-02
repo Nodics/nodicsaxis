@@ -1,10 +1,19 @@
-import { Alert, Box, Button, CircularProgress, Stack, Typography } from '@mui/material';
+import {
+  Alert,
+  Box,
+  Button,
+  Chip,
+  CircularProgress,
+  Stack,
+  Typography,
+} from '@mui/material';
 import { useState } from 'react';
 
 import { AxisMetadataPanel } from '../../app/detail/AxisMetadataPanel';
 import { AxisSchemaRecordDetail } from '../../app/schema/AxisSchemaRecordDetail';
 import { axisSchemaRecordDisplayValue } from '../../app/schema/axisSchemaRecordValues';
 import { AxisSchemaDataListing } from '../../app/table/AxisSchemaDataListing';
+import type { AxisNavigationLifecycleAction } from '../../bootstrap/publicBootstrap';
 import type {
   WorkbenchRecord,
   WorkbenchRelationship,
@@ -20,6 +29,7 @@ interface WorkbenchRecordDetailProps {
   readonly deleteLabel: string;
   readonly falseLabel: string;
   readonly detailPanels?: readonly WorkbenchRecordDetailPanel[] | undefined;
+  readonly lifecycleActions?: readonly AxisNavigationLifecycleAction[] | undefined;
   readonly record: WorkbenchRecord;
   readonly relationshipRuntime?: WorkbenchRelationshipRuntime | undefined;
   readonly schema: WorkbenchSchema;
@@ -27,6 +37,49 @@ interface WorkbenchRecordDetailProps {
   readonly onClose: () => void;
   readonly onEdit: () => void;
   readonly onDelete: () => void;
+}
+
+function WorkbenchLifecycleActionPanel({
+  actions,
+}: {
+  readonly actions: readonly AxisNavigationLifecycleAction[];
+}) {
+  if (actions.length === 0) return null;
+  return (
+    <AxisMetadataPanel
+      fields={[]}
+      notice="Lifecycle actions are declared by the owning backend module. Actions without an operation route are visible for governance but are not executable from Axis yet."
+      title="Lifecycle actions"
+    >
+      <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap', rowGap: 1 }}>
+        {actions.map((action) => {
+          const executable =
+            action.operationRoute !== undefined && action.featureState !== 'DISABLED';
+          return (
+            <Button
+              key={action.id}
+              disabled={!executable}
+              size="small"
+              variant={executable ? 'contained' : 'outlined'}
+            >
+              <Stack
+                direction="row"
+                spacing={0.75}
+                sx={{ alignItems: 'center', minWidth: 0 }}
+              >
+                <span>{action.label}</span>
+                <Chip
+                  label={action.intent}
+                  size="small"
+                  sx={{ height: 22, pointerEvents: 'none' }}
+                />
+              </Stack>
+            </Button>
+          );
+        })}
+      </Stack>
+    </AxisMetadataPanel>
+  );
 }
 
 function relatedRecordKey(record: WorkbenchRecord, index: number): string {
@@ -231,6 +284,7 @@ export function WorkbenchRecordDetail(props: WorkbenchRecordDetailProps) {
         title={title}
         trueLabel={props.trueLabel}
       />
+      <WorkbenchLifecycleActionPanel actions={props.lifecycleActions ?? []} />
       {props.detailPanels?.map((detailPanel) => (
         <WorkbenchRelatedDetailPanel
           key={detailPanel.panel.id}

@@ -639,6 +639,7 @@ export function WorkbenchRoutePage(props: WorkbenchRoutePageProps) {
                 parentLabel: routeParentLabel,
                 help: props.routeNavigation?.help,
                 detailPanels: props.routeNavigation?.detailPanels,
+                lifecycleActions: props.routeNavigation?.lifecycleActions,
                 workbenchPresentation: normalizedSelectedSchema
                   ? workbenchPresentationForSchema(
                       props.routeNavigation,

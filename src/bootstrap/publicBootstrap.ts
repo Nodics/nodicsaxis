@@ -88,6 +88,18 @@ export interface AxisNavigationDetailPanel {
   readonly relation?: AxisNavigationDetailPanelRelation | undefined;
 }
 
+export interface AxisNavigationLifecycleAction {
+  readonly id: string;
+  readonly label: string;
+  readonly intent: 'CREATE' | 'UPDATE' | 'APPROVE' | 'REJECT' | 'RETRY' | 'CANCEL' | 'RECONCILE' | 'EXPORT' | 'OTHER';
+  readonly permission?: string | undefined;
+  readonly summary?: string | undefined;
+  readonly operationRoute?: string | undefined;
+  readonly targetStatuses?: readonly string[] | undefined;
+  readonly featureState?: AxisNavigationFeatureState | undefined;
+  readonly order: number;
+}
+
 export interface AxisNavigationHelp {
   readonly summary: string;
   readonly documentationRoute?: string | undefined;
@@ -114,6 +126,7 @@ export interface AxisNavigationItem {
   readonly workbenchTarget?: AxisWorkbenchTarget | undefined;
   readonly workbenchPresentation?: AxisWorkbenchPresentation | undefined;
   readonly detailPanels?: readonly AxisNavigationDetailPanel[] | undefined;
+  readonly lifecycleActions?: readonly AxisNavigationLifecycleAction[] | undefined;
   readonly help?: AxisNavigationHelp | undefined;
 }
 
@@ -451,6 +464,84 @@ function parseNavigationHelp(
   });
 }
 
+function parseNavigationLifecycleActions(
+  value: unknown,
+  moduleName: string,
+): readonly AxisNavigationLifecycleAction[] | undefined {
+  if (value === undefined) return undefined;
+  if (!Array.isArray(value) || value.length > 12) {
+    throw new Error(`${moduleName} navigation lifecycle actions must be a bounded list`);
+  }
+  const seen = new Set<string>();
+  return Object.freeze(
+    value
+      .map((rawAction, index) => {
+        const action = record(rawAction, `${moduleName} navigation lifecycle action`);
+        const id = text(action.id, `${moduleName} navigation lifecycle action id`);
+        if (seen.has(id)) {
+          throw new Error(`${moduleName} navigation lifecycle actions contain duplicates`);
+        }
+        seen.add(id);
+        const intent = text(
+          action.intent,
+          `${moduleName} navigation lifecycle action intent`,
+        );
+        const supportedIntents = [
+          'CREATE',
+          'UPDATE',
+          'APPROVE',
+          'REJECT',
+          'RETRY',
+          'CANCEL',
+          'RECONCILE',
+          'EXPORT',
+          'OTHER',
+        ];
+        if (!supportedIntents.includes(intent)) {
+          throw new Error(
+            `${moduleName} navigation lifecycle action intent is unsupported`,
+          );
+        }
+        const summary = optionalText(
+          action.summary,
+          `${moduleName} navigation lifecycle action summary`,
+        );
+        if (summary !== undefined && summary.length > 240) {
+          throw new Error(
+            `${moduleName} navigation lifecycle action summary is too long`,
+          );
+        }
+        return Object.freeze({
+          id,
+          label: text(action.label, `${moduleName} navigation lifecycle action label`),
+          intent: intent as AxisNavigationLifecycleAction['intent'],
+          permission: optionalText(
+            action.permission,
+            `${moduleName} navigation lifecycle action permission`,
+          ),
+          summary,
+          operationRoute:
+            action.operationRoute === undefined
+              ? undefined
+              : relativeRoute(
+                  action.operationRoute,
+                  `${moduleName} navigation lifecycle action operation route`,
+                ),
+          targetStatuses:
+            action.targetStatuses === undefined
+              ? undefined
+              : stringList(
+                  action.targetStatuses,
+                  `${moduleName} navigation lifecycle action target statuses`,
+                ),
+          featureState: navigationFeatureState(action.featureState),
+          order: Number.isInteger(action.order) ? Number(action.order) : index,
+        });
+      })
+      .sort((left, right) => left.order - right.order),
+  );
+}
+
 function parseWorkbenchPresentation(
   value: unknown,
   moduleName: string,
@@ -653,6 +744,10 @@ function parseNavigation(
             moduleName,
           ),
           detailPanels: parseNavigationDetailPanels(item.detailPanels, moduleName),
+          lifecycleActions: parseNavigationLifecycleActions(
+            item.lifecycleActions,
+            moduleName,
+          ),
           help: parseNavigationHelp(item.help, moduleName),
         }),
       );

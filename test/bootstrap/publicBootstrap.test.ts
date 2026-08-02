@@ -101,6 +101,17 @@ const authenticatedData = {
               },
             },
           ],
+          lifecycleActions: [
+            {
+              id: 'publish-page',
+              label: 'Publish page',
+              intent: 'APPROVE',
+              permission: 'cms.publish',
+              summary: 'Request publication through the owning CMS workflow.',
+              operationRoute: '/content/pages/publish',
+              targetStatuses: ['DRAFT'],
+            },
+          ],
           help: {
             summary: 'Manage content pages and components.',
             documentationRoute:
@@ -270,6 +281,13 @@ describe('Axis bootstrap clients', () => {
               cardinality: 'MANY',
             },
           },
+        ],
+        lifecycleActions: [
+          expect.objectContaining({
+            id: 'publish-page',
+            intent: 'APPROVE',
+            operationRoute: '/content/pages/publish',
+          }),
         ],
         help: {
           summary: 'Manage content pages and components.',

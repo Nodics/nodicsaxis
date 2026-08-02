@@ -796,6 +796,7 @@ export function SchemaWorkbenchRenderer({
                           editLabel={stringProperty(component, 'editLabel')}
                           falseLabel={stringProperty(component, 'falseLabel')}
                           detailPanels={controller.selectedRecordDetailPanels}
+                          lifecycleActions={controller.scope?.lifecycleActions}
                           record={controller.selectedRecord}
                           relationshipRuntime={controller.relationshipRuntime}
                           schema={selected}
