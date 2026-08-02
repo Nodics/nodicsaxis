@@ -114,4 +114,70 @@ describe('Axis shell navigation composition', () => {
     ]);
     expect(commerce?.items[0]?.hasChildren).toBe(true);
   });
+
+  it('keeps backend-driven payment operations as an expandable operations group', () => {
+    const group = {
+      id: 'payment-operations',
+      label: 'Payment Operations',
+      order: 360,
+    };
+    const groups = composeShellNavigation([
+      {
+        id: 'payment-operations',
+        label: 'Payment Operations',
+        route: '/commerce/payments',
+        order: 360,
+        moduleName: 'payment',
+        category: 'commerce',
+        icon: 'payment',
+        availability: 'UP',
+        group,
+        workbenchTarget: {
+          moduleName: 'payment',
+          schemaName: 'paymentTransaction',
+        },
+      },
+      {
+        id: 'payment-methods',
+        parentId: 'payment-operations',
+        label: 'Payment Methods',
+        route: '/commerce/payments/methods',
+        order: 362,
+        moduleName: 'payment',
+        category: 'commerce',
+        icon: 'payment',
+        availability: 'UP',
+        group,
+        workbenchTarget: {
+          moduleName: 'payment',
+          schemaName: 'paymentMethod',
+        },
+      },
+      {
+        id: 'payment-providers',
+        parentId: 'payment-operations',
+        label: 'Payment Providers',
+        route: '/commerce/payments/providers',
+        order: 364,
+        moduleName: 'payment',
+        category: 'commerce',
+        icon: 'payment',
+        availability: 'UP',
+        group,
+        workbenchTarget: {
+          moduleName: 'payment',
+          schemaName: 'paymentProvider',
+        },
+      },
+    ]);
+
+    const paymentOperations = groups.find((entry) => entry.id === 'payment-operations');
+    expect(
+      paymentOperations?.items.map((item) => [item.id, item.depth, item.hasChildren]),
+    ).toEqual([
+      ['payment-operations', 0, true],
+      ['payment-methods', 1, false],
+      ['payment-providers', 1, false],
+    ]);
+  });
 });

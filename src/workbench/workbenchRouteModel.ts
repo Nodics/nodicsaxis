@@ -85,23 +85,44 @@ export function workbenchPresentationForSchema(
     : undefined;
 }
 
+export function workbenchPresentationExcludedColumns(
+  presentation: AxisWorkbenchPresentation | undefined,
+): readonly string[] {
+  return Object.freeze([
+    ...(presentation?.hiddenFields ?? []),
+    ...(presentation?.forbiddenFields ?? []),
+  ]);
+}
+
+export function workbenchPresentationForbiddenFields(
+  presentation: AxisWorkbenchPresentation | undefined,
+): readonly string[] {
+  return Object.freeze([...(presentation?.forbiddenFields ?? [])]);
+}
+
 export function resolveWorkbenchDefaultColumns(
   schema: WorkbenchSchema,
   presentation: AxisWorkbenchPresentation | undefined,
 ): readonly string[] {
   const fieldNames = schemaFieldNames(schema);
-  const presented = (presentation?.defaultColumns ?? []).filter((field) =>
-    fieldNames.has(field),
+  const excludedFields = new Set(workbenchPresentationExcludedColumns(presentation));
+  const presented = (presentation?.defaultColumns ?? []).filter(
+    (field) => fieldNames.has(field) && !excludedFields.has(field),
   );
   if (presented.length > 0) return Object.freeze(presented);
   const semanticDefaults = schema.fields
-    .filter((field) => field.primary || field.searchable)
+    .filter(
+      (field) => (field.primary || field.searchable) && !excludedFields.has(field.name),
+    )
     .slice(0, 5)
     .map((field) => field.name);
   return Object.freeze(
     semanticDefaults.length > 0
       ? semanticDefaults
-      : schema.fields.slice(0, 5).map((field) => field.name),
+      : schema.fields
+          .filter((field) => !excludedFields.has(field.name))
+          .slice(0, 5)
+          .map((field) => field.name),
   );
 }
 

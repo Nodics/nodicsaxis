@@ -81,6 +81,9 @@ export interface WorkbenchRendererController {
   readonly deleteImpactLoading?: boolean;
   readonly bulkDeleteError?: string | undefined;
   readonly bulkDeleting?: boolean;
+  readonly lifecycleActionError?: string | undefined;
+  readonly lifecycleActionPendingId?: string | undefined;
+  readonly lifecycleActionResult?: unknown;
   readonly tenantCode: string;
   readonly enterpriseCode: string;
   readonly selectSchema: (schema: WorkbenchSchema) => void;
@@ -113,6 +116,10 @@ export interface WorkbenchRendererController {
   readonly cancelDelete: () => void;
   readonly confirmDelete: () => Promise<void>;
   readonly bulkDeleteSelected?: () => Promise<void>;
+  readonly executeLifecycleAction?: (
+    action: AxisNavigationLifecycleAction,
+    record: WorkbenchRecord,
+  ) => Promise<void>;
   readonly retrySchemas: () => void;
   readonly retryRecords: () => void;
 }

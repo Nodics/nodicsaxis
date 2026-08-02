@@ -1,4 +1,5 @@
 import type { AxisModuleConnection } from '../../bootstrap/publicBootstrap';
+import type { AxisNavigationLifecycleAction } from '../../bootstrap/publicBootstrap';
 import {
   parseWorkbenchRecords,
   parseWorkbenchRecordPage,
@@ -369,6 +370,35 @@ export async function bulkDeleteWorkbenchRecords(
     },
     fetchImplementation,
     true,
+  );
+}
+
+export async function executeWorkbenchLifecycleAction(
+  connection: AxisModuleConnection,
+  schema: WorkbenchSchema,
+  action: AxisNavigationLifecycleAction,
+  record: WorkbenchRecord,
+  configuration: WorkbenchClientConfiguration,
+  idempotencyKey: string,
+  fetchImplementation: typeof fetch = fetch,
+): Promise<unknown> {
+  if (!action.operationRoute) {
+    throw new Error('Lifecycle action does not declare a backend operation route');
+  }
+  return request(
+    connection,
+    action.operationRoute,
+    configuration,
+    {
+      method: 'POST',
+      headers: { 'Idempotency-Key': idempotencyKey },
+      body: JSON.stringify({
+        actionId: action.id,
+        identity: recordIdentity(schema, record),
+        model: record,
+      }),
+    },
+    fetchImplementation,
   );
 }
 

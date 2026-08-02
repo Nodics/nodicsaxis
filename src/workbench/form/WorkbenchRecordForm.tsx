@@ -1,6 +1,7 @@
 import { Alert, Box, Button, Stack, Typography } from '@mui/material';
 import { useMemo, useState, type FormEvent } from 'react';
 
+import type { AxisWorkbenchPresentation } from '../../bootstrap/publicBootstrap';
 import type { WorkbenchSchema } from '../api/workbenchContracts';
 import {
   compactWorkbenchDraft,
@@ -29,19 +30,45 @@ interface WorkbenchRecordFormProps {
   readonly lineage?: readonly string[] | undefined;
   readonly relationshipCopy?: WorkbenchRelationshipCopy | undefined;
   readonly relationshipRuntime?: WorkbenchRelationshipRuntime | undefined;
+  readonly workbenchPresentation?: AxisWorkbenchPresentation | undefined;
   readonly onCancel: () => void;
   readonly onSubmit: (model: Readonly<Record<string, unknown>>) => void | Promise<void>;
 }
 
-function initialDraft(
+function editableFieldNames(
   schema: WorkbenchSchema,
-  model?: Readonly<Record<string, unknown>>,
-): Record<string, unknown> {
-  return Object.fromEntries(
+  presentation: AxisWorkbenchPresentation | undefined,
+): ReadonlySet<string> {
+  const editableFields =
+    presentation?.editableFields === undefined
+      ? undefined
+      : new Set(presentation.editableFields);
+  const readonlyFields = new Set(presentation?.readonlyFields ?? []);
+  const forbiddenFields = new Set(presentation?.forbiddenFields ?? []);
+  return new Set(
     schema.fields
       .filter(
         (field) =>
           !field.readOnly &&
+          !readonlyFields.has(field.name) &&
+          !forbiddenFields.has(field.name) &&
+          (editableFields === undefined || editableFields.has(field.name)),
+      )
+      .map((field) => field.name),
+  );
+}
+
+function initialDraft(
+  schema: WorkbenchSchema,
+  presentation: AxisWorkbenchPresentation | undefined,
+  model?: Readonly<Record<string, unknown>>,
+): Record<string, unknown> {
+  const editableNames = editableFieldNames(schema, presentation);
+  return Object.fromEntries(
+    schema.fields
+      .filter(
+        (field) =>
+          editableNames.has(field.name) &&
           (workbenchRecordValue(model, field.name) !== undefined ||
             field.default !== undefined),
       )
@@ -90,6 +117,7 @@ function initialRelationshipDrafts(
 
 function requiredErrors(
   schema: WorkbenchSchema,
+  editableNames: ReadonlySet<string>,
   draft: Readonly<Record<string, unknown>>,
 ): Readonly<Record<string, string>> {
   return Object.fromEntries(
@@ -97,7 +125,7 @@ function requiredErrors(
       .filter((field) => {
         const value = draft[field.name];
         return (
-          !field.readOnly &&
+          editableNames.has(field.name) &&
           field.required &&
           (value === undefined ||
             value === '' ||
@@ -110,7 +138,7 @@ function requiredErrors(
 
 export function WorkbenchRecordForm(props: WorkbenchRecordFormProps) {
   const [draft, setDraft] = useState<Record<string, unknown>>(() =>
-    initialDraft(props.schema, props.initialModel),
+    initialDraft(props.schema, props.workbenchPresentation, props.initialModel),
   );
   const [submitted, setSubmitted] = useState(false);
   const [resolvingRelationships, setResolvingRelationships] = useState(false);
@@ -122,6 +150,10 @@ export function WorkbenchRecordForm(props: WorkbenchRecordFormProps) {
     () => new Set(props.schema.relationships.map((relationship) => relationship.field)),
     [props.schema.relationships],
   );
+  const editableNames = useMemo(
+    () => editableFieldNames(props.schema, props.workbenchPresentation),
+    [props.schema, props.workbenchPresentation],
+  );
   const relationshipCopy = props.relationshipCopy;
   const relationshipRuntime = props.relationshipRuntime;
   const containerFields = useMemo(
@@ -132,14 +164,21 @@ export function WorkbenchRecordForm(props: WorkbenchRecordFormProps) {
     () =>
       props.schema.fields.filter(
         (field) =>
-          !field.readOnly &&
+          editableNames.has(field.name) &&
           !relationshipFields.has(field.name) &&
           !containerFields.has(field.name),
       ),
-    [containerFields, props.schema.fields, relationshipFields],
+    [containerFields, editableNames, props.schema.fields, relationshipFields],
+  );
+  const editableRelationships = useMemo(
+    () =>
+      props.schema.relationships.filter((relationship) =>
+        editableNames.has(relationship.field),
+      ),
+    [editableNames, props.schema.relationships],
   );
   const relationshipValidationErrors = Object.fromEntries(
-    props.schema.relationships
+    editableRelationships
       .filter((relationship) => {
         const value = relationshipDrafts[relationship.field];
         return (
@@ -161,9 +200,12 @@ export function WorkbenchRecordForm(props: WorkbenchRecordFormProps) {
         ...props.schema,
         fields: props.schema.fields.filter(
           (field) =>
-            !relationshipFields.has(field.name) && !containerFields.has(field.name),
+            editableNames.has(field.name) &&
+            !relationshipFields.has(field.name) &&
+            !containerFields.has(field.name),
         ),
       },
+      editableNames,
       draft,
     ),
     ...relationshipValidationErrors,
@@ -178,7 +220,7 @@ export function WorkbenchRecordForm(props: WorkbenchRecordFormProps) {
     const model = compactWorkbenchDraft(draft);
     const resolvedDrafts = { ...relationshipDrafts };
     try {
-      for (const relationship of props.schema.relationships) {
+      for (const relationship of editableRelationships) {
         const relationshipDraft = resolvedDrafts[relationship.field] ?? {
           references: [],
           pending: [],
@@ -281,7 +323,7 @@ export function WorkbenchRecordForm(props: WorkbenchRecordFormProps) {
           />
         ))}
         {relationshipRuntime && relationshipCopy
-          ? props.schema.relationships.map((relationship) => {
+          ? editableRelationships.map((relationship) => {
               const targetSchema = relationshipRuntime.schemas.find(
                 (schema) =>
                   schema.moduleName === relationship.targetModule &&

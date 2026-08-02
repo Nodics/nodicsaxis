@@ -26,6 +26,7 @@ export interface AxisSchemaRecordDetailProps {
   readonly falseLabel?: string | undefined;
   readonly notice?: string | undefined;
   readonly record: WorkbenchRecord;
+  readonly forbiddenFieldNames?: readonly string[] | undefined;
   readonly referenceResolver?: AxisSchemaRecordReferenceResolver | undefined;
   readonly referenceDepth?: number | undefined;
   readonly schema: WorkbenchSchema;
@@ -55,6 +56,7 @@ function schemaDetailFields(
   record: WorkbenchRecord,
   trueLabel: string,
   falseLabel: string,
+  forbiddenFieldNames: readonly string[],
   referenceResolver: AxisSchemaRecordReferenceResolver | undefined,
   referenceDepth: number,
   onReferenceOpen: (reference: AxisSchemaReferenceValue) => void,
@@ -63,8 +65,11 @@ function schemaDetailFields(
   const relationships = new Map(
     schema.relationships.map((relationship) => [relationship.field, relationship]),
   );
+  const forbiddenFields = new Set(forbiddenFieldNames);
   return schema.fields
-    .filter((field) => !containerFields.has(field.name))
+    .filter(
+      (field) => !containerFields.has(field.name) && !forbiddenFields.has(field.name),
+    )
     .map((field) => {
       const rawValue = workbenchRecordValue(record, field.name);
       const relationship = relationships.get(field.name);
@@ -100,6 +105,7 @@ function schemaDetailFields(
 export function AxisSchemaRecordDetail({
   actions,
   falseLabel = 'No',
+  forbiddenFieldNames = [],
   notice,
   record,
   referenceDepth = 0,
@@ -148,6 +154,7 @@ export function AxisSchemaRecordDetail({
         record,
         trueLabel,
         falseLabel,
+        forbiddenFieldNames,
         canOpenReferences ? referenceResolver : undefined,
         referenceDepth,
         openReference,

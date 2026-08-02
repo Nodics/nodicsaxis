@@ -32,7 +32,11 @@ import type { WorkbenchRecord } from '../../../../workbench/api/workbenchContrac
 import { WorkbenchRecordDetail } from '../../../../workbench/detail/WorkbenchRecordDetail';
 import { WorkbenchDeleteDialog } from '../../../../workbench/delete/WorkbenchDeleteDialog';
 import { WorkbenchRecordForm } from '../../../../workbench/form/WorkbenchRecordForm';
-import { workbenchQuickFilterGroup } from '../../../../workbench/workbenchRouteModel';
+import {
+  workbenchPresentationExcludedColumns,
+  workbenchPresentationForbiddenFields,
+  workbenchQuickFilterGroup,
+} from '../../../../workbench/workbenchRouteModel';
 import { stringProperty } from '../../shared/rendererProperties';
 import type { CmsComponentRendererProps } from '../../shared/rendererTypes';
 import { SchemaQueryBuilderRenderer } from '../query/SchemaQueryBuilderRenderer';
@@ -122,14 +126,21 @@ export function SchemaWorkbenchRenderer({
         .filter((entry) => entry.filters !== undefined)
     : [];
   const recoveryActions = workbenchPresentation?.recoveryActions ?? [];
+  const excludedColumnKeys =
+    workbenchPresentationExcludedColumns(workbenchPresentation);
+  const forbiddenFieldNames =
+    workbenchPresentationForbiddenFields(workbenchPresentation);
   const workspaceLabel =
     controller.scope?.label ??
     selected?.label ??
     stringProperty(component, 'selectSchemaLabel');
   const workspaceHelp = controller.scope?.help;
+  const excludedColumnKeySet = new Set(excludedColumnKeys);
   const columns =
-    selected?.fields.filter((field) =>
-      controller.visibleColumns.includes(field.name),
+    selected?.fields.filter(
+      (field) =>
+        controller.visibleColumns.includes(field.name) &&
+        !excludedColumnKeySet.has(field.name),
     ) ?? [];
   const records = controller.records;
   const leadingRecordColumns: readonly AxisDataListingColumn<WorkbenchRecord>[] =
@@ -401,6 +412,7 @@ export function SchemaWorkbenchRenderer({
                       savingLabel={stringProperty(component, 'savingLabel')}
                       schema={selected}
                       submitLabel={stringProperty(component, 'createLabel')}
+                      workbenchPresentation={workbenchPresentation}
                       onCancel={controller.cancelCreate}
                       onSubmit={controller.createRecord}
                     />
@@ -608,6 +620,7 @@ export function SchemaWorkbenchRenderer({
                         )}
                         defaultVisibleColumnKeys={columns.map((field) => field.name)}
                         emptyMessage={stringProperty(component, 'noRecordsLabel')}
+                        excludedColumnKeys={excludedColumnKeys}
                         exportFileName={`axis-${selected.moduleName}-${selected.schemaName}`}
                         footer={
                           controller.recordTotalCount > 0 ? (
@@ -786,6 +799,7 @@ export function SchemaWorkbenchRenderer({
                           savingLabel={stringProperty(component, 'updatingLabel')}
                           schema={selected}
                           submitLabel={stringProperty(component, 'updateLabel')}
+                          workbenchPresentation={workbenchPresentation}
                           onCancel={controller.cancelEdit}
                           onSubmit={controller.updateRecord}
                         />
@@ -795,7 +809,11 @@ export function SchemaWorkbenchRenderer({
                           deleteLabel={stringProperty(component, 'deleteLabel')}
                           editLabel={stringProperty(component, 'editLabel')}
                           falseLabel={stringProperty(component, 'falseLabel')}
+                          forbiddenFieldNames={forbiddenFieldNames}
                           detailPanels={controller.selectedRecordDetailPanels}
+                          lifecycleActionError={controller.lifecycleActionError}
+                          lifecycleActionPendingId={controller.lifecycleActionPendingId}
+                          lifecycleActionResult={controller.lifecycleActionResult}
                           lifecycleActions={controller.scope?.lifecycleActions}
                           record={controller.selectedRecord}
                           relationshipRuntime={controller.relationshipRuntime}
@@ -804,6 +822,7 @@ export function SchemaWorkbenchRenderer({
                           onClose={controller.closeRecord}
                           onDelete={controller.beginDelete}
                           onEdit={controller.beginEdit}
+                          onLifecycleAction={controller.executeLifecycleAction}
                         />
                       )}
                     </Box>

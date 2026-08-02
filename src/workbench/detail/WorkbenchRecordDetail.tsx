@@ -28,8 +28,12 @@ interface WorkbenchRecordDetailProps {
   readonly editLabel: string;
   readonly deleteLabel: string;
   readonly falseLabel: string;
+  readonly forbiddenFieldNames?: readonly string[] | undefined;
   readonly detailPanels?: readonly WorkbenchRecordDetailPanel[] | undefined;
   readonly lifecycleActions?: readonly AxisNavigationLifecycleAction[] | undefined;
+  readonly lifecycleActionError?: string | undefined;
+  readonly lifecycleActionPendingId?: string | undefined;
+  readonly lifecycleActionResult?: unknown;
   readonly record: WorkbenchRecord;
   readonly relationshipRuntime?: WorkbenchRelationshipRuntime | undefined;
   readonly schema: WorkbenchSchema;
@@ -37,37 +41,70 @@ interface WorkbenchRecordDetailProps {
   readonly onClose: () => void;
   readonly onEdit: () => void;
   readonly onDelete: () => void;
+  readonly onLifecycleAction?:
+    | ((
+        action: AxisNavigationLifecycleAction,
+        record: WorkbenchRecord,
+      ) => Promise<void>)
+    | undefined;
 }
 
 function WorkbenchLifecycleActionPanel({
   actions,
+  error,
+  pendingActionId,
+  record,
+  result,
+  onExecute,
 }: {
   readonly actions: readonly AxisNavigationLifecycleAction[];
+  readonly error?: string | undefined;
+  readonly pendingActionId?: string | undefined;
+  readonly record: WorkbenchRecord;
+  readonly result?: unknown;
+  readonly onExecute?:
+    | ((
+        action: AxisNavigationLifecycleAction,
+        record: WorkbenchRecord,
+      ) => Promise<void>)
+    | undefined;
 }) {
   if (actions.length === 0) return null;
+  const resultText =
+    result === undefined
+      ? undefined
+      : typeof result === 'string'
+        ? result
+        : JSON.stringify(result, null, 2);
   return (
     <AxisMetadataPanel
       fields={[]}
-      notice="Lifecycle actions are declared by the owning backend module. Actions without an operation route are visible for governance but are not executable from Axis yet."
+      notice="Lifecycle actions are declared by the owning backend module. Executable actions call only the declared backend operation route."
       title="Lifecycle actions"
     >
       <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap', rowGap: 1 }}>
         {actions.map((action) => {
           const executable =
-            action.operationRoute !== undefined && action.featureState !== 'DISABLED';
+            action.operationRoute !== undefined &&
+            action.featureState !== 'DISABLED' &&
+            onExecute !== undefined;
+          const pending = pendingActionId === action.id;
           return (
             <Button
               key={action.id}
-              disabled={!executable}
+              disabled={!executable || pendingActionId !== undefined}
               size="small"
               variant={executable ? 'contained' : 'outlined'}
+              onClick={() => {
+                if (executable) void onExecute(action, record);
+              }}
             >
               <Stack
                 direction="row"
                 spacing={0.75}
                 sx={{ alignItems: 'center', minWidth: 0 }}
               >
-                <span>{action.label}</span>
+                <span>{pending ? 'Working…' : action.label}</span>
                 <Chip
                   label={action.intent}
                   size="small"
@@ -78,6 +115,21 @@ function WorkbenchLifecycleActionPanel({
           );
         })}
       </Stack>
+      {error ? <Alert severity="error">{error}</Alert> : null}
+      {resultText ? (
+        <Alert
+          severity="success"
+          sx={{
+            '& .MuiAlert-message': {
+              minWidth: 0,
+              whiteSpace: 'pre-wrap',
+              wordBreak: 'break-word',
+            },
+          }}
+        >
+          {resultText}
+        </Alert>
+      ) : null}
     </AxisMetadataPanel>
   );
 }
@@ -274,6 +326,7 @@ export function WorkbenchRecordDetail(props: WorkbenchRecordDetailProps) {
           </>
         }
         falseLabel={props.falseLabel}
+        forbiddenFieldNames={props.forbiddenFieldNames}
         record={props.record}
         referenceResolver={
           props.relationshipRuntime?.resolveRecord
@@ -284,7 +337,14 @@ export function WorkbenchRecordDetail(props: WorkbenchRecordDetailProps) {
         title={title}
         trueLabel={props.trueLabel}
       />
-      <WorkbenchLifecycleActionPanel actions={props.lifecycleActions ?? []} />
+      <WorkbenchLifecycleActionPanel
+        actions={props.lifecycleActions ?? []}
+        error={props.lifecycleActionError}
+        pendingActionId={props.lifecycleActionPendingId}
+        record={props.record}
+        result={props.lifecycleActionResult}
+        onExecute={props.onLifecycleAction}
+      />
       {props.detailPanels?.map((detailPanel) => (
         <WorkbenchRelatedDetailPanel
           key={detailPanel.panel.id}

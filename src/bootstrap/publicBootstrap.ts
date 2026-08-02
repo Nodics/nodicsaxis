@@ -67,6 +67,10 @@ export interface AxisWorkbenchPresentationRecoveryAction {
 
 export interface AxisWorkbenchPresentation {
   readonly defaultColumns?: readonly string[] | undefined;
+  readonly hiddenFields?: readonly string[] | undefined;
+  readonly editableFields?: readonly string[] | undefined;
+  readonly readonlyFields?: readonly string[] | undefined;
+  readonly forbiddenFields?: readonly string[] | undefined;
   readonly quickFilters?: readonly AxisWorkbenchPresentationQuickFilter[] | undefined;
   readonly recoveryActions?:
     | readonly AxisWorkbenchPresentationRecoveryAction[]
@@ -91,7 +95,20 @@ export interface AxisNavigationDetailPanel {
 export interface AxisNavigationLifecycleAction {
   readonly id: string;
   readonly label: string;
-  readonly intent: 'CREATE' | 'UPDATE' | 'APPROVE' | 'REJECT' | 'RETRY' | 'CANCEL' | 'RECONCILE' | 'EXPORT' | 'OTHER';
+  readonly intent:
+    | 'CREATE'
+    | 'UPDATE'
+    | 'APPROVE'
+    | 'REJECT'
+    | 'RETRY'
+    | 'CANCEL'
+    | 'RECONCILE'
+    | 'EXPORT'
+    | 'VALIDATE'
+    | 'TEST'
+    | 'ACTIVATE'
+    | 'ROTATE_CONNECTOR'
+    | 'OTHER';
   readonly permission?: string | undefined;
   readonly summary?: string | undefined;
   readonly operationRoute?: string | undefined;
@@ -470,7 +487,9 @@ function parseNavigationLifecycleActions(
 ): readonly AxisNavigationLifecycleAction[] | undefined {
   if (value === undefined) return undefined;
   if (!Array.isArray(value) || value.length > 12) {
-    throw new Error(`${moduleName} navigation lifecycle actions must be a bounded list`);
+    throw new Error(
+      `${moduleName} navigation lifecycle actions must be a bounded list`,
+    );
   }
   const seen = new Set<string>();
   return Object.freeze(
@@ -479,7 +498,9 @@ function parseNavigationLifecycleActions(
         const action = record(rawAction, `${moduleName} navigation lifecycle action`);
         const id = text(action.id, `${moduleName} navigation lifecycle action id`);
         if (seen.has(id)) {
-          throw new Error(`${moduleName} navigation lifecycle actions contain duplicates`);
+          throw new Error(
+            `${moduleName} navigation lifecycle actions contain duplicates`,
+          );
         }
         seen.add(id);
         const intent = text(
@@ -495,6 +516,10 @@ function parseNavigationLifecycleActions(
           'CANCEL',
           'RECONCILE',
           'EXPORT',
+          'VALIDATE',
+          'TEST',
+          'ACTIVATE',
+          'ROTATE_CONNECTOR',
           'OTHER',
         ];
         if (!supportedIntents.includes(intent)) {
@@ -555,6 +580,34 @@ function parseWorkbenchPresentation(
           presentation.defaultColumns,
           `${moduleName} workbench presentation default columns`,
         );
+  const hiddenFields =
+    presentation.hiddenFields === undefined
+      ? undefined
+      : stringList(
+          presentation.hiddenFields,
+          `${moduleName} workbench presentation hidden fields`,
+        );
+  const editableFields =
+    presentation.editableFields === undefined
+      ? undefined
+      : stringList(
+          presentation.editableFields,
+          `${moduleName} workbench presentation editable fields`,
+        );
+  const readonlyFields =
+    presentation.readonlyFields === undefined
+      ? undefined
+      : stringList(
+          presentation.readonlyFields,
+          `${moduleName} workbench presentation readonly fields`,
+        );
+  const forbiddenFields =
+    presentation.forbiddenFields === undefined
+      ? undefined
+      : stringList(
+          presentation.forbiddenFields,
+          `${moduleName} workbench presentation forbidden fields`,
+        );
   const quickFilters =
     presentation.quickFilters === undefined
       ? undefined
@@ -568,6 +621,10 @@ function parseWorkbenchPresentation(
         );
   return Object.freeze({
     ...(defaultColumns === undefined ? {} : { defaultColumns }),
+    ...(hiddenFields === undefined ? {} : { hiddenFields }),
+    ...(editableFields === undefined ? {} : { editableFields }),
+    ...(readonlyFields === undefined ? {} : { readonlyFields }),
+    ...(forbiddenFields === undefined ? {} : { forbiddenFields }),
     ...(quickFilters === undefined ? {} : { quickFilters }),
     ...(recoveryActions === undefined ? {} : { recoveryActions }),
   });

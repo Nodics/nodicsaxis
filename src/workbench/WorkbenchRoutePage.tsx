@@ -12,6 +12,7 @@ import type { AxisSort } from '../app/table/axisTableSorting';
 import {
   selectModuleConnection,
   type AxisAuthenticatedBootstrap,
+  type AxisNavigationLifecycleAction,
   type AxisNavigationItem,
 } from '../bootstrap/publicBootstrap';
 import type { AxisRuntimeConfig } from '../runtime/runtimeConfig';
@@ -19,6 +20,7 @@ import {
   createWorkbenchRecord,
   bulkDeleteWorkbenchRecords,
   deleteWorkbenchRecord,
+  executeWorkbenchLifecycleAction,
   loadWorkbenchRecords,
   loadWorkbenchSchemas,
   previewWorkbenchDeleteImpact,
@@ -47,6 +49,7 @@ import {
   resolveWorkbenchRouteTarget,
   schemaWithValidQueryCapabilities,
   selectWorkbenchReferencedRecord,
+  workbenchPresentationForbiddenFields,
   workbenchPresentationForSchema,
   workbenchReferenceLookupQuery,
   type WorkbenchRouteSchemaSelection,
@@ -73,6 +76,17 @@ function workbenchRecordKey(
   return typeof identity === 'string' || typeof identity === 'number'
     ? String(identity)
     : `record-${String(index)}`;
+}
+
+function recordWithoutForbiddenFields(
+  record: WorkbenchRecord,
+  forbiddenFields: readonly string[],
+): WorkbenchRecord {
+  if (forbiddenFields.length === 0) return record;
+  const forbidden = new Set(forbiddenFields);
+  return Object.fromEntries(
+    Object.entries(record).filter(([fieldName]) => !forbidden.has(fieldName)),
+  );
 }
 
 interface OpenedReferenceRecord {
@@ -432,6 +446,44 @@ export function WorkbenchRoutePage(props: WorkbenchRoutePageProps) {
       });
     },
   });
+  const lifecycleAction = useMutation({
+    mutationFn: async ({
+      action,
+      record,
+    }: {
+      readonly action: AxisNavigationLifecycleAction;
+      readonly record: WorkbenchRecord;
+    }) => {
+      if (!normalizedSelectedSchema || !recordConnection) {
+        throw new Error('Select a schema before executing a lifecycle action');
+      }
+      const presentation = workbenchPresentationForSchema(
+        props.routeNavigation,
+        normalizedSelectedSchema,
+      );
+      return executeWorkbenchLifecycleAction(
+        recordConnection,
+        normalizedSelectedSchema,
+        action,
+        recordWithoutForbiddenFields(
+          record,
+          workbenchPresentationForbiddenFields(presentation),
+        ),
+        configuration,
+        `${props.employeeId}:${normalizedSelectedSchema.moduleName}:${normalizedSelectedSchema.schemaName}:${action.id}:${Date.now().toString(36)}`,
+      );
+    },
+    onSuccess: () => {
+      void queryClient.invalidateQueries({
+        queryKey: [
+          'workbench-records',
+          recordConnection?.endpoint,
+          normalizedSelectedSchema?.moduleName,
+          normalizedSelectedSchema?.schemaName,
+        ],
+      });
+    },
+  });
   const selectWorkbenchSchema = useCallback(
     (schema: WorkbenchSchema, options: { readonly openCreate?: boolean } = {}) => {
       const normalizedSchema = schemaWithValidQueryCapabilities(schema);
@@ -440,6 +492,7 @@ export function WorkbenchRoutePage(props: WorkbenchRoutePageProps) {
       deleteRecord.reset();
       deleteImpact.reset();
       bulkDelete.reset();
+      lifecycleAction.reset();
       setCreateOpen(Boolean(options.openCreate));
       setEditOpen(false);
       setSelectedRecord(undefined);
@@ -486,6 +539,7 @@ export function WorkbenchRoutePage(props: WorkbenchRoutePageProps) {
       props.routeNavigation,
       updatePreferences,
       updateRecord,
+      lifecycleAction,
     ],
   );
   const deepLinkTarget = useMemo(
@@ -615,6 +669,7 @@ export function WorkbenchRoutePage(props: WorkbenchRoutePageProps) {
       updateRecord.reset();
       deleteRecord.reset();
       deleteImpact.reset();
+      lifecycleAction.reset();
       setEditOpen(false);
       setDeleteOpen(false);
       setOpenedReferenceRecord({
@@ -624,7 +679,7 @@ export function WorkbenchRoutePage(props: WorkbenchRoutePageProps) {
         schema: result.schema,
       });
     },
-    [deleteImpact, deleteRecord, relationshipRuntime, updateRecord],
+    [deleteImpact, deleteRecord, lifecycleAction, relationshipRuntime, updateRecord],
   );
 
   return (
@@ -691,6 +746,9 @@ export function WorkbenchRoutePage(props: WorkbenchRoutePageProps) {
           deleteImpactLoading: deleteImpact.isPending,
           bulkDeleteError: bulkDelete.error?.message,
           bulkDeleting: bulkDelete.isPending,
+          lifecycleActionError: lifecycleAction.error?.message,
+          lifecycleActionPendingId: lifecycleAction.variables?.action.id,
+          lifecycleActionResult: lifecycleAction.data,
           tenantCode: props.bootstrap.tenantCode,
           enterpriseCode: props.runtime.enterpriseCode,
           selectSchema: selectWorkbenchSchema,
@@ -817,6 +875,7 @@ export function WorkbenchRoutePage(props: WorkbenchRoutePageProps) {
           selectRecord: (record) => {
             updateRecord.reset();
             deleteRecord.reset();
+            lifecycleAction.reset();
             setEditOpen(false);
             setOpenedReferenceRecord(undefined);
             setSelectedRecord(record);
@@ -825,6 +884,7 @@ export function WorkbenchRoutePage(props: WorkbenchRoutePageProps) {
           closeRecord: () => {
             updateRecord.reset();
             deleteRecord.reset();
+            lifecycleAction.reset();
             setEditOpen(false);
             setSelectedRecord(undefined);
             setOpenedReferenceRecord(undefined);
@@ -832,6 +892,7 @@ export function WorkbenchRoutePage(props: WorkbenchRoutePageProps) {
           },
           beginEdit: () => {
             updateRecord.reset();
+            lifecycleAction.reset();
             setEditOpen(true);
           },
           cancelEdit: () => {
@@ -852,6 +913,8 @@ export function WorkbenchRoutePage(props: WorkbenchRoutePageProps) {
           },
           confirmDelete: () => deleteRecord.mutateAsync().then(() => undefined),
           bulkDeleteSelected: () => bulkDelete.mutateAsync().then(() => undefined),
+          executeLifecycleAction: (action, record) =>
+            lifecycleAction.mutateAsync({ action, record }).then(() => undefined),
           retryRecords: () => void records.refetch(),
           retrySchemas: () => void schemas.refetch(),
         },

@@ -295,6 +295,126 @@ const productItemWorkbenchSchema = {
   relationships: [],
 };
 
+const paymentMethodWorkbenchSchema = {
+  moduleName: 'payment',
+  schemaName: 'paymentMethod',
+  label: 'Payment Methods',
+  description: 'Manage governed payment methods.',
+  displayProperty: 'code',
+  displayProperties: ['code', 'name', 'providerCode'],
+  queryCapabilities: {
+    searchableFields: ['code', 'name', 'providerCode'],
+    sortableFields: ['code'],
+    filterFields: [],
+    groupOperators: ['AND'],
+    textOperator: 'CONTAINS',
+    allowedPageSizes: [10],
+    defaultPageSize: 10,
+    maximumPageSize: 10,
+    defaultSort: { field: 'code', direction: 'ASC' },
+  },
+  mutationMode: 'GENERATED_CRUD',
+  operations: ['search', 'read', 'create', 'update', 'delete'],
+  fields: [
+    {
+      name: 'code',
+      label: 'Code',
+      type: 'string',
+      required: true,
+      readOnly: false,
+      primary: true,
+      description: 'Payment method code.',
+      searchable: true,
+    },
+    {
+      name: 'name',
+      label: 'Name',
+      type: 'string',
+      required: false,
+      readOnly: false,
+      primary: false,
+      description: 'Payment method name.',
+      searchable: true,
+    },
+    {
+      name: 'providerCode',
+      label: 'Provider',
+      type: 'string',
+      required: false,
+      readOnly: false,
+      primary: false,
+      description: 'Owning payment provider code.',
+      searchable: true,
+    },
+  ],
+  relationships: [],
+};
+
+const paymentProviderWorkbenchSchema = {
+  moduleName: 'payment',
+  schemaName: 'paymentProvider',
+  label: 'Payment Providers',
+  description: 'Manage governed payment providers.',
+  displayProperty: 'providerCode',
+  displayProperties: ['providerCode', 'displayName', 'providerType'],
+  queryCapabilities: {
+    searchableFields: ['providerCode', 'displayName', 'providerType'],
+    sortableFields: ['providerCode'],
+    filterFields: [],
+    groupOperators: ['AND'],
+    textOperator: 'CONTAINS',
+    allowedPageSizes: [10],
+    defaultPageSize: 10,
+    maximumPageSize: 10,
+    defaultSort: { field: 'providerCode', direction: 'ASC' },
+  },
+  mutationMode: 'GENERATED_CRUD',
+  operations: ['search', 'read', 'create', 'update', 'delete'],
+  fields: [
+    {
+      name: 'providerCode',
+      label: 'Provider Code',
+      type: 'string',
+      required: true,
+      readOnly: false,
+      primary: true,
+      description: 'Safe provider code.',
+      searchable: true,
+    },
+    {
+      name: 'displayName',
+      label: 'Display Name',
+      type: 'string',
+      required: true,
+      readOnly: false,
+      primary: false,
+      description: 'Business provider name.',
+      searchable: true,
+    },
+    {
+      name: 'providerType',
+      label: 'Provider Type',
+      type: 'string',
+      required: true,
+      readOnly: false,
+      primary: false,
+      description: 'Provider family.',
+      searchable: true,
+    },
+    {
+      name: 'apiKey',
+      label: 'API Key',
+      type: 'string',
+      required: false,
+      readOnly: false,
+      primary: false,
+      description: 'Forbidden unsafe field.',
+      searchable: false,
+    },
+  ],
+  relationships: [],
+};
+
 const assistantPage = {
   ...validResolvedPage,
   path: '/assistant',
@@ -596,6 +716,16 @@ describe('employee login journey', () => {
                       state: 'UP',
                     },
                   ],
+                  payment: [
+                    {
+                      moduleName: 'payment',
+                      instanceId: 'runtime-1',
+                      environment: 'startioLocal',
+                      clientCallable: true,
+                      endpoint: 'https://payment.example.com/nodics/payment',
+                      state: 'UP',
+                    },
+                  ],
                 },
                 catalogue: {
                   cms: {
@@ -672,11 +802,90 @@ describe('employee login journey', () => {
                       },
                     ],
                   },
+                  payment: {
+                    enabled: true,
+                    category: 'commerce',
+                    icon: 'payment',
+                    requiredPermissions: ['payment.backoffice.read'],
+                    compatibility: { status: 'COMPATIBLE' },
+                    navigation: [
+                      {
+                        id: 'payment-operations',
+                        label: 'Payment Operations',
+                        route: '/commerce/payments',
+                        order: 360,
+                        group: {
+                          id: 'payment-operations',
+                          label: 'Payment Operations',
+                          order: 360,
+                        },
+                        requiredPermissions: ['payment.backoffice.read'],
+                        workbenchTarget: {
+                          moduleName: 'payment',
+                          schemaName: 'paymentTransaction',
+                        },
+                      },
+                      {
+                        id: 'payment-methods',
+                        parentId: 'payment-operations',
+                        label: 'Payment Methods',
+                        route: '/commerce/payments/methods',
+                        order: 362,
+                        group: {
+                          id: 'payment-operations',
+                          label: 'Payment Operations',
+                          order: 360,
+                        },
+                        requiredPermissions: ['payment.backoffice.read'],
+                        workbenchTarget: {
+                          moduleName: 'payment',
+                          schemaName: 'paymentMethod',
+                        },
+                      },
+                      {
+                        id: 'payment-providers',
+                        parentId: 'payment-operations',
+                        label: 'Payment Providers',
+                        route: '/commerce/payments/providers',
+                        order: 364,
+                        group: {
+                          id: 'payment-operations',
+                          label: 'Payment Operations',
+                          order: 360,
+                        },
+                        requiredPermissions: ['payment.backoffice.read'],
+                        workbenchTarget: {
+                          moduleName: 'payment',
+                          schemaName: 'paymentProvider',
+                        },
+                        workbenchPresentation: {
+                          defaultColumns: [
+                            'providerCode',
+                            'displayName',
+                            'providerType',
+                            'apiKey',
+                          ],
+                          forbiddenFields: ['apiKey'],
+                        },
+                        lifecycleActions: [
+                          {
+                            id: 'validate-payment-provider',
+                            label: 'Validate provider',
+                            intent: 'VALIDATE',
+                            permission: 'payment.backoffice.manage',
+                            operationRoute: '/providers/lifecycle',
+                            featureState: 'PREVIEW',
+                          },
+                        ],
+                      },
+                    ],
+                  },
                 },
                 availability: {
                   cms: { state: 'UP' },
                   aiAssistant: { state: 'UP' },
                   product: { state: 'UP' },
+                  payment: { state: 'UP' },
                 },
                 axisPolicy: {
                   contractVersion: 1,
@@ -731,12 +940,75 @@ describe('employee login journey', () => {
           ),
         );
       }
+      if (url.includes('/schema/workbench/paymentMethod/records')) {
+        return Promise.resolve(
+          new Response(
+            JSON.stringify({
+              result: {
+                records: [
+                  {
+                    code: 'card',
+                    name: 'Card Payment',
+                    providerCode: 'stripeProvider',
+                  },
+                ],
+                totalCount: 1,
+                pageNumber: 1,
+                pageSize: 10,
+                sort: { field: 'code', direction: 'ASC' },
+              },
+            }),
+            { status: 200 },
+          ),
+        );
+      }
+      if (url.includes('/schema/workbench/paymentProvider/records')) {
+        return Promise.resolve(
+          new Response(
+            JSON.stringify({
+              result: {
+                records: [
+                  {
+                    providerCode: 'stripeProvider',
+                    displayName: 'Stripe Provider',
+                    providerType: 'CARD_GATEWAY',
+                    apiKey: 'should-not-render',
+                  },
+                ],
+                totalCount: 1,
+                pageNumber: 1,
+                pageSize: 10,
+                sort: { field: 'providerCode', direction: 'ASC' },
+              },
+            }),
+            { status: 200 },
+          ),
+        );
+      }
+      if (url.includes('/providers/lifecycle')) {
+        return Promise.resolve(
+          new Response(
+            JSON.stringify({
+              code: 'SUC_PAY_00001',
+              data: {
+                actionId: 'validate-payment-provider',
+                providerCode: 'stripeProvider',
+                valid: true,
+                secretsStoredInPayment: false,
+              },
+            }),
+            { status: 200 },
+          ),
+        );
+      }
       if (url.includes('/schema/workbench')) {
         const schemas = url.includes('cms.example.com')
           ? [cmsPageWorkbenchSchema]
           : url.includes('product.example.com')
             ? [productItemWorkbenchSchema]
-            : [];
+            : url.includes('payment.example.com')
+              ? [paymentMethodWorkbenchSchema, paymentProviderWorkbenchSchema]
+              : [];
         return Promise.resolve(
           new Response(JSON.stringify({ result: { schemas } }), {
             status: 200,
@@ -829,7 +1101,7 @@ describe('employee login journey', () => {
 
     restoredContent.unmount();
     window.history.pushState({}, '', '/commerce/catalog/products');
-    render(
+    const restoredProduct = render(
       <AppProviders runtimeConfig={runtimeConfig}>
         <App />
       </AppProviders>,
@@ -840,9 +1112,65 @@ describe('employee login journey', () => {
     ).toBeGreaterThan(0);
     expect(screen.queryByText('Module workspace')).not.toBeInTheDocument();
 
+    restoredProduct.unmount();
+    window.history.pushState({}, '', '/commerce/payments/methods');
+    const restoredPaymentMethods = render(
+      <AppProviders runtimeConfig={runtimeConfig}>
+        <App />
+      </AppProviders>,
+    );
+    expect(
+      await screen.findByRole('heading', { name: 'Payment Methods' }),
+    ).toBeVisible();
+    expect(
+      (await screen.findAllByRole('cell', { name: 'card' })).length,
+    ).toBeGreaterThan(0);
+    expect(screen.queryByText('Module workspace')).not.toBeInTheDocument();
+
+    restoredPaymentMethods.unmount();
+    window.history.pushState({}, '', '/commerce/payments/providers');
+    const restoredProvider = render(
+      <AppProviders runtimeConfig={runtimeConfig}>
+        <App />
+      </AppProviders>,
+    );
+    expect(
+      await screen.findByRole('heading', { name: 'Payment Providers' }),
+    ).toBeVisible();
+    expect(
+      (await screen.findAllByRole('cell', { name: 'stripeProvider' })).length,
+    ).toBeGreaterThan(0);
+    expect(screen.queryByText('should-not-render')).not.toBeInTheDocument();
+    const providerCell = screen.getAllByRole('cell', {
+      name: 'stripeProvider',
+    })[0];
+    if (!providerCell) {
+      throw new Error('Expected the payment provider row to render');
+    }
+    await user.click(providerCell);
+    await user.click(await screen.findByRole('button', { name: /Validate provider/ }));
+    expect(await screen.findByText(/validate-payment-provider/)).toBeVisible();
+    expect(await screen.findByText(/secretsStoredInPayment/)).toBeVisible();
+    expect(
+      request.mock.calls.some(([input, options]) => {
+        const requestUrl = fetchInputUrl(input);
+        if (!requestUrl.includes('/providers/lifecycle')) {
+          return false;
+        }
+        const payload = JSON.parse(String(options?.body ?? '{}'));
+        return (
+          payload.actionId === 'validate-payment-provider' &&
+          payload.identity?.providerCode === 'stripeProvider' &&
+          payload.model?.providerCode === 'stripeProvider' &&
+          payload.model?.apiKey === undefined
+        );
+      }),
+    ).toBe(true);
+
     await user.click(screen.getByRole('button', { name: 'Open employee menu' }));
     await user.click(screen.getByRole('menuitem', { name: 'Sign out' }));
     expect(await screen.findByLabelText(/Employee ID/)).toBeVisible();
+    restoredProvider.unmount();
   });
 
   it('restores the lock screen after a browser refresh until password verification', async () => {

@@ -6,6 +6,8 @@ import {
   resolveWorkbenchDeepLinkTarget,
   resolveWorkbenchLookupPageSize,
   resolveWorkbenchRouteTarget,
+  workbenchPresentationExcludedColumns,
+  workbenchPresentationForbiddenFields,
   relatedRecordPanelFilter,
   schemaWithValidQueryCapabilities,
   selectWorkbenchReferencedRecord,
@@ -203,16 +205,19 @@ describe('workbench presentation helpers', () => {
         },
         workbenchPresentation: {
           defaultColumns: ['code', 'state', 'missingField', 'recoveryStrategy'],
+          hiddenFields: ['recoveryStrategy'],
+          forbiddenFields: ['state'],
         },
       },
       checkoutRun,
     );
 
-    expect(resolveWorkbenchDefaultColumns(checkoutRun, presentation)).toEqual([
-      'code',
-      'state',
+    expect(resolveWorkbenchDefaultColumns(checkoutRun, presentation)).toEqual(['code']);
+    expect(workbenchPresentationExcludedColumns(presentation)).toEqual([
       'recoveryStrategy',
+      'state',
     ]);
+    expect(workbenchPresentationForbiddenFields(presentation)).toEqual(['state']);
     expect(
       workbenchPresentationForSchema(
         {

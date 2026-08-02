@@ -35,6 +35,7 @@ export interface AxisSchemaDataListingProps {
   readonly getRowKey: (record: WorkbenchRecord, index: number) => string;
   readonly emptyMessage: string;
   readonly defaultVisibleColumnKeys?: readonly string[] | undefined;
+  readonly excludedColumnKeys?: readonly string[] | undefined;
   readonly visibleColumnKeys?: readonly string[] | undefined;
   readonly fieldRenderers?:
     | Readonly<Record<string, AxisSchemaFieldRenderer>>
@@ -145,6 +146,7 @@ export function AxisSchemaDataListing({
   getRowKey,
   emptyMessage,
   defaultVisibleColumnKeys,
+  excludedColumnKeys = [],
   visibleColumnKeys,
   fieldRenderers = {},
   onReferenceClick,
@@ -169,14 +171,17 @@ export function AxisSchemaDataListing({
   const relationships = new Map(
     schema.relationships.map((relationship) => [relationship.field, relationship]),
   );
-  const availableColumns = schema.fields.map((field) =>
-    schemaFieldColumn(
-      field,
-      fieldRenderers[field.name],
-      relationships.get(field.name),
-      onReferenceClick,
-    ),
-  );
+  const excludedKeys = new Set(excludedColumnKeys);
+  const availableColumns = schema.fields
+    .filter((field) => !excludedKeys.has(field.name))
+    .map((field) =>
+      schemaFieldColumn(
+        field,
+        fieldRenderers[field.name],
+        relationships.get(field.name),
+        onReferenceClick,
+      ),
+    );
   const availableKeys = new Set(availableColumns.map((column) => column.key));
   const selectedKeys = validColumnKeys(visibleColumnKeys, availableKeys);
   const defaultKeys = validColumnKeys(defaultVisibleColumnKeys, availableKeys);

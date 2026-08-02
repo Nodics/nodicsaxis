@@ -86,6 +86,13 @@ const authenticatedData = {
             moduleName: 'cms',
             schemaName: 'cmsPage',
           },
+          workbenchPresentation: {
+            defaultColumns: ['code', 'label', 'status'],
+            hiddenFields: ['notes'],
+            editableFields: ['code', 'label', 'status'],
+            readonlyFields: ['created', 'updated'],
+            forbiddenFields: ['secret'],
+          },
           detailPanels: [
             {
               id: 'slots',
@@ -110,6 +117,15 @@ const authenticatedData = {
               summary: 'Request publication through the owning CMS workflow.',
               operationRoute: '/content/pages/publish',
               targetStatuses: ['DRAFT'],
+            },
+            {
+              id: 'validate-provider',
+              label: 'Validate provider',
+              intent: 'VALIDATE',
+              permission: 'payment.backoffice.manage',
+              summary: 'Validate a provider through its owning module.',
+              operationRoute: '/providers/lifecycle',
+              targetStatuses: ['ACTIVE'],
             },
           ],
           help: {
@@ -266,6 +282,13 @@ describe('Axis bootstrap clients', () => {
           moduleName: 'cms',
           schemaName: 'cmsPage',
         },
+        workbenchPresentation: {
+          defaultColumns: ['code', 'label', 'status'],
+          hiddenFields: ['notes'],
+          editableFields: ['code', 'label', 'status'],
+          readonlyFields: ['created', 'updated'],
+          forbiddenFields: ['secret'],
+        },
         detailPanels: [
           {
             id: 'slots',
@@ -287,6 +310,11 @@ describe('Axis bootstrap clients', () => {
             id: 'publish-page',
             intent: 'APPROVE',
             operationRoute: '/content/pages/publish',
+          }),
+          expect.objectContaining({
+            id: 'validate-provider',
+            intent: 'VALIDATE',
+            operationRoute: '/providers/lifecycle',
           }),
         ],
         help: {
