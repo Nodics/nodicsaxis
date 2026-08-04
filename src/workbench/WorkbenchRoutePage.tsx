@@ -91,6 +91,10 @@ function recordWithoutForbiddenFields(
   );
 }
 
+function workbenchConnectionModuleName(schema: WorkbenchSchema): string {
+  return schema.connectionModuleName ?? schema.moduleName;
+}
+
 interface OpenedReferenceRecord {
   readonly record: WorkbenchRecord;
   readonly reference: string;
@@ -175,7 +179,10 @@ export function WorkbenchRoutePage(props: WorkbenchRoutePageProps) {
     ? schemaWithValidQueryCapabilities(selectedSchema)
     : undefined;
   const recordConnection = normalizedSelectedSchema
-    ? selectModuleConnection(props.bootstrap, normalizedSelectedSchema.moduleName)
+    ? selectModuleConnection(
+        props.bootstrap,
+        workbenchConnectionModuleName(normalizedSelectedSchema),
+      )
     : undefined;
   const routeParentLabel =
     props.routeNavigation?.parentId !== undefined
@@ -247,7 +254,10 @@ export function WorkbenchRoutePage(props: WorkbenchRoutePageProps) {
           ? schemaWithValidQueryCapabilities(schema)
           : undefined;
         const connection = normalizedSchema
-          ? selectModuleConnection(props.bootstrap, normalizedSchema.moduleName)
+          ? selectModuleConnection(
+              props.bootstrap,
+              workbenchConnectionModuleName(normalizedSchema),
+            )
           : undefined;
         const filters = relatedRecordPanelFilter(selectedRecord, panel);
         const enabled = Boolean(
@@ -574,6 +584,12 @@ export function WorkbenchRoutePage(props: WorkbenchRoutePageProps) {
     }, 0);
     return () => globalThis.clearTimeout(timeout);
   }, [deepLinkTarget, selectWorkbenchSchema]);
+  useEffect(() => {
+    if (!props.routeSchema || schemas.isLoading || deepLinkTarget) return;
+    consumedDeepLinkKey.current = undefined;
+    setSelectedSchema(undefined);
+    setSelectedRecordKeys(Object.freeze([]));
+  }, [deepLinkTarget, props.routeSchema, schemas.isLoading]);
   const relationshipRuntime = useMemo(
     () => ({
       schemas: schemas.data ?? [],

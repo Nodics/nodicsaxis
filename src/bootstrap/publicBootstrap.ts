@@ -103,6 +103,10 @@ export interface AxisNavigationLifecycleAction {
     | 'REJECT'
     | 'RETRY'
     | 'CANCEL'
+    | 'SUBMIT'
+    | 'EXECUTE'
+    | 'PUBLISH'
+    | 'REPAIR'
     | 'RECONCILE'
     | 'EXPORT'
     | 'VALIDATE'
@@ -540,6 +544,10 @@ function parseNavigationLifecycleActions(
           'REJECT',
           'RETRY',
           'CANCEL',
+          'SUBMIT',
+          'EXECUTE',
+          'PUBLISH',
+          'REPAIR',
           'RECONCILE',
           'EXPORT',
           'VALIDATE',

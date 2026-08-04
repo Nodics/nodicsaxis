@@ -88,7 +88,13 @@ describe('Schema Workbench API client', () => {
 
     await expect(
       loadWorkbenchSchemas([connection], configuration, request),
-    ).resolves.toEqual([expect.objectContaining({ label: 'Address' })]);
+    ).resolves.toEqual([
+      expect.objectContaining({
+        label: 'Address',
+        moduleName: 'profile',
+        connectionModuleName: 'profile',
+      }),
+    ]);
 
     const [url, options] = request.mock.calls[0] ?? [];
     expect((url as URL).href).toBe(

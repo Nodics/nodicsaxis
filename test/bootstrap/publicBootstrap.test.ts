@@ -152,6 +152,34 @@ const authenticatedData = {
               operationRoute: '/providers/lifecycle',
               targetStatuses: ['ACTIVE'],
             },
+            {
+              id: 'request-checker',
+              label: 'Request checker',
+              intent: 'SUBMIT',
+              permission: 'kyc.review.request-checker',
+              operationRoute: '/reviews/actions/request-checker',
+            },
+            {
+              id: 'execute-operation',
+              label: 'Execute operation',
+              intent: 'EXECUTE',
+              permission: 'operations.execute',
+              operationRoute: '/operations/execute',
+            },
+            {
+              id: 'publish-release',
+              label: 'Publish release',
+              intent: 'PUBLISH',
+              permission: 'cms.publish',
+              operationRoute: '/content/releases/publish',
+            },
+            {
+              id: 'repair-evaluation',
+              label: 'Repair evaluation',
+              intent: 'REPAIR',
+              permission: 'promotion.evaluation.repair',
+              operationRoute: '/promotions/evaluations/repair',
+            },
           ],
           help: {
             summary: 'Manage content pages and components.',
@@ -350,6 +378,22 @@ describe('Axis bootstrap clients', () => {
             id: 'validate-provider',
             intent: 'VALIDATE',
             operationRoute: '/providers/lifecycle',
+          }),
+          expect.objectContaining({
+            id: 'request-checker',
+            intent: 'SUBMIT',
+          }),
+          expect.objectContaining({
+            id: 'execute-operation',
+            intent: 'EXECUTE',
+          }),
+          expect.objectContaining({
+            id: 'publish-release',
+            intent: 'PUBLISH',
+          }),
+          expect.objectContaining({
+            id: 'repair-evaluation',
+            intent: 'REPAIR',
           }),
         ],
         help: {
@@ -554,32 +598,32 @@ describe('Axis bootstrap clients', () => {
     }
   });
 
-  it('accepts bounded cross-module navigation parents from backend catalogue', async () => {
+  it('accepts KYC pages beneath the backend-owned Compliance Management parent', async () => {
     const request = vi.fn<typeof fetch>().mockResolvedValue(
       new Response(
         JSON.stringify({
           data: {
             ...authenticatedData,
             catalogue: {
-              commerce: {
+              complianceCore: {
                 ...authenticatedData.catalogue.cms,
                 navigation: [
                   {
-                    id: 'commerce-operations',
-                    label: 'Commerce Operations',
-                    route: '/commerce/operations',
+                    id: 'compliance-management',
+                    label: 'Compliance Management',
+                    route: '/compliance-management',
                   },
                 ],
               },
-              pricing: {
+              kycCore: {
                 ...authenticatedData.catalogue.cms,
                 navigation: [
                   {
-                    id: 'pricing',
-                    label: 'Pricing',
-                    route: '/commerce/operations/pricing',
-                    parentId: 'commerce-operations',
-                    parentModuleName: 'commerce',
+                    id: 'kyc-cases',
+                    label: 'KYC Cases',
+                    route: '/compliance-management/kyc/cases',
+                    parentId: 'compliance-management',
+                    parentModuleName: 'complianceCore',
                   },
                 ],
               },
@@ -601,9 +645,9 @@ describe('Axis bootstrap clients', () => {
     expect(bootstrap.navigation).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
-          id: 'pricing',
-          parentId: 'commerce-operations',
-          parentModuleName: 'commerce',
+          id: 'kyc-cases',
+          parentId: 'compliance-management',
+          parentModuleName: 'complianceCore',
         }),
       ]),
     );

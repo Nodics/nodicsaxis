@@ -1,6 +1,6 @@
 {
   "pack": "nodicsaxis",
-  "version": "0.3.17",
+  "version": "0.3.19",
   "contractVersion": 1,
   "sourceMode": "canonical-structured-source",
   "sourceAuthority": "content/documentation",
@@ -10,10 +10,10 @@
   "components": 15,
   "routes": 14,
   "migrationRegister": "content/documentation/migration-register.json",
-  "releaseChecksum": "2abc610612f3bc3457a5064e302f8bf9aee7cc7aba84c3e3e33e44c48a3c743b",
+  "releaseChecksum": "88c9cc455f10d3b6b04bf7a58d26029669cf86d24dec1b55122b1e631b55d3c2",
   "generatedHashes": {
     "data/core/data/documentation/axisDocumentationCatalogData.js": "938e4379d249940c477955f6fdbee1f30e5eda6221a1e50802b3d60e8423a9bc",
-    "data/core/data/documentation/axisDocumentationComponentData.js": "b9ebd900083b46d42ae32c824972f7dde26b1ae49366e67c5ac60089f771b673",
+    "data/core/data/documentation/axisDocumentationComponentData.js": "921b311ae2af23c4e8faa4d489ce255b532f8363901872eb3bea49d0a48268fe",
     "data/core/data/documentation/axisDocumentationPageData.js": "3760c3c513acc554b62e652b221a9472f67eb61cb1b1bc05d96c98fce22dc21b",
     "data/core/data/documentation/axisDocumentationRendererData.js": "3ef39c5a47e8fd5291bf2afecb0eb266ec12e79d83fd68bf2dc98fbaa1fda5dd",
     "data/core/data/documentation/axisDocumentationRouteData.js": "8cb7953c0089663e7d2296e05b5626d84aa77a7f5d8998bfc8ff51cdf0b1551d",

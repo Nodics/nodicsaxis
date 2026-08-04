@@ -162,6 +162,22 @@ describe('resolveWorkbenchRouteTarget', () => {
       schemaName: 'cmsRestriction',
     });
   });
+
+  it('resolves a backend-driven KYC workspace without a frontend schema catalogue', () => {
+    expect(
+      summarize(
+        resolveWorkbenchRouteTarget(
+          { moduleName: 'kycSchema', schemaName: 'kycVerificationCase' },
+          [schema('kycSchema', 'kycVerificationCase', ['search', 'read'])],
+        ),
+      ),
+    ).toEqual({
+      key: 'kycSchema:kycVerificationCase:browse:route',
+      mode: undefined,
+      moduleName: 'kycSchema',
+      schemaName: 'kycVerificationCase',
+    });
+  });
 });
 
 describe('workbench presentation helpers', () => {

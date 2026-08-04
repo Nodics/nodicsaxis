@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react';
+import { fireEvent, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { Link, MemoryRouter } from 'react-router';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -128,6 +128,67 @@ describe('Axis application shell navigation', () => {
     expect(screen.queryByText('NODICS')).not.toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Content' })).toBeVisible();
     expect(screen.queryByText('Content and Experience')).not.toBeInTheDocument();
+  });
+
+  it('lets desktop employees resize the navigation rail within safe bounds', async () => {
+    vi.stubGlobal(
+      'matchMedia',
+      vi.fn((query: string) => ({
+        matches: query.includes('min-width:900px'),
+        media: query,
+        onchange: null,
+        addEventListener: vi.fn(),
+        removeEventListener: vi.fn(),
+        addListener: vi.fn(),
+        removeListener: vi.fn(),
+        dispatchEvent: vi.fn(),
+      })),
+    );
+    const user = userEvent.setup();
+
+    render(
+      <AxisThemeProvider>
+        <MemoryRouter>
+          <AppShell
+            navigation={[
+              {
+                id: 'cms',
+                label: 'Content',
+                route: '/content',
+                order: 200,
+                moduleName: 'cms',
+                category: 'content',
+                icon: 'cms',
+                availability: 'UP',
+              },
+            ]}
+          >
+            <div>Workspace</div>
+          </AppShell>
+        </MemoryRouter>
+      </AxisThemeProvider>,
+    );
+
+    const resizeHandle = screen.getByRole('separator', {
+      name: 'Resize navigation',
+    });
+    expect(resizeHandle).toHaveAttribute('aria-valuenow', '264');
+
+    resizeHandle.focus();
+    await user.keyboard('{ArrowRight}');
+    expect(resizeHandle).toHaveAttribute('aria-valuenow', '280');
+    expect(window.localStorage.getItem('nodics-axis-navigation-rail-width-v1')).toBe(
+      '280',
+    );
+
+    fireEvent.pointerDown(resizeHandle, { clientX: 900, pointerId: 1 });
+    fireEvent.pointerMove(window, { clientX: 900 });
+    fireEvent.pointerUp(window);
+
+    expect(resizeHandle).toHaveAttribute('aria-valuenow', '420');
+    expect(window.localStorage.getItem('nodics-axis-navigation-rail-width-v1')).toBe(
+      '420',
+    );
   });
 
   it('uses the authorized BackOffice contribution for the Assistant shortcut', async () => {

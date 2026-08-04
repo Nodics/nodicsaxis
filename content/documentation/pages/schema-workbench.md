@@ -258,6 +258,59 @@ Business users may traverse Channel -> Scenario -> Template or Scenario -> Chann
 
 Customer projects customize this surface by contributing higher-layer Nodics schemas, capability navigation, presentation metadata, lifecycle actions, permissions, and CMS help. Add Axis code only for a genuinely new reusable presentation contract; do not fork a channel-specific editor or duplicate backend policy. Successful, denied, suppressed, retry/recovery, maker-checker, narrow-screen, keyboard, and partial-discovery behavior remains protected by the generic Workbench and bootstrap suites.
 
+## Compliance Management workspace
+
+When the backend advertises `compliance-management`, Axis creates one dedicated
+Compliance Management section from the authenticated bootstrap. Compliance
+capabilities attach their pages to that backend-owned parent instead of
+creating separate consoles. The KYC capability currently contributes KYC Cases,
+Review Queue, Subject Status, Document Review, Policies and Requirements,
+Providers, and Compliance Audit; each page binds to its backend-advertised KYC
+schema. Future AML, sanctions, due-diligence, monitoring, or reporting modules
+must contribute sibling pages through the same contract.
+
+Axis does not maintain the compliance catalogue. Removing the shared backend
+capability, a child capability, or an employee permission removes the relevant
+section, page, or action after authenticated bootstrap. Configuration and
+operational processes remain backend-owned even though authorized business
+users manage them from this one Axis section.
+
+The route-scoped Workbench hides the global schema picker, paginates and filters
+through KYC-owned APIs, and renders only fields, relations, panels, and actions
+allowed by the effective contract.
+
+Case actions are not generic record edits. Approve, reject, escalate, and
+request-more-information controls come from backend lifecycle metadata and call
+the secured KYC intent route. Axis collects bounded reason inputs and supplies
+record identity/idempotency context; KYC rechecks authorization, scope, state,
+version, maker-checker, policy, Workflow, persistence, and audit. Removing a
+permission or capability removes the corresponding route/action after the next
+authenticated bootstrap.
+
+Document Review shows masked metadata and nMedia codes only. Preview/download
+must use an advertised purpose-bound nMedia action and be backend-audited. Axis
+never turns a media code, provider reference, storage key, path, private URL,
+or schema value into a browser URL. Providers show readiness and a related
+execution-policy panel; credentials, webhook keys, raw payloads, OCR,
+biometrics, and full identity values never enter browser state, telemetry,
+URLs, or preferences.
+
+On narrow screens and WebViews, panels stack, controls remain keyboard
+reachable, tables retain accessible labels, and high-risk actions keep explicit
+confirmation. A backend rejection, stale state, provider outage, or network
+failure leaves the record unchanged and shows only the safe code/message so the
+employee can refresh, retry when allowed, or escalate.
+
+Customer projects customize KYC through later backend modules: policy,
+requirements, provider adapters, schemas, presentation metadata, lifecycle
+actions, permissions, and help. The smallest Axis customization is a
+project-owned typed renderer that composes existing Workbench primitives for a
+genuinely new presentation need. It must preserve KYC, nMedia, and Workflow
+authority and must not fork a KYC editor, provider registry, lifecycle,
+authorization rule, document viewer, or navigation catalogue. Removing the
+later renderer or metadata contribution rolls back presentation without
+mutating KYC evidence.
+
 ## Verification
 
 Run:

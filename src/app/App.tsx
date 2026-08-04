@@ -21,6 +21,9 @@ import { WorkbenchRoutePage } from '../workbench/WorkbenchRoutePage';
 import { DocumentationRoutePage } from '../documentation/DocumentationRoutePage';
 import { ModuleHealthRoutePage } from '../operations/moduleHealth/ModuleHealthRoutePage';
 import { ImportExportRoutePage } from '../operations/importExport/ImportExportRoutePage';
+import { ComplianceManagementRoutePage } from '../operations/compliance/ComplianceManagementRoutePage';
+import { NotificationManagementRoutePage } from '../operations/notifications/NotificationManagementRoutePage';
+import { OrderLifecycleManagementRoutePage } from '../operations/orderLifecycle/OrderLifecycleManagementRoutePage';
 import { useIdleScreenLock } from '../auth/useIdleScreenLock';
 import {
   clearScreenLock,
@@ -403,6 +406,79 @@ export function App() {
     cmsWorkbenchNavigation && currentWorkbenchSchema
       ? workbenchRouteElement(currentWorkbenchNavigation)
       : sessionFallback;
+  const complianceNavigation = currentNavigation?.route.startsWith(
+    '/compliance-management',
+  )
+    ? currentNavigation
+    : authenticatedBootstrap?.navigation.find(
+        (item) => item.id === 'compliance-management',
+      );
+  const complianceElement =
+    session && !locked && authenticatedBootstrap && complianceNavigation
+      ? authenticatedShell(
+          ['UP', 'DEGRADED'].includes(complianceNavigation.availability) ? (
+            <ComplianceManagementRoutePage
+              accessToken={session.accessToken}
+              bootstrap={authenticatedBootstrap}
+              channel={composition.channel}
+              cmsBaseUrl={bootstrap.endpoints.cms}
+              employeeId={session.loginId}
+              locale={composition.locale}
+              navigation={complianceNavigation}
+              runtime={runtime}
+              site={composition.site}
+            />
+          ) : (
+            <ModuleWorkspacePlaceholder item={complianceNavigation} />
+          ),
+        )
+      : sessionFallback;
+  const notificationNavigation = currentNavigation?.route.startsWith('/notifications')
+    ? currentNavigation
+    : undefined;
+  const notificationElement =
+    session && !locked && authenticatedBootstrap && notificationNavigation
+      ? authenticatedShell(
+          ['UP', 'DEGRADED'].includes(notificationNavigation.availability) ? (
+            <NotificationManagementRoutePage
+              accessToken={session.accessToken}
+              bootstrap={authenticatedBootstrap}
+              channel={composition.channel}
+              cmsBaseUrl={bootstrap.endpoints.cms}
+              employeeId={session.loginId}
+              locale={composition.locale}
+              navigation={notificationNavigation}
+              runtime={runtime}
+              site={composition.site}
+            />
+          ) : (
+            <ModuleWorkspacePlaceholder item={notificationNavigation} />
+          ),
+        )
+      : sessionFallback;
+  const orderLifecycleNavigation = currentNavigation?.route.startsWith('/commerce')
+    ? currentNavigation
+    : undefined;
+  const orderLifecycleElement =
+    session && !locked && authenticatedBootstrap && orderLifecycleNavigation
+      ? authenticatedShell(
+          ['UP', 'DEGRADED'].includes(orderLifecycleNavigation.availability) ? (
+            <OrderLifecycleManagementRoutePage
+              accessToken={session.accessToken}
+              bootstrap={authenticatedBootstrap}
+              channel={composition.channel}
+              cmsBaseUrl={bootstrap.endpoints.cms}
+              employeeId={session.loginId}
+              locale={composition.locale}
+              navigation={orderLifecycleNavigation}
+              runtime={runtime}
+              site={composition.site}
+            />
+          ) : (
+            <ModuleWorkspacePlaceholder item={orderLifecycleNavigation} />
+          ),
+        )
+      : sessionFallback;
 
   return (
     <Routes>
@@ -648,17 +724,16 @@ export function App() {
       <Route path="/content/*" element={cmsWorkbenchElement} />
       <Route path="/publishing" element={cmsWorkbenchElement} />
       <Route path="/publishing/*" element={cmsWorkbenchElement} />
-      <Route
-        path="/commerce/*"
-        element={navigationRouteElement(
-          currentWorkbenchNavigation ?? currentNavigation,
-        )}
-      />
+      <Route path="/compliance-management/*" element={complianceElement} />
+      <Route path="/notifications/*" element={notificationElement} />
+      <Route path="/commerce/*" element={orderLifecycleElement} />
       {session && !locked && authenticatedBootstrap
         ? authenticatedBootstrap.navigation
             .filter(
               (item) =>
                 !item.route.startsWith('/commerce') &&
+                !item.route.startsWith('/compliance-management') &&
+                !item.route.startsWith('/notifications') &&
                 !item.route.startsWith('/content') &&
                 !item.route.startsWith('/docs') &&
                 !item.route.startsWith('/media-management') &&

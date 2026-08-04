@@ -1,6 +1,6 @@
 import { AppBar, Box, Drawer, Toolbar, useMediaQuery, useTheme } from '@mui/material';
 import type { PropsWithChildren } from 'react';
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router';
 
 import type { AxisNavigationItem } from '../../bootstrap/publicBootstrap';
@@ -36,6 +36,26 @@ interface AppShellProps extends PropsWithChildren {
   readonly recentNavigationLimit?: number | undefined;
 }
 
+const NAVIGATION_RAIL_WIDTH_STORAGE_KEY = 'nodics-axis-navigation-rail-width-v1';
+const NAVIGATION_RAIL_MIN_WIDTH = 220;
+const NAVIGATION_RAIL_MAX_WIDTH = 420;
+
+function boundedNavigationRailWidth(value: number): number {
+  return Math.min(
+    Math.max(Math.round(value), NAVIGATION_RAIL_MIN_WIDTH),
+    NAVIGATION_RAIL_MAX_WIDTH,
+  );
+}
+
+function loadNavigationRailWidth(storage: Storage): number {
+  const stored = storage.getItem(NAVIGATION_RAIL_WIDTH_STORAGE_KEY);
+  if (stored === null) return axisTokens.spacing.shellRail;
+  const value = Number(stored);
+  return Number.isFinite(value)
+    ? boundedNavigationRailWidth(value)
+    : axisTokens.spacing.shellRail;
+}
+
 export function AppShell({
   catalog,
   children,
@@ -56,6 +76,10 @@ export function AppShell({
   const { mode, toggleMode } = useAxisAppearance();
   const [navigationOpen, setNavigationOpen] = useState(false);
   const [navigationCompact, setNavigationCompact] = useState(false);
+  const [navigationRailWidth, setNavigationRailWidth] = useState(() =>
+    loadNavigationRailWidth(window.localStorage),
+  );
+  const [navigationResizing, setNavigationResizing] = useState(false);
   const [notification, setNotification] = useState<string | null>(null);
   const [query, setQuery] = useState('');
   const navigationPreferenceLimits = useMemo(
@@ -146,7 +170,11 @@ export function AppShell({
   }, [catalog, enterpriseCode, environments, site, tenantCode]);
   const desktopRailWidth = navigationCompact
     ? axisTokens.spacing.shellRailCompact
-    : axisTokens.spacing.shellRail;
+    : navigationRailWidth;
+
+  const resizeNavigationRail = useCallback((clientX: number) => {
+    setNavigationRailWidth(boundedNavigationRailWidth(clientX));
+  }, []);
 
   useEffect(() => {
     const offline = () => {
@@ -170,6 +198,29 @@ export function AppShell({
       navigationPreferenceLimits,
     );
   }, [navigationPreferenceLimits, navigationPreferences]);
+
+  useEffect(() => {
+    window.localStorage.setItem(
+      NAVIGATION_RAIL_WIDTH_STORAGE_KEY,
+      String(navigationRailWidth),
+    );
+  }, [navigationRailWidth]);
+
+  useEffect(() => {
+    if (!navigationResizing) return undefined;
+    const handlePointerMove = (event: PointerEvent) => {
+      resizeNavigationRail(event.clientX);
+    };
+    const handlePointerUp = () => {
+      setNavigationResizing(false);
+    };
+    window.addEventListener('pointermove', handlePointerMove);
+    window.addEventListener('pointerup', handlePointerUp, { once: true });
+    return () => {
+      window.removeEventListener('pointermove', handlePointerMove);
+      window.removeEventListener('pointerup', handlePointerUp);
+    };
+  }, [navigationResizing, resizeNavigationRail]);
 
   useEffect(() => {
     if (location.hash) return;
@@ -259,6 +310,7 @@ export function AppShell({
               borderRight: '1px solid',
               borderColor: 'divider',
               overflowX: 'hidden',
+              position: 'relative',
               transition: (currentTheme) =>
                 currentTheme.transitions.create('width', {
                   duration: axisTokens.motion.standard,
@@ -288,18 +340,84 @@ export function AppShell({
             );
           }}
         />
+        {desktop && !navigationCompact ? (
+          <Box
+            aria-label="Resize navigation"
+            aria-orientation="vertical"
+            aria-valuemax={NAVIGATION_RAIL_MAX_WIDTH}
+            aria-valuemin={NAVIGATION_RAIL_MIN_WIDTH}
+            aria-valuenow={navigationRailWidth}
+            role="separator"
+            tabIndex={0}
+            sx={{
+              bottom: 0,
+              cursor: 'col-resize',
+              position: 'absolute',
+              right: 0,
+              top: 0,
+              width: 10,
+              zIndex: 1,
+              '&::after': {
+                bgcolor: navigationResizing ? 'primary.main' : 'transparent',
+                bottom: 0,
+                content: '""',
+                position: 'absolute',
+                right: 0,
+                top: 0,
+                transition: (currentTheme) =>
+                  currentTheme.transitions.create('background-color', {
+                    duration: axisTokens.motion.fast,
+                  }),
+                width: 2,
+              },
+              '&:hover::after, &:focus-visible::after': {
+                bgcolor: 'primary.main',
+              },
+              '@media (prefers-reduced-motion: reduce)': {
+                '&::after': {
+                  transition: 'none',
+                },
+              },
+            }}
+            onKeyDown={(event) => {
+              if (event.key === 'ArrowLeft') {
+                event.preventDefault();
+                setNavigationRailWidth((current) =>
+                  boundedNavigationRailWidth(current - 16),
+                );
+              } else if (event.key === 'ArrowRight') {
+                event.preventDefault();
+                setNavigationRailWidth((current) =>
+                  boundedNavigationRailWidth(current + 16),
+                );
+              } else if (event.key === 'Home') {
+                event.preventDefault();
+                setNavigationRailWidth(NAVIGATION_RAIL_MIN_WIDTH);
+              } else if (event.key === 'End') {
+                event.preventDefault();
+                setNavigationRailWidth(NAVIGATION_RAIL_MAX_WIDTH);
+              }
+            }}
+            onPointerDown={(event) => {
+              event.preventDefault();
+              if (typeof event.currentTarget.setPointerCapture === 'function') {
+                event.currentTarget.setPointerCapture(event.pointerId);
+              }
+              resizeNavigationRail(event.clientX);
+              setNavigationResizing(true);
+            }}
+          />
+        ) : null}
       </Drawer>
       <Box
         sx={{
           flexGrow: 1,
-          ml: { md: `${String(desktopRailWidth)}px` },
           minWidth: 0,
           pt: `${String(axisTokens.spacing.header)}px`,
           transition: (currentTheme) =>
-            currentTheme.transitions.create(['margin-left', 'width'], {
+            currentTheme.transitions.create('width', {
               duration: axisTokens.motion.standard,
             }),
-          width: { md: `calc(100% - ${String(desktopRailWidth)}px)` },
           '@media (prefers-reduced-motion: reduce)': {
             transition: 'none',
           },

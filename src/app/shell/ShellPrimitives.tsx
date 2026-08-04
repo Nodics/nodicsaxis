@@ -4,11 +4,13 @@ import type { PropsWithChildren } from 'react';
 import { axisTokens } from '../axisTheme';
 
 interface WorkspaceContainerProps {
+  readonly centered?: boolean;
   readonly horizontalPadding?: number | string;
   readonly verticalPadding?: number | string;
 }
 
 export function WorkspaceContainer({
+  centered = false,
   children,
   horizontalPadding,
   verticalPadding,
@@ -16,7 +18,8 @@ export function WorkspaceContainer({
   return (
     <Box
       sx={{
-        mx: 'auto',
+        ml: 0,
+        mr: centered ? 'auto' : 0,
         maxWidth: axisTokens.spacing.contentMaxWidth,
         px:
           horizontalPadding ??

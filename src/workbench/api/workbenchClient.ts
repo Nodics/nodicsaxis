@@ -137,8 +137,8 @@ export async function loadWorkbenchSchemas(
   fetchImplementation: typeof fetch = fetch,
 ): Promise<readonly WorkbenchSchema[]> {
   const results = await Promise.allSettled(
-    connections.map(async (connection) =>
-      parseWorkbenchSchemaList(
+    connections.map(async (connection) => {
+      const schemas = parseWorkbenchSchemaList(
         await request(
           connection,
           '/schema/workbench',
@@ -146,8 +146,14 @@ export async function loadWorkbenchSchemas(
           {},
           fetchImplementation,
         ),
-      ),
-    ),
+      );
+      return schemas.map((schema) =>
+        Object.freeze({
+          ...schema,
+          connectionModuleName: connection.moduleName,
+        }),
+      );
+    }),
   );
   const schemas = results.flatMap((result) =>
     result.status === 'fulfilled' ? [...result.value] : [],
