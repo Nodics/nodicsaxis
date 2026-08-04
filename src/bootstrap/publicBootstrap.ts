@@ -72,6 +72,7 @@ export interface AxisWorkbenchPresentation {
   readonly readonlyFields?: readonly string[] | undefined;
   readonly forbiddenFields?: readonly string[] | undefined;
   readonly quickFilters?: readonly AxisWorkbenchPresentationQuickFilter[] | undefined;
+  readonly fixedFilters?: readonly AxisWorkbenchPresentationQuickFilter[] | undefined;
   readonly recoveryActions?:
     | readonly AxisWorkbenchPresentationRecoveryAction[]
     | undefined;
@@ -110,11 +111,24 @@ export interface AxisNavigationLifecycleAction {
     | 'ROTATE_CONNECTOR'
     | 'OTHER';
   readonly permission?: string | undefined;
+  readonly ownerModule?: string | undefined;
   readonly summary?: string | undefined;
   readonly operationRoute?: string | undefined;
+  readonly inputFields?: readonly AxisNavigationLifecycleActionInputField[] | undefined;
   readonly targetStatuses?: readonly string[] | undefined;
   readonly featureState?: AxisNavigationFeatureState | undefined;
   readonly order: number;
+}
+
+export interface AxisNavigationLifecycleActionInputField {
+  readonly name: string;
+  readonly label: string;
+  readonly type: 'TEXT' | 'MULTILINE' | 'SELECT' | 'JSON' | 'HIDDEN';
+  readonly required: boolean;
+  readonly options?: readonly string[] | undefined;
+  readonly valueFromRecord?: string | undefined;
+  readonly defaultValue?: string | undefined;
+  readonly maximumLength: number;
 }
 
 export interface AxisNavigationHelp {
@@ -270,6 +284,18 @@ function stringList(value: unknown, name: string): readonly string[] {
     throw new Error(`${name} must be a list of non-empty strings`);
   }
   return Object.freeze([...new Set(value as string[])]);
+}
+
+function object(value: unknown, name: string): Readonly<Record<string, unknown>> {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    throw new Error(`${name} must be an object`);
+  }
+  return value as Readonly<Record<string, unknown>>;
+}
+
+function array(value: unknown, name: string): readonly unknown[] {
+  if (!Array.isArray(value)) throw new Error(`${name} must be an array`);
+  return value;
 }
 
 function relativeRoute(value: unknown, name: string): string {
@@ -544,6 +570,13 @@ function parseNavigationLifecycleActions(
             action.permission,
             `${moduleName} navigation lifecycle action permission`,
           ),
+          ownerModule:
+            action.ownerModule === undefined
+              ? undefined
+              : safeModuleName(
+                  action.ownerModule,
+                  `${moduleName} navigation lifecycle action owner module`,
+                ),
           summary,
           operationRoute:
             action.operationRoute === undefined
@@ -552,6 +585,82 @@ function parseNavigationLifecycleActions(
                   action.operationRoute,
                   `${moduleName} navigation lifecycle action operation route`,
                 ),
+          inputFields:
+            action.inputFields === undefined
+              ? undefined
+              : array(
+                  action.inputFields,
+                  `${moduleName} navigation lifecycle action input fields`,
+                ).map((candidate, fieldIndex) => {
+                  const field = object(
+                    candidate,
+                    `${moduleName} navigation lifecycle action input field`,
+                  );
+                  const fieldType = text(
+                    field.type,
+                    `${moduleName} navigation lifecycle action input field type`,
+                  );
+                  if (
+                    !['TEXT', 'MULTILINE', 'SELECT', 'JSON', 'HIDDEN'].includes(
+                      fieldType,
+                    )
+                  ) {
+                    throw new Error(
+                      `${moduleName} navigation lifecycle action input field type is unsupported`,
+                    );
+                  }
+                  const options =
+                    field.options === undefined
+                      ? undefined
+                      : stringList(
+                          field.options,
+                          `${moduleName} navigation lifecycle action input options`,
+                        );
+                  if (fieldType === 'SELECT' && (!options || options.length === 0)) {
+                    throw new Error(
+                      `${moduleName} navigation lifecycle SELECT input requires options`,
+                    );
+                  }
+                  const fieldName = text(
+                    field.name,
+                    `${moduleName} navigation lifecycle action input name`,
+                  );
+                  if (!/^[A-Za-z][A-Za-z0-9._-]{0,127}$/.test(fieldName)) {
+                    throw new Error(
+                      `${moduleName} navigation lifecycle action input name is unsafe`,
+                    );
+                  }
+                  const maximumLength = Number.isInteger(field.maximumLength)
+                    ? Number(field.maximumLength)
+                    : fieldType === 'MULTILINE' || fieldType === 'JSON'
+                      ? 2000
+                      : 256;
+                  if (maximumLength < 1 || maximumLength > 4000) {
+                    throw new Error(
+                      `${moduleName} navigation lifecycle action input maximum length is invalid`,
+                    );
+                  }
+                  return Object.freeze({
+                    name: fieldName,
+                    label: text(
+                      field.label,
+                      `${moduleName} navigation lifecycle action input label`,
+                    ),
+                    type: fieldType as AxisNavigationLifecycleActionInputField['type'],
+                    required: field.required === true,
+                    options,
+                    valueFromRecord: optionalText(
+                      field.valueFromRecord,
+                      `${moduleName} navigation lifecycle action input record field`,
+                    ),
+                    defaultValue: optionalText(
+                      field.defaultValue,
+                      `${moduleName} navigation lifecycle action input default`,
+                    ),
+                    maximumLength,
+                    order: fieldIndex,
+                  });
+                }),
           targetStatuses:
             action.targetStatuses === undefined
               ? undefined
@@ -612,6 +721,10 @@ function parseWorkbenchPresentation(
     presentation.quickFilters === undefined
       ? undefined
       : parseWorkbenchPresentationQuickFilters(presentation.quickFilters, moduleName);
+  const fixedFilters =
+    presentation.fixedFilters === undefined
+      ? undefined
+      : parseWorkbenchPresentationQuickFilters(presentation.fixedFilters, moduleName);
   const recoveryActions =
     presentation.recoveryActions === undefined
       ? undefined
@@ -626,6 +739,7 @@ function parseWorkbenchPresentation(
     ...(readonlyFields === undefined ? {} : { readonlyFields }),
     ...(forbiddenFields === undefined ? {} : { forbiddenFields }),
     ...(quickFilters === undefined ? {} : { quickFilters }),
+    ...(fixedFilters === undefined ? {} : { fixedFilters }),
     ...(recoveryActions === undefined ? {} : { recoveryActions }),
   });
 }

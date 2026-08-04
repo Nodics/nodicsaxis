@@ -1157,12 +1157,20 @@ describe('employee login journey', () => {
         if (!requestUrl.includes('/providers/lifecycle')) {
           return false;
         }
-        const payload = JSON.parse(String(options?.body ?? '{}'));
+        const body = options?.body;
+        if (typeof body !== 'string') return false;
+        const payload: unknown = JSON.parse(body);
+        if (!payload || typeof payload !== 'object') return false;
+        const actionPayload = payload as {
+          readonly actionId?: unknown;
+          readonly identity?: { readonly providerCode?: unknown };
+          readonly model?: Record<string, unknown>;
+        };
         return (
-          payload.actionId === 'validate-payment-provider' &&
-          payload.identity?.providerCode === 'stripeProvider' &&
-          payload.model?.providerCode === 'stripeProvider' &&
-          payload.model?.apiKey === undefined
+          actionPayload.actionId === 'validate-payment-provider' &&
+          actionPayload.identity?.providerCode === 'stripeProvider' &&
+          actionPayload.model?.providerCode === 'stripeProvider' &&
+          actionPayload.model?.apiKey === undefined
         );
       }),
     ).toBe(true);

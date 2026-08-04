@@ -4,7 +4,13 @@ import {
   Button,
   Chip,
   CircularProgress,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogTitle,
+  MenuItem,
   Stack,
+  TextField,
   Typography,
 } from '@mui/material';
 import { useState } from 'react';
@@ -21,6 +27,7 @@ import type {
 } from '../api/workbenchContracts';
 import type { WorkbenchRelationshipRuntime } from '../form/WorkbenchRelationshipRuntime';
 import { workbenchRecordValue } from '../record/workbenchRecordPaths';
+import { lifecycleActionsForRecord } from '../workbenchRouteModel';
 import type { WorkbenchRecordDetailPanel } from './workbenchRecordDetailPanels';
 
 interface WorkbenchRecordDetailProps {
@@ -45,6 +52,7 @@ interface WorkbenchRecordDetailProps {
     | ((
         action: AxisNavigationLifecycleAction,
         record: WorkbenchRecord,
+        input?: Readonly<Record<string, string>>,
       ) => Promise<void>)
     | undefined;
 }
@@ -66,10 +74,43 @@ function WorkbenchLifecycleActionPanel({
     | ((
         action: AxisNavigationLifecycleAction,
         record: WorkbenchRecord,
+        input?: Readonly<Record<string, string>>,
       ) => Promise<void>)
     | undefined;
 }) {
+  const [selectedAction, setSelectedAction] = useState<AxisNavigationLifecycleAction>();
+  const [input, setInput] = useState<Readonly<Record<string, string>>>({});
   if (actions.length === 0) return null;
+  const begin = (action: AxisNavigationLifecycleAction) => {
+    const defaults = Object.fromEntries(
+      (action.inputFields ?? []).map((field) => {
+        const value = field.valueFromRecord
+          ? workbenchRecordValue(record, field.valueFromRecord)
+          : undefined;
+        return [
+          field.name,
+          value === undefined || value === null
+            ? (field.defaultValue ?? '')
+            : typeof value === 'string' ||
+                typeof value === 'number' ||
+                typeof value === 'boolean'
+              ? String(value)
+              : JSON.stringify(value),
+        ];
+      }),
+    );
+    if ((action.inputFields ?? []).every((field) => field.type === 'HIDDEN')) {
+      if (onExecute) void onExecute(action, record, defaults);
+      return;
+    }
+    setInput(defaults);
+    setSelectedAction(action);
+  };
+  const visibleFields =
+    selectedAction?.inputFields?.filter((field) => field.type !== 'HIDDEN') ?? [];
+  const inputValid = visibleFields.every(
+    (field) => !field.required || String(input[field.name] ?? '').trim() !== '',
+  );
   const resultText =
     result === undefined
       ? undefined
@@ -96,7 +137,7 @@ function WorkbenchLifecycleActionPanel({
               size="small"
               variant={executable ? 'contained' : 'outlined'}
               onClick={() => {
-                if (executable) void onExecute(action, record);
+                if (executable) begin(action);
               }}
             >
               <Stack
@@ -130,6 +171,62 @@ function WorkbenchLifecycleActionPanel({
           {resultText}
         </Alert>
       ) : null}
+      <Dialog
+        open={selectedAction !== undefined}
+        onClose={() => setSelectedAction(undefined)}
+        fullWidth
+        maxWidth="sm"
+      >
+        <DialogTitle>{selectedAction?.label}</DialogTitle>
+        <DialogContent>
+          <Stack spacing={2} sx={{ pt: 1 }}>
+            {selectedAction?.summary ? (
+              <Typography color="text.secondary">{selectedAction.summary}</Typography>
+            ) : null}
+            {visibleFields.map((field) => (
+              <TextField
+                key={field.name}
+                label={field.label}
+                multiline={field.type === 'MULTILINE' || field.type === 'JSON'}
+                minRows={
+                  field.type === 'MULTILINE' || field.type === 'JSON' ? 3 : undefined
+                }
+                required={field.required}
+                select={field.type === 'SELECT'}
+                value={input[field.name] ?? ''}
+                slotProps={{ htmlInput: { maxLength: field.maximumLength } }}
+                onChange={(event) =>
+                  setInput((current) => ({
+                    ...current,
+                    [field.name]: event.target.value,
+                  }))
+                }
+              >
+                {field.options?.map((option) => (
+                  <MenuItem key={option} value={option}>
+                    {option}
+                  </MenuItem>
+                ))}
+              </TextField>
+            ))}
+          </Stack>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setSelectedAction(undefined)}>Cancel</Button>
+          <Button
+            disabled={!inputValid || pendingActionId !== undefined}
+            variant="contained"
+            onClick={() => {
+              if (!selectedAction || !onExecute) return;
+              void onExecute(selectedAction, record, input).then(() =>
+                setSelectedAction(undefined),
+              );
+            }}
+          >
+            {pendingActionId ? 'Working…' : selectedAction?.label}
+          </Button>
+        </DialogActions>
+      </Dialog>
     </AxisMetadataPanel>
   );
 }
@@ -338,7 +435,7 @@ export function WorkbenchRecordDetail(props: WorkbenchRecordDetailProps) {
         trueLabel={props.trueLabel}
       />
       <WorkbenchLifecycleActionPanel
-        actions={props.lifecycleActions ?? []}
+        actions={lifecycleActionsForRecord(props.lifecycleActions ?? [], props.record)}
         error={props.lifecycleActionError}
         pendingActionId={props.lifecycleActionPendingId}
         record={props.record}

@@ -1,5 +1,6 @@
 import type { AxisSort } from '../app/table/axisTableSorting';
 import type {
+  AxisNavigationLifecycleAction,
   AxisNavigationItem,
   AxisWorkbenchPresentation,
   AxisWorkbenchPresentationQuickFilter,
@@ -163,6 +164,50 @@ export function workbenchQuickFilterGroup(
     operator: values.length > 1 ? 'OR' : 'AND',
     items: Object.freeze(conditions),
   });
+}
+
+export function combineWorkbenchFilterGroups(
+  fixed: WorkbenchFilterGroup | undefined,
+  selected: WorkbenchFilterGroup | undefined,
+): WorkbenchFilterGroup | undefined {
+  if (!fixed) return selected;
+  if (!selected) return fixed;
+  return Object.freeze({
+    operator: 'AND',
+    items: Object.freeze([fixed, selected]),
+  });
+}
+
+export function workbenchFixedFilterGroup(
+  schema: WorkbenchSchema,
+  presentation: AxisWorkbenchPresentation | undefined,
+): WorkbenchFilterGroup | undefined {
+  const groups = (presentation?.fixedFilters ?? [])
+    .map((filter) => workbenchQuickFilterGroup(schema, filter))
+    .filter((group): group is WorkbenchFilterGroup => group !== undefined);
+  if (groups.length === 0) return undefined;
+  if (groups.length === 1) return groups[0];
+  return Object.freeze({ operator: 'AND', items: Object.freeze(groups) });
+}
+
+export function lifecycleActionsForRecord(
+  actions: readonly AxisNavigationLifecycleAction[],
+  record: WorkbenchRecord,
+): readonly AxisNavigationLifecycleAction[] {
+  const status =
+    typeof record.state === 'string'
+      ? record.state
+      : typeof record.status === 'string'
+        ? record.status
+        : undefined;
+  return Object.freeze(
+    actions.filter(
+      (action) =>
+        action.featureState !== 'HIDDEN' &&
+        (action.targetStatuses === undefined ||
+          (status !== undefined && action.targetStatuses.includes(status))),
+    ),
+  );
 }
 
 export function validWorkbenchSortFields(schema: WorkbenchSchema): readonly string[] {

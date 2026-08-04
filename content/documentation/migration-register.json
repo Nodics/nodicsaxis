@@ -1,6 +1,6 @@
 {
   "pack": "nodicsaxis",
-  "version": "0.3.15",
+  "version": "0.3.17",
   "generatedAtPolicy": "deterministic-no-timestamp",
   "sources": [
     {
@@ -258,8 +258,8 @@
       "canonicalSource": "content/documentation/pages/schema-workbench.md",
       "destinationRoute": "/docs/nodics-axis/schema-workbench",
       "disposition": "migrated",
-      "sourceHash": "1ad09d21de14dc70c82c62ca8ba691154344fa49df9259896db25a57b23f087f",
-      "wordCount": 1997,
+      "sourceHash": "6cab275ec49b279194f22647654c4f6261c3906a3ba0b1bb3b70779a8eab4eb3",
+      "wordCount": 2304,
       "headings": [
         "Implemented frontend behavior",
         "Request ownership",
@@ -268,6 +268,7 @@
         "Boundary and responsive behavior",
         "Failure and recovery",
         "Customize and extend safely",
+        "Notifications & Messaging workspace",
         "Verification"
       ]
     },

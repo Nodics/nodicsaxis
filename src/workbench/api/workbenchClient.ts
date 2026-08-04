@@ -380,14 +380,36 @@ export async function executeWorkbenchLifecycleAction(
   record: WorkbenchRecord,
   configuration: WorkbenchClientConfiguration,
   idempotencyKey: string,
+  input: Readonly<Record<string, string>> = {},
   fetchImplementation: typeof fetch = fetch,
 ): Promise<unknown> {
   if (!action.operationRoute) {
     throw new Error('Lifecycle action does not declare a backend operation route');
   }
+  const operationRoute = action.operationRoute.replace(
+    /:([A-Za-z][A-Za-z0-9._-]*)/g,
+    (_match, name: string) => {
+      const value = input[name] ?? record[name];
+      if (typeof value !== 'string' && typeof value !== 'number') {
+        throw new Error(`Lifecycle action route value ${name} is unavailable`);
+      }
+      return encodeURIComponent(String(value));
+    },
+  );
+  const payloadInput = Object.fromEntries(
+    Object.entries(input).map(([name, value]) => {
+      const descriptor = action.inputFields?.find((field) => field.name === name);
+      if (descriptor?.type !== 'JSON') return [name, value];
+      try {
+        return [name, JSON.parse(value) as unknown];
+      } catch {
+        throw new Error(`Lifecycle action input ${name} must be valid JSON`);
+      }
+    }),
+  );
   return request(
     connection,
-    action.operationRoute,
+    operationRoute,
     configuration,
     {
       method: 'POST',
@@ -396,6 +418,8 @@ export async function executeWorkbenchLifecycleAction(
         actionId: action.id,
         identity: recordIdentity(schema, record),
         model: record,
+        idempotencyKey,
+        ...payloadInput,
       }),
     },
     fetchImplementation,

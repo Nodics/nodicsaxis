@@ -41,6 +41,7 @@ import {
   type WorkbenchSavedView,
 } from './preferences/workbenchPreferences';
 import {
+  combineWorkbenchFilterGroups,
   relatedRecordPanelFilter,
   resolveWorkbenchDefaultColumns,
   resolveWorkbenchDeepLinkTarget,
@@ -51,6 +52,7 @@ import {
   selectWorkbenchReferencedRecord,
   workbenchPresentationForbiddenFields,
   workbenchPresentationForSchema,
+  workbenchFixedFilterGroup,
   workbenchReferenceLookupQuery,
   type WorkbenchRouteSchemaSelection,
 } from './workbenchRouteModel';
@@ -450,9 +452,11 @@ export function WorkbenchRoutePage(props: WorkbenchRoutePageProps) {
     mutationFn: async ({
       action,
       record,
+      input,
     }: {
       readonly action: AxisNavigationLifecycleAction;
       readonly record: WorkbenchRecord;
+      readonly input?: Readonly<Record<string, string>> | undefined;
     }) => {
       if (!normalizedSelectedSchema || !recordConnection) {
         throw new Error('Select a schema before executing a lifecycle action');
@@ -461,8 +465,14 @@ export function WorkbenchRoutePage(props: WorkbenchRoutePageProps) {
         props.routeNavigation,
         normalizedSelectedSchema,
       );
+      const actionConnection = action.ownerModule
+        ? selectModuleConnection(props.bootstrap, action.ownerModule)
+        : recordConnection;
+      if (!actionConnection) {
+        throw new Error('Lifecycle action owner module is unavailable');
+      }
       return executeWorkbenchLifecycleAction(
-        recordConnection,
+        actionConnection,
         normalizedSelectedSchema,
         action,
         recordWithoutForbiddenFields(
@@ -470,7 +480,8 @@ export function WorkbenchRoutePage(props: WorkbenchRoutePageProps) {
           workbenchPresentationForbiddenFields(presentation),
         ),
         configuration,
-        `${props.employeeId}:${normalizedSelectedSchema.moduleName}:${normalizedSelectedSchema.schemaName}:${action.id}:${Date.now().toString(36)}`,
+        `${props.employeeId}:${normalizedSelectedSchema.moduleName}:${normalizedSelectedSchema.schemaName}:${action.id}:${crypto.randomUUID()}`,
+        input,
       );
     },
     onSuccess: () => {
@@ -500,7 +511,12 @@ export function WorkbenchRoutePage(props: WorkbenchRoutePageProps) {
       setDeleteOpen(false);
       setRecordSearchInput('');
       setRecordSearch('');
-      setRecordFilters(undefined);
+      setRecordFilters(
+        workbenchFixedFilterGroup(
+          normalizedSchema,
+          workbenchPresentationForSchema(props.routeNavigation, normalizedSchema),
+        ),
+      );
       setRecordPageNumber(1);
       setRecordPageSize(normalizedSchema.queryCapabilities.defaultPageSize);
       setRecordSortOverride(undefined);
@@ -755,7 +771,20 @@ export function WorkbenchRoutePage(props: WorkbenchRoutePageProps) {
           setRecordSearch: setRecordSearchInput,
           setRecordFilters: (filters) => {
             setRecordPageNumber(1);
-            setRecordFilters(filters);
+            setRecordFilters(
+              combineWorkbenchFilterGroups(
+                normalizedSelectedSchema
+                  ? workbenchFixedFilterGroup(
+                      normalizedSelectedSchema,
+                      workbenchPresentationForSchema(
+                        props.routeNavigation,
+                        normalizedSelectedSchema,
+                      ),
+                    )
+                  : undefined,
+                filters,
+              ),
+            );
           },
           setRecordPageNumber,
           setRecordPageSize: (pageSize) => {
@@ -853,7 +882,20 @@ export function WorkbenchRoutePage(props: WorkbenchRoutePageProps) {
           applyView: (view: WorkbenchSavedView) => {
             setRecordSearchInput(view.search);
             setRecordSearch(view.search);
-            setRecordFilters(view.filters);
+            setRecordFilters(
+              combineWorkbenchFilterGroups(
+                normalizedSelectedSchema
+                  ? workbenchFixedFilterGroup(
+                      normalizedSelectedSchema,
+                      workbenchPresentationForSchema(
+                        props.routeNavigation,
+                        normalizedSelectedSchema,
+                      ),
+                    )
+                  : undefined,
+                view.filters,
+              ),
+            );
             setRecordPageNumber(1);
             setRecordPageSize(view.pageSize);
             setRecordSortOverride(view.sort);
@@ -913,8 +955,10 @@ export function WorkbenchRoutePage(props: WorkbenchRoutePageProps) {
           },
           confirmDelete: () => deleteRecord.mutateAsync().then(() => undefined),
           bulkDeleteSelected: () => bulkDelete.mutateAsync().then(() => undefined),
-          executeLifecycleAction: (action, record) =>
-            lifecycleAction.mutateAsync({ action, record }).then(() => undefined),
+          executeLifecycleAction: (action, record, input) =>
+            lifecycleAction
+              .mutateAsync({ action, record, input })
+              .then(() => undefined),
           retryRecords: () => void records.refetch(),
           retrySchemas: () => void schemas.refetch(),
         },

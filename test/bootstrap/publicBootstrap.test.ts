@@ -92,6 +92,14 @@ const authenticatedData = {
             editableFields: ['code', 'label', 'status'],
             readonlyFields: ['created', 'updated'],
             forbiddenFields: ['secret'],
+            fixedFilters: [
+              {
+                id: 'draft-pages',
+                label: 'Draft pages only',
+                field: 'status',
+                value: 'DRAFT',
+              },
+            ],
           },
           detailPanels: [
             {
@@ -117,6 +125,23 @@ const authenticatedData = {
               summary: 'Request publication through the owning CMS workflow.',
               operationRoute: '/content/pages/publish',
               targetStatuses: ['DRAFT'],
+              ownerModule: 'workflow',
+              inputFields: [
+                {
+                  name: 'decision',
+                  label: 'Decision',
+                  type: 'HIDDEN',
+                  required: true,
+                  defaultValue: 'SUCCESS',
+                },
+                {
+                  name: 'feedback',
+                  label: 'Evidence',
+                  type: 'MULTILINE',
+                  required: true,
+                  maximumLength: 2000,
+                },
+              ],
             },
             {
               id: 'validate-provider',
@@ -288,6 +313,15 @@ describe('Axis bootstrap clients', () => {
           editableFields: ['code', 'label', 'status'],
           readonlyFields: ['created', 'updated'],
           forbiddenFields: ['secret'],
+          fixedFilters: [
+            {
+              id: 'draft-pages',
+              label: 'Draft pages only',
+              field: 'status',
+              value: 'DRAFT',
+              order: 0,
+            },
+          ],
         },
         detailPanels: [
           {
@@ -310,6 +344,7 @@ describe('Axis bootstrap clients', () => {
             id: 'publish-page',
             intent: 'APPROVE',
             operationRoute: '/content/pages/publish',
+            ownerModule: 'workflow',
           }),
           expect.objectContaining({
             id: 'validate-provider',
@@ -325,6 +360,13 @@ describe('Axis bootstrap clients', () => {
         },
       }),
     ]);
+    expect(result.navigation[0]?.lifecycleActions?.[0]?.inputFields?.[1]).toMatchObject(
+      {
+        name: 'feedback',
+        type: 'MULTILINE',
+        required: true,
+      },
+    );
   });
 
   it('rejects unsafe direct-module connection settings', async () => {

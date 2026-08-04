@@ -119,6 +119,7 @@ export interface WorkbenchRendererController {
   readonly executeLifecycleAction?: (
     action: AxisNavigationLifecycleAction,
     record: WorkbenchRecord,
+    input?: Readonly<Record<string, string>>,
   ) => Promise<void>;
   readonly retrySchemas: () => void;
   readonly retryRecords: () => void;

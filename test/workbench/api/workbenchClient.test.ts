@@ -4,6 +4,7 @@ import {
   bulkDeleteWorkbenchRecords,
   createWorkbenchRecord,
   deleteWorkbenchRecord,
+  executeWorkbenchLifecycleAction,
   loadWorkbenchRecords,
   loadWorkbenchSchemas,
   previewWorkbenchDeleteImpact,
@@ -469,5 +470,47 @@ describe('Schema Workbench API client', () => {
         request,
       ),
     ).rejects.toThrow('Bulk delete is not available for this selection');
+  });
+
+  it('executes backend-declared action forms with safe route substitution and JSON input', async () => {
+    const request = vi
+      .fn<typeof fetch>()
+      .mockResolvedValue(json({ state: 'SUBMITTED' }));
+    await executeWorkbenchLifecycleAction(
+      connection,
+      address,
+      {
+        id: 'create-return',
+        label: 'Create Return',
+        intent: 'CREATE',
+        order: 0,
+        operationRoute: '/operations/orders/:code/returns',
+        inputFields: [
+          {
+            name: 'items',
+            label: 'Items',
+            type: 'JSON',
+            required: true,
+            maximumLength: 4000,
+          },
+        ],
+      },
+      { code: 'order/1' },
+      configuration,
+      'axis-action-0001',
+      { items: '[{"orderEntryCode":"entry-1","requestedQuantity":"1"}]' },
+      request,
+    );
+    expect((request.mock.calls[0]?.[0] as URL).pathname).toContain(
+      '/operations/orders/order%2F1/returns',
+    );
+    const requestBody = request.mock.calls[0]?.[1]?.body;
+    expect(typeof requestBody).toBe('string');
+    const body = JSON.parse(requestBody as string) as {
+      items: unknown[];
+      idempotencyKey: string;
+    };
+    expect(body.items).toHaveLength(1);
+    expect(body.idempotencyKey).toBe('axis-action-0001');
   });
 });

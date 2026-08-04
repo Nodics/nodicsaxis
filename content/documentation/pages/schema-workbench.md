@@ -81,6 +81,12 @@ The authenticated `/schema-workbench` route:
 - renders route-scoped business help from BackOffice navigation `help`
   metadata, including a short summary tooltip and a documentation link that
   opens the configured Axis documentation route in a new browser tab;
+- renders permission-filtered, state-aware lifecycle actions declared by the
+  owning backend module, including bounded text, select, hidden/default, and
+  JSON input descriptors in one reusable action dialog;
+- resolves an action against its declared owner-module connection, substitutes
+  only record/input route parameters, sends one idempotent backend request, and
+  refreshes server state after success; Axis never coordinates owner writes;
 - uses the shared Axis listing interaction pattern: employees select a row
   from the records table and Axis renders the selected record detail below the
   list, instead of adding a one-action View column or moving detail above the
@@ -220,6 +226,12 @@ guarantee atomic commit across modules. Journeys that require strict atomicity
 must use a backend-owned domain operation or a transaction-capable workflow,
 not generic Workbench coordination.
 
+Lifecycle action forms keep entered evidence open after a safe backend failure
+so the employee can correct or retry it. JSON descriptors are parsed only as
+request data; they never execute code. Backend authorization, optimistic
+versions, maker-checker rules, Workflow decisions, Pipelines, owner adapters,
+and audit remain authoritative even when Axis hides an inapplicable action.
+
 ## Customize and extend safely
 
 - Change page copy and composition through `axisContentCatalog`.
@@ -237,6 +249,14 @@ not generic Workbench coordination.
 
 Do not add hardcoded module endpoints, backend rules, translated business
 copy, or alternate schema definitions to Axis.
+
+## Notifications & Messaging workspace
+
+When the backend advertises the `notifications-messaging` capability, Axis uses the same authenticated navigation and Schema Workbench contracts to expose Templates, Scenarios, Channels, Message Types, Providers, Provider Accounts, Delivery Logs, Attempts, Suppressions, Verification, and In-App Inbox. Axis does not contain a notification catalogue, provider list, consent rule, template lifecycle, OTP value, or delivery policy. Removing the backend capability or employee permission removes the workspace.
+
+Business users may traverse Channel -> Scenario -> Template or Scenario -> Channel -> Template using backend-advertised schema filters and relationships. Template preview and lifecycle operations execute only backend-declared secured routes. Real OTPs, provider credentials, raw destinations, raw provider payloads, and diagnostic stacks must never enter Axis records, browser storage, telemetry, or preview state. Provider-account forms accept secret references only.
+
+Customer projects customize this surface by contributing higher-layer Nodics schemas, capability navigation, presentation metadata, lifecycle actions, permissions, and CMS help. Add Axis code only for a genuinely new reusable presentation contract; do not fork a channel-specific editor or duplicate backend policy. Successful, denied, suppressed, retry/recovery, maker-checker, narrow-screen, keyboard, and partial-discovery behavior remains protected by the generic Workbench and bootstrap suites.
 
 ## Verification
 
@@ -256,7 +276,9 @@ validation, default values, framework-managed field exclusion, selecting an
 existing relationship, related-record creation, duplicate-reference prevention,
 retry without duplicate related creation, backend conflict-message handling,
 diagnostic-context exclusion, malformed-error fallback, and locale-aware
-record formatting. Coverage also includes route-scoped schema workspaces that
+record formatting. Coverage also includes backend-declared lifecycle action
+inputs, JSON parsing, owner-module routing, safe route substitution, stable
+idempotency, and route-scoped schema workspaces that
 hide the global schema browser, nested shell navigation expansion and collapse,
 revision forwarding for Update and Delete, missing-revision rejection before
 network access, self-referential relationship cycle fallback, bounded nested

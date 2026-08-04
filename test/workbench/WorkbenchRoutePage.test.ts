@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+  combineWorkbenchFilterGroups,
+  lifecycleActionsForRecord,
   resolveWorkbenchDefaultColumns,
   resolveWorkbenchRecordSort,
   resolveWorkbenchDeepLinkTarget,
@@ -13,6 +15,7 @@ import {
   selectWorkbenchReferencedRecord,
   workbenchPresentationForSchema,
   workbenchQuickFilterGroup,
+  workbenchFixedFilterGroup,
   workbenchReferenceLookupQuery,
   type WorkbenchDeepLinkTarget,
 } from '../../src/workbench/workbenchRouteModel';
@@ -271,6 +274,68 @@ describe('workbench presentation helpers', () => {
         },
       ],
     });
+  });
+
+  it('keeps backend fixed filters active and exposes lifecycle actions only in declared states', () => {
+    const lifecycleSchema = {
+      ...schema('order', 'orderLifecycleRequest', ['search', 'read']),
+      queryCapabilities: {
+        ...schema('order', 'orderLifecycleRequest', ['search', 'read'])
+          .queryCapabilities,
+        filterFields: [
+          {
+            field: 'requestType',
+            label: 'Type',
+            type: 'string',
+            operators: ['EQUALS'],
+          },
+          { field: 'state', label: 'State', type: 'string', operators: ['EQUALS'] },
+        ],
+      },
+    } satisfies WorkbenchSchema;
+    const fixed = workbenchFixedFilterGroup(lifecycleSchema, {
+      fixedFilters: [
+        {
+          id: 'return-only',
+          label: 'Returns',
+          field: 'requestType',
+          value: 'RETURN',
+          order: 0,
+        },
+      ],
+    });
+    const selected = workbenchQuickFilterGroup(lifecycleSchema, {
+      id: 'pending',
+      label: 'Pending',
+      field: 'state',
+      value: 'AUTHORIZATION_PENDING',
+      order: 0,
+    });
+    expect(combineWorkbenchFilterGroups(fixed, selected)).toEqual({
+      operator: 'AND',
+      items: [fixed, selected],
+    });
+    const actions = [
+      {
+        id: 'authorize',
+        label: 'Authorize',
+        intent: 'APPROVE' as const,
+        targetStatuses: ['AUTHORIZATION_PENDING'],
+        order: 0,
+      },
+      {
+        id: 'receive',
+        label: 'Receive',
+        intent: 'UPDATE' as const,
+        targetStatuses: ['AUTHORIZED'],
+        order: 1,
+      },
+    ];
+    expect(
+      lifecycleActionsForRecord(actions, { state: 'AUTHORIZATION_PENDING' }).map(
+        (action) => action.id,
+      ),
+    ).toEqual(['authorize']);
   });
 });
 
